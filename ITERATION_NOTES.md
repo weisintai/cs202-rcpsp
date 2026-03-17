@@ -493,6 +493,128 @@ For the previously unresolved `J20` cases:
 - at `30s`, [sm_j20/PSP127.SCH](sm_j20/PSP127.SCH) became `infeasible`
 - at `30s`, [sm_j20/PSP39.SCH](sm_j20/PSP39.SCH) still remained `unknown`
 
+## Reference-driven target
+
+We added a `compare` command against the public `sm_j10` / `sm_j20` reference values.
+
+Current reference comparison at `1.0s` per instance:
+
+- `sm_j10`
+  - exact-reference cases: `187`
+  - exact matches: `152`
+  - exact match rate: `81.3%`
+  - average ratio to exact reference: `1.0175`
+- `sm_j20`
+  - exact-reference cases: `158`
+  - exact matches: `91`
+  - exact match rate: `57.6%`
+  - average ratio to exact reference: `1.0322`
+  - bounded cases solved: `26/26`
+  - average ratio to best-known upper bound on bounded cases: `1.0697`
+
+Important observation:
+
+- on `sm_j10`, `27/35` misses are only `+1` to `+3`
+- on `sm_j20`, `35/67` misses are only `+1` to `+3`
+
+This means the next major gain should come from `incumbent improvement`, not only from stronger classification.
+
+## Iteration: ALNS-style incumbent polishing
+
+### What changed
+
+Added a lightweight incumbent-improvement layer on top of the current solver:
+
+1. start from the best feasible incumbent found by the existing heuristic phase
+2. derive the incumbent's induced resource-order graph
+3. destroy part of that order using small activity-removal neighborhoods
+4. rebuild with the existing repair heuristic
+5. keep the best repaired schedule in a small elite pool
+
+Implemented neighborhoods:
+
+- mobility-based removal
+- non-peak removal
+- segment removal
+- random removal
+
+Relevant code is in:
+
+- [rcpsp/solver.py](rcpsp/solver.py)
+
+### Why this helped
+
+The reference comparison already showed that many misses were small:
+
+- on `sm_j10`, most misses were `+1` to `+3`
+- on `sm_j20`, many misses were also `+1` to `+3`
+
+This is exactly the regime where local schedule perturbation is more valuable than deeper exact-search plumbing.
+
+### Benchmark summary
+
+Relative to the previous accepted `repair + compress` solver:
+
+At `0.1s` per instance:
+
+- `sm_j10`
+  - feasible: `187 -> 187`
+  - infeasible: `83 -> 83`
+  - unknown: `0 -> 0`
+  - avg ratio: `1.3397 -> 1.3343`
+- `sm_j20`
+  - feasible: `181 -> 181`
+  - infeasible: `75 -> 75`
+  - unknown: `14 -> 14`
+  - avg ratio: `1.2973 -> 1.2873`
+
+At `1.0s` per instance:
+
+- `sm_j10`
+  - feasible: `187 -> 187`
+  - infeasible: `83 -> 83`
+  - unknown: `0 -> 0`
+  - avg ratio: `1.3391 -> 1.3310`
+- `sm_j20`
+  - feasible: `184 -> 184`
+  - infeasible: `80 -> 80`
+  - unknown: `6 -> 6`
+  - avg ratio: `1.2949 -> 1.2832`
+
+### Reference comparison improvement at `1.0s`
+
+- `sm_j10`
+  - exact matches: `152 -> 162`
+  - exact match rate: `81.3% -> 86.6%`
+  - average ratio to exact reference: `1.0175 -> 1.0107`
+- `sm_j20`
+  - exact matches: `91 -> 107`
+  - exact match rate: `57.6% -> 67.7%`
+  - average ratio to exact reference: `1.0322 -> 1.0195`
+
+This is the first iteration that moved us materially closer to the public best-known values instead of only improving internal ratios.
+
+### Concrete wins
+
+New exact matches on `sm_j10` included:
+
+- [sm_j10/PSP56.SCH](sm_j10/PSP56.SCH): `42 -> 34`
+- [sm_j10/PSP161.SCH](sm_j10/PSP161.SCH): `35 -> 29`
+- [sm_j10/PSP236.SCH](sm_j10/PSP236.SCH): `40 -> 36`
+
+New exact matches on `sm_j20` included:
+
+- [sm_j20/PSP112.SCH](sm_j20/PSP112.SCH): `97 -> 90`
+- [sm_j20/PSP146.SCH](sm_j20/PSP146.SCH): `66 -> 59`
+- [sm_j20/PSP173.SCH](sm_j20/PSP173.SCH): `91 -> 81`
+- [sm_j20/PSP208.SCH](sm_j20/PSP208.SCH): `95 -> 85`
+
+Large quality improvements without full exact matching included:
+
+- [sm_j20/PSP264.SCH](sm_j20/PSP264.SCH): `99 -> 81`
+- [sm_j20/PSP79.SCH](sm_j20/PSP79.SCH): `101 -> 92`
+- [sm_j20/PSP269.SCH](sm_j20/PSP269.SCH): `136 -> 130`
+
 ## Current limitations
 
 - infeasibility screening is still only pairwise, so it is incomplete
@@ -501,25 +623,48 @@ For the previously unresolved `J20` cases:
 - `sm_j20` still has `6` unknown instances at `1.0s`
 - branch ordering is heuristic and can likely be improved
 - conflict-set extraction is simple and may not be the best branching object
-- there is still no dedicated local search after exact search finishes
+- the new local search is still lightweight and not yet critical-chain-aware
+- `sm_j10` is still short of the `90%` exact-match target
+- `sm_j20` is still short of the `70%` exact-match target
+- the main remaining `sm_j20` quality outliers are [sm_j20/PSP123.SCH](sm_j20/PSP123.SCH), [sm_j20/PSP153.SCH](sm_j20/PSP153.SCH), [sm_j20/PSP82.SCH](sm_j20/PSP82.SCH), [sm_j20/PSP57.SCH](sm_j20/PSP57.SCH), and [sm_j20/PSP269.SCH](sm_j20/PSP269.SCH)
 
 ## Next steps
 
 ### Highest-value next improvement
 
-Two parallel priorities now make sense:
+Keep the reference-driven direction, but make the destroy/repair neighborhoods sharper.
 
-1. target the remaining `6` hard `J20` unknown instances at `1s`
-2. improve incumbent quality on the large feasible set
+The concrete next step is:
 
-For the persistent `J20` unknowns:
+1. bias removal toward the current critical chain and high-load periods
+2. add pair reinsertion / swap moves around bottleneck activities
+3. intensify around elite incumbents instead of sampling only one repaired neighborhood at a time
 
-- add stronger disjunctive propagation inside exact search
-- derive more forced pair orderings from conflict sets and incumbent bounds
-- improve feasibility-first behavior on the persistent unknown cases such as [sm_j20/PSP127.SCH](sm_j20/PSP127.SCH) and [sm_j20/PSP14.SCH](sm_j20/PSP14.SCH)
+Planned operators:
+
+- critical-chain removal
+- peak-focused removal
+- pair reinsertion / swap around bottleneck activities
+- repeated `repair + compress`
+- stronger elite-pool intensification
+
+Evaluation rule for every iteration:
+
+- run `benchmark`
+- run `compare`
+- track exact-match rate and average ratio to the public references
+
+Target for a strong final solver:
+
+- `sm_j10`: push exact-match rate above `90%`
+- `sm_j20`: push exact-match rate above `70%`
+- reduce the average exact-reference gap on `sm_j20` from `1.95%` toward `1.5%` or below
 
 ### Secondary improvements
 
+- keep improving the persistent `J20` unknown cases, but only after the incumbent-improvement layer exists
+- add stronger disjunctive propagation inside exact search
+- derive more forced pair orderings from conflict sets and incumbent bounds
 - add local improvement on feasible incumbents
 - reconsider whether exact-search exhaustion should return `unknown` rather than `infeasible`
 - test multiple branching heuristics
@@ -535,9 +680,11 @@ If we write this up as algorithm iterations:
 3. Pairwise infeasibility screening
 4. Conflict-set branch-and-bound for feasibility and quality improvement
 5. Repair + compress using induced resource order
-6. Future work: stronger propagation, better classification semantics, and local improvement
+6. ALNS-style incumbent polishing toward public best-known values
 
 ## External references consulted
 
 - [Solving RCPSP/max by lazy clause generation](https://link.springer.com/article/10.1007/s10951-012-0285-x)
 - [Why cumulative decomposition is not as bad as it sounds](https://people.eng.unimelb.edu.au/pstuckey/papers/cp09-cu.pdf)
+- [ALNS RCPSP example](https://alns.readthedocs.io/en/stable/examples/resource_constrained_project_scheduling_problem.html)
+- [ptal/kobe-scheduling](https://github.com/ptal/kobe-scheduling)
