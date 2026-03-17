@@ -479,6 +479,8 @@ def _improve_incumbent(
             elite[0] = best
             elite.sort(key=lambda schedule: (schedule.makespan, schedule.start_times))
             stagnation = 0
+        elif candidate.makespan < base.makespan:
+            stagnation = max(0, stagnation - 1)
         else:
             stagnation += 1
 
@@ -988,6 +990,25 @@ def solve(
     if exact_best is not None and (not best_valid or exact_best.makespan < best.makespan):
         best = exact_best
         best_valid = True
+
+    if (
+        best_valid
+        and best.makespan > temporal_lower_bound
+        and time_limit >= 0.5
+        and time.perf_counter() < final_deadline
+    ):
+        polished_best, extra_iterations = _improve_incumbent(
+            instance=instance,
+            incumbent=best,
+            tail=tail,
+            intensity=intensity,
+            solver_config=solver_config,
+            rng=rng,
+            deadline=final_deadline,
+        )
+        improvement_iterations += extra_iterations
+        if polished_best.makespan < best.makespan:
+            best = polished_best
 
     if not best_valid:
         runtime = time.perf_counter() - started
