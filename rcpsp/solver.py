@@ -248,6 +248,44 @@ def _left_shift(instance: Instance, start_times: list[int], extra_edges: list[Ed
     )
     return schedule
 
+
+def _resource_order_edges(instance: Instance, start_times: list[int]) -> list[Edge]:
+    edges: list[Edge] = []
+    for first in range(1, instance.sink):
+        for second in range(first + 1, instance.sink):
+            shared = any(
+                instance.demands[first][resource] > 0 and instance.demands[second][resource] > 0
+                for resource in range(instance.n_resources)
+            )
+            if not shared:
+                continue
+
+            first_end = start_times[first] + instance.durations[first]
+            second_end = start_times[second] + instance.durations[second]
+            if first_end <= start_times[second]:
+                edges.append(Edge(source=first, target=second, lag=instance.durations[first]))
+            elif second_end <= start_times[first]:
+                edges.append(Edge(source=second, target=first, lag=instance.durations[second]))
+    return edges
+
+
+def _compress_valid_schedule(instance: Instance, start_times: list[int]) -> list[int]:
+    current = start_times[:]
+    resource_edges = _resource_order_edges(instance, current)
+    if not resource_edges:
+        return current
+
+    try:
+        compressed = longest_feasible_starts(instance, extra_edges=resource_edges)
+    except TemporalInfeasibleError:
+        return current
+
+    candidate = Schedule(start_times=tuple(compressed), makespan=compressed[instance.sink])
+    if validate_schedule(instance, candidate):
+        return current
+    return compressed
+
+
 def _minimal_conflict_set(
     instance: Instance,
     start_times: list[int],
@@ -309,6 +347,18 @@ def _branch_order(
     return [activity for _, activity in ranked]
 
 
+def _sample_heuristic_config(base: HeuristicConfig, rng: random.Random) -> HeuristicConfig:
+    return HeuristicConfig(
+        slack_weight=max(0.0, base.slack_weight + rng.uniform(-0.8, 0.8)),
+        tail_weight=max(0.0, base.tail_weight + rng.uniform(-0.4, 0.4)),
+        overload_weight=max(0.0, base.overload_weight + rng.uniform(-0.6, 0.6)),
+        resource_weight=max(0.0, base.resource_weight + rng.uniform(-0.2, 0.2)),
+        late_weight=max(0.0, base.late_weight + rng.uniform(-0.2, 0.2)),
+        noise_weight=max(0.0, base.noise_weight + rng.uniform(-0.1, 0.1)),
+        max_restarts=base.max_restarts,
+    )
+
+
 def _branch_and_bound_search(
     instance: Instance,
     tail: list[int],
@@ -359,7 +409,8 @@ def _branch_and_bound_search(
 
         conflict = _minimal_conflict_set(instance, start_times)
         if conflict is None:
-            candidate = Schedule(start_times=tuple(start_times), makespan=lower_bound)
+            candidate_starts = _compress_valid_schedule(instance, start_times)
+            candidate = Schedule(start_times=tuple(candidate_starts), makespan=candidate_starts[instance.sink])
             if best is None or candidate.makespan < best.makespan:
                 best = candidate
             return
@@ -601,7 +652,28 @@ def construct_schedule(
         steps += 1
 
     current = longest_feasible_starts(instance, release_times=release, extra_edges=extra_edges)
+    if any(value > 0 for value in release):
+        try:
+            release_free = longest_feasible_starts(instance, extra_edges=extra_edges)
+        except TemporalInfeasibleError:
+            release_free = None
+        if release_free is not None:
+            release_free_schedule = Schedule(
+                start_times=tuple(release_free),
+                makespan=release_free[instance.sink],
+            )
+            if not validate_schedule(instance, release_free_schedule):
+                current = release_free
     current = _left_shift(instance, current, extra_edges)
+    current_schedule = Schedule(start_times=tuple(current), makespan=current[instance.sink])
+    if validate_schedule(instance, current_schedule):
+        repaired = _left_shift(instance, current, [])
+        repaired_schedule = Schedule(start_times=tuple(repaired), makespan=repaired[instance.sink])
+        if not validate_schedule(instance, repaired_schedule):
+            current = repaired
+            current_schedule = repaired_schedule
+    if not validate_schedule(instance, current_schedule):
+        current = _compress_valid_schedule(instance, current)
     return Schedule(start_times=tuple(current), makespan=current[instance.sink])
 
 
@@ -664,15 +736,7 @@ def solve(
         if solver_config.max_restarts is not None and restarts >= solver_config.max_restarts:
             break
 
-        local_config = HeuristicConfig(
-            slack_weight=max(0.0, solver_config.slack_weight + rng.uniform(-0.8, 0.8)),
-            tail_weight=max(0.0, solver_config.tail_weight + rng.uniform(-0.4, 0.4)),
-            overload_weight=max(0.0, solver_config.overload_weight + rng.uniform(-0.6, 0.6)),
-            resource_weight=max(0.0, solver_config.resource_weight + rng.uniform(-0.2, 0.2)),
-            late_weight=max(0.0, solver_config.late_weight + rng.uniform(-0.2, 0.2)),
-            noise_weight=max(0.0, solver_config.noise_weight + rng.uniform(-0.1, 0.1)),
-            max_restarts=solver_config.max_restarts,
-        )
+        local_config = _sample_heuristic_config(solver_config, rng)
         schedule = construct_schedule(
             instance,
             rng,

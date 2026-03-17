@@ -419,20 +419,100 @@ The strongest ideas found for `RCPSP/max` are in:
 
 This motivated the current conflict-set branch-and-bound implementation.
 
+## Iteration: Repair + Compress
+
+### What changed
+
+Added a post-processing step for heuristic and exact-search schedules:
+
+1. keep the existing conflict-repair heuristic
+2. if the resulting schedule is still invalid, run a repair `left-shift` without the internal disjunctive edge set
+3. once a valid schedule exists, derive the implied `resource order` from that schedule
+4. recompute the earliest schedule that preserves that resource order
+
+Relevant code is in:
+
+- [rcpsp/solver.py](rcpsp/solver.py)
+
+### Why this was needed
+
+While testing [sm_j10/PSP223.SCH](sm_j10/PSP223.SCH), the old solver labeled the instance `infeasible`, but the repair path produced a valid schedule. That exposed an important limitation:
+
+- the current exact search is a strong feasibility/quality intensifier
+- but it is **not** a formal proof procedure for infeasibility
+- resource conflicts can also be resolved by `voluntary delay`, not only by the disjunctive branching pattern currently explored
+
+So this iteration improves robustness in exactly the cases where the previous solver could miss a feasible schedule.
+
+### Benchmark summary
+
+Relative to the previous clean baseline:
+
+At `0.1s` per instance:
+
+- `sm_j10`
+  - feasible: `186 -> 187`
+  - infeasible: `84 -> 83`
+  - unknown: `0 -> 0`
+  - avg ratio over all feasible: `1.3362 -> 1.3397`
+  - avg ratio on common feasible instances only: `1.3362 -> 1.3351`
+- `sm_j20`
+  - feasible: `180 -> 181`
+  - infeasible: `75 -> 75`
+  - unknown: `15 -> 14`
+  - avg ratio over all feasible: `1.2989 -> 1.2973`
+  - avg ratio on common feasible instances only: `1.2989 -> 1.2954`
+
+At `1.0s` per instance:
+
+- `sm_j10`
+  - feasible: `186 -> 187`
+  - infeasible: `84 -> 83`
+  - unknown: `0 -> 0`
+  - avg ratio over all feasible: `1.3355 -> 1.3391`
+  - avg ratio on common feasible instances only: `1.3355 -> 1.3345`
+- `sm_j20`
+  - feasible: `184 -> 184`
+  - infeasible: `80 -> 80`
+  - unknown: `6 -> 6`
+  - avg ratio over all feasible: `1.2969 -> 1.2949`
+  - avg ratio on common feasible instances only: `1.2969 -> 1.2949`
+
+Concrete instance-level effects:
+
+- [sm_j10/PSP223.SCH](sm_j10/PSP223.SCH) moved from `infeasible` to `feasible` with makespan `92`
+- [sm_j10/PSP88.SCH](sm_j10/PSP88.SCH) improved from `48 -> 43`
+- [sm_j20/PSP79.SCH](sm_j20/PSP79.SCH) moved from `unknown` to `feasible` with makespan `105`
+- [sm_j20/PSP139.SCH](sm_j20/PSP139.SCH) improved from `144 -> 117`
+
+### Longer targeted checks
+
+For the previously unresolved `J20` cases:
+
+- by `5s`, only [sm_j20/PSP127.SCH](sm_j20/PSP127.SCH) and [sm_j20/PSP39.SCH](sm_j20/PSP39.SCH) remained `unknown`
+- at `30s`, [sm_j20/PSP127.SCH](sm_j20/PSP127.SCH) became `infeasible`
+- at `30s`, [sm_j20/PSP39.SCH](sm_j20/PSP39.SCH) still remained `unknown`
+
 ## Current limitations
 
 - infeasibility screening is still only pairwise, so it is incomplete
-- `sm_j20` still has `15` unknown instances at `0.1s`
+- the conflict-set exact search is not a formal infeasibility proof procedure
+- `sm_j20` still has `14` unknown instances at `0.1s`
 - `sm_j20` still has `6` unknown instances at `1.0s`
 - branch ordering is heuristic and can likely be improved
 - conflict-set extraction is simple and may not be the best branching object
-- there is no dedicated local search after exact search finishes
+- there is still no dedicated local search after exact search finishes
 
 ## Next steps
 
 ### Highest-value next improvement
 
-Target the remaining `6` hard `J20` unknown instances at `1s`:
+Two parallel priorities now make sense:
+
+1. target the remaining `6` hard `J20` unknown instances at `1s`
+2. improve incumbent quality on the large feasible set
+
+For the persistent `J20` unknowns:
 
 - add stronger disjunctive propagation inside exact search
 - derive more forced pair orderings from conflict sets and incumbent bounds
@@ -441,6 +521,7 @@ Target the remaining `6` hard `J20` unknown instances at `1s`:
 ### Secondary improvements
 
 - add local improvement on feasible incumbents
+- reconsider whether exact-search exhaustion should return `unknown` rather than `infeasible`
 - test multiple branching heuristics
 - run longer budgets such as `1s`, `5s`, and eventually closer to the assignment `30s`
 - verify whether all currently labeled `infeasible` cases are truly infeasible under the correct instance semantics
@@ -453,7 +534,8 @@ If we write this up as algorithm iterations:
 2. Fast incumbent via conflict-repair heuristic
 3. Pairwise infeasibility screening
 4. Conflict-set branch-and-bound for feasibility and quality improvement
-5. Future work: stronger propagation and branching heuristics
+5. Repair + compress using induced resource order
+6. Future work: stronger propagation, better classification semantics, and local improvement
 
 ## External references consulted
 
