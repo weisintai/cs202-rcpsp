@@ -4,12 +4,12 @@ Python-first heuristic solver for the project scheduling instances in this folde
 
 ## What it does
 
-- Parses the ProGenMax `.SCH` files in `sm_j10` and `sm_j20`
+- Parses ProGenMax `.SCH` files across the benchmark folders in this repo, including `sm_j10`, `sm_j20`, `sm_j30`, `testset_ubo20`, and `testset_ubo50`
 - Handles generalized lag constraints of the form `S_j >= S_i + lag`
 - Builds a fast incumbent with a conflict-repair heuristic
 - Improves or proves more cases with conflict-set branch-and-bound
 - Benchmarks folders of instances from the command line
-- Compares benchmark outputs against published reference values for `sm_j10` and `sm_j20`
+- Compares benchmark outputs against published reference values for `sm_j10`, `sm_j20`, `sm_j30`, `testset_ubo20`, and `testset_ubo50`
 - Reports `feasible`, `infeasible`, or `unknown` per instance
 
 ## Usage
@@ -26,11 +26,19 @@ Benchmark a full folder:
 uv run main.py benchmark sm_j10 --time-limit 0.1 --output sm_j10_results.json
 ```
 
-Compare a benchmark JSON against the public `sm_j10` / `sm_j20` reference values:
+Compare a benchmark JSON against the public reference values:
 
 ```bash
 uv run main.py compare sm_j20_results_current_clean_1p0.json --dataset sm_j20
 ```
+
+Supported datasets for `compare` are:
+
+- `sm_j10`
+- `sm_j20`
+- `sm_j30`
+- `testset_ubo20`
+- `testset_ubo50`
 
 The benchmark command prints aggregate metrics and optionally writes per-instance results to JSON.
 

@@ -615,6 +615,59 @@ Large quality improvements without full exact matching included:
 - [sm_j20/PSP79.SCH](sm_j20/PSP79.SCH): `101 -> 92`
 - [sm_j20/PSP269.SCH](sm_j20/PSP269.SCH): `136 -> 130`
 
+## Added benchmark families
+
+To check that the solver is not just drifting toward the public `sm_j10` and `sm_j20` sets, we added three more public benchmark families from the same RCPSP/max collection:
+
+- [sm_j30](sm_j30)
+- [testset_ubo20](testset_ubo20)
+- [testset_ubo50](testset_ubo50)
+
+We also extended the CLI so that:
+
+- `benchmark` discovers both uppercase `PSP*.SCH` and lowercase `psp*.sch`
+- `compare` supports `sm_j30`, `testset_ubo20`, and `testset_ubo50`
+- reference matching is case-insensitive, so `PSP1` and `psp1` compare correctly
+
+New benchmark files:
+
+- [sm_j30_results_current_clean_0p1.json](sm_j30_results_current_clean_0p1.json)
+- [testset_ubo20_results_current_clean_0p1.json](testset_ubo20_results_current_clean_0p1.json)
+- [testset_ubo50_results_current_clean_0p1.json](testset_ubo50_results_current_clean_0p1.json)
+
+### Generalization snapshot at `0.1s`
+
+- `sm_j30`
+  - feasible: `172`
+  - infeasible: `79`
+  - unknown: `19`
+  - avg ratio: `1.2773`
+  - exact match rate on exact-reference cases: `55.8%`
+  - average ratio to exact reference: `1.0300`
+- `testset_ubo20`
+  - feasible: `70`
+  - infeasible: `19`
+  - unknown: `1`
+  - avg ratio: `1.2604`
+  - exact match rate on exact-reference cases: `65.2%`
+  - average ratio to exact reference: `1.0164`
+- `testset_ubo50`
+  - feasible: `49`
+  - infeasible: `14`
+  - unknown: `27`
+  - avg ratio: `1.1012`
+  - exact match rate on exact-reference cases: `39.4%`
+  - average ratio to exact reference: `1.0193`
+  - one bounded case beat the current published upper bound: `psp57`
+
+This is a good sign overall:
+
+- the solver still looks competitive on `sm_j30` without any dataset-specific changes
+- `testset_ubo20` generalizes reasonably well
+- `testset_ubo50` is the clearest stress case, with many more `unknown` instances at the short `0.1s` budget
+
+The main takeaway is that we are not obviously overfitting to `sm_j10` and `sm_j20`, but larger and harder sets still need stronger anytime improvement and better classification depth.
+
 ## Current limitations
 
 - infeasibility screening is still only pairwise, so it is incomplete
@@ -627,6 +680,8 @@ Large quality improvements without full exact matching included:
 - `sm_j10` is still short of the `90%` exact-match target
 - `sm_j20` is still short of the `70%` exact-match target
 - the main remaining `sm_j20` quality outliers are [sm_j20/PSP123.SCH](sm_j20/PSP123.SCH), [sm_j20/PSP153.SCH](sm_j20/PSP153.SCH), [sm_j20/PSP82.SCH](sm_j20/PSP82.SCH), [sm_j20/PSP57.SCH](sm_j20/PSP57.SCH), and [sm_j20/PSP269.SCH](sm_j20/PSP269.SCH)
+- `sm_j30` still has `19` unknown instances at `0.1s`
+- `testset_ubo50` still has `27` unknown instances at `0.1s`
 
 ## Next steps
 
