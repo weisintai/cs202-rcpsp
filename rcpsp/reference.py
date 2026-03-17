@@ -9,6 +9,9 @@ from urllib.request import urlopen
 REFERENCE_URLS = {
     "sm_j10": "https://raw.githubusercontent.com/ptal/kobe-scheduling/master/data/rcpsp-max/sm_j10/optimum/optimum.csv",
     "sm_j20": "https://raw.githubusercontent.com/ptal/kobe-scheduling/master/data/rcpsp-max/sm_j20/optimum/optimum.csv",
+    "sm_j30": "https://raw.githubusercontent.com/ptal/kobe-scheduling/master/data/rcpsp-max/sm_j30/optimum/optimum.csv",
+    "testset_ubo20": "https://raw.githubusercontent.com/ptal/kobe-scheduling/master/data/rcpsp-max/testset_ubo20/optimum/optimum.csv",
+    "testset_ubo50": "https://raw.githubusercontent.com/ptal/kobe-scheduling/master/data/rcpsp-max/testset_ubo50/optimum/optimum.csv",
 }
 
 
@@ -17,6 +20,13 @@ class ReferenceValue:
     kind: str
     lower: int | None = None
     upper: int | None = None
+
+
+def normalize_instance_name(name: str) -> str:
+    lowered = name.strip().lower()
+    if lowered.endswith(".sch"):
+        return lowered[:-4]
+    return lowered
 
 
 def parse_reference_value(raw: str) -> ReferenceValue:
@@ -38,6 +48,6 @@ def fetch_reference_values(dataset: str) -> dict[str, ReferenceValue]:
     rows = csv.DictReader(StringIO(text))
     values: dict[str, ReferenceValue] = {}
     for row in rows:
-        name = row["problem"].removesuffix(".SCH")
+        name = normalize_instance_name(row["problem"])
         values[name] = parse_reference_value(row["optimum"])
     return values

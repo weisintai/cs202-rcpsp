@@ -5,15 +5,17 @@ import json
 from pathlib import Path
 
 from rcpsp import HeuristicConfig, parse_sch, solve
-from rcpsp.reference import fetch_reference_values
+from rcpsp.reference import REFERENCE_URLS, fetch_reference_values, normalize_instance_name
 
 
 def _instance_paths(path: Path) -> list[Path]:
     if path.is_dir():
         return sorted(
             candidate
-            for candidate in path.glob("PSP*.SCH")
-            if candidate.is_file() and "copy" not in candidate.name
+            for candidate in path.iterdir()
+            if candidate.is_file()
+            and candidate.suffix.lower() == ".sch"
+            and "copy" not in candidate.name.lower()
         )
     return [path]
 
@@ -129,7 +131,8 @@ def cmd_compare(args: argparse.Namespace) -> int:
 
     for row in rows:
         name = row["instance"]
-        reference = references.get(name)
+        normalized_name = normalize_instance_name(name)
+        reference = references.get(normalized_name)
         if reference is None:
             missing_reference.append(name)
             continue
@@ -233,7 +236,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     compare_parser = subparsers.add_parser("compare", help="compare benchmark JSON against reference values")
     compare_parser.add_argument("benchmark_json")
-    compare_parser.add_argument("--dataset", choices=("sm_j10", "sm_j20"), required=True)
+    compare_parser.add_argument("--dataset", choices=tuple(sorted(REFERENCE_URLS)), required=True)
     compare_parser.add_argument("--output")
     compare_parser.set_defaults(func=cmd_compare)
     return parser
