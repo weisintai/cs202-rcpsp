@@ -1,0 +1,825 @@
+{
+  "summary": {
+    "instances": 90,
+    "feasible": 49,
+    "infeasible": 14,
+    "unknown": 27,
+    "avg_makespan": 178.26530612244898,
+    "avg_ratio": 1.1012449206038362,
+    "avg_runtime_seconds": 0.07709159854449454,
+    "best_ratio": 1.0,
+    "worst_ratio": 1.4130434782608696
+  },
+  "results": [
+    {
+      "instance": "psp1",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 108,
+      "ratio": null,
+      "runtime_seconds": 0.000693500001943903,
+      "restarts": 0
+    },
+    {
+      "instance": "psp10",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 92,
+      "ratio": null,
+      "runtime_seconds": 0.10013295800308697,
+      "restarts": 0
+    },
+    {
+      "instance": "psp11",
+      "status": "feasible",
+      "makespan": 160,
+      "temporal_lower_bound": 123,
+      "ratio": 1.3008130081300813,
+      "runtime_seconds": 0.10040258300068672,
+      "restarts": 1
+    },
+    {
+      "instance": "psp12",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 106,
+      "ratio": null,
+      "runtime_seconds": 0.10089791700011119,
+      "restarts": 0
+    },
+    {
+      "instance": "psp13",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 119,
+      "ratio": null,
+      "runtime_seconds": 0.102001957999164,
+      "restarts": 0
+    },
+    {
+      "instance": "psp14",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 133,
+      "ratio": null,
+      "runtime_seconds": 0.10092741699918406,
+      "restarts": 0
+    },
+    {
+      "instance": "psp15",
+      "status": "feasible",
+      "makespan": 116,
+      "temporal_lower_bound": 90,
+      "ratio": 1.288888888888889,
+      "runtime_seconds": 0.10021979200246278,
+      "restarts": 1
+    },
+    {
+      "instance": "psp16",
+      "status": "feasible",
+      "makespan": 143,
+      "temporal_lower_bound": 125,
+      "ratio": 1.144,
+      "runtime_seconds": 0.10019466599987936,
+      "restarts": 1
+    },
+    {
+      "instance": "psp17",
+      "status": "feasible",
+      "makespan": 130,
+      "temporal_lower_bound": 92,
+      "ratio": 1.4130434782608696,
+      "runtime_seconds": 0.10026741700130515,
+      "restarts": 1
+    },
+    {
+      "instance": "psp18",
+      "status": "feasible",
+      "makespan": 168,
+      "temporal_lower_bound": 128,
+      "ratio": 1.3125,
+      "runtime_seconds": 0.10016908300167415,
+      "restarts": 1
+    },
+    {
+      "instance": "psp19",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 142,
+      "ratio": null,
+      "runtime_seconds": 0.10192383300091024,
+      "restarts": 0
+    },
+    {
+      "instance": "psp2",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 119,
+      "ratio": null,
+      "runtime_seconds": 0.0005732919998990837,
+      "restarts": 0
+    },
+    {
+      "instance": "psp20",
+      "status": "feasible",
+      "makespan": 150,
+      "temporal_lower_bound": 138,
+      "ratio": 1.0869565217391304,
+      "runtime_seconds": 0.10050154199780081,
+      "restarts": 1
+    },
+    {
+      "instance": "psp21",
+      "status": "feasible",
+      "makespan": 111,
+      "temporal_lower_bound": 111,
+      "ratio": 1.0,
+      "runtime_seconds": 0.006283915998210432,
+      "restarts": 1
+    },
+    {
+      "instance": "psp22",
+      "status": "feasible",
+      "makespan": 125,
+      "temporal_lower_bound": 124,
+      "ratio": 1.0080645161290323,
+      "runtime_seconds": 0.10009837500183494,
+      "restarts": 3
+    },
+    {
+      "instance": "psp23",
+      "status": "feasible",
+      "makespan": 161,
+      "temporal_lower_bound": 160,
+      "ratio": 1.00625,
+      "runtime_seconds": 0.10028920799959451,
+      "restarts": 3
+    },
+    {
+      "instance": "psp24",
+      "status": "feasible",
+      "makespan": 276,
+      "temporal_lower_bound": 261,
+      "ratio": 1.0574712643678161,
+      "runtime_seconds": 0.09844691599937505,
+      "restarts": 3
+    },
+    {
+      "instance": "psp25",
+      "status": "feasible",
+      "makespan": 108,
+      "temporal_lower_bound": 108,
+      "ratio": 1.0,
+      "runtime_seconds": 0.005242708000878338,
+      "restarts": 1
+    },
+    {
+      "instance": "psp26",
+      "status": "feasible",
+      "makespan": 129,
+      "temporal_lower_bound": 129,
+      "ratio": 1.0,
+      "runtime_seconds": 0.005549292000068817,
+      "restarts": 1
+    },
+    {
+      "instance": "psp27",
+      "status": "feasible",
+      "makespan": 89,
+      "temporal_lower_bound": 85,
+      "ratio": 1.0470588235294118,
+      "runtime_seconds": 0.10034195800108137,
+      "restarts": 6
+    },
+    {
+      "instance": "psp28",
+      "status": "feasible",
+      "makespan": 181,
+      "temporal_lower_bound": 181,
+      "ratio": 1.0,
+      "runtime_seconds": 0.07209474999763188,
+      "restarts": 1
+    },
+    {
+      "instance": "psp29",
+      "status": "feasible",
+      "makespan": 263,
+      "temporal_lower_bound": 263,
+      "ratio": 1.0,
+      "runtime_seconds": 0.008894333001080668,
+      "restarts": 1
+    },
+    {
+      "instance": "psp3",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 122,
+      "ratio": null,
+      "runtime_seconds": 0.10035200000129407,
+      "restarts": 0
+    },
+    {
+      "instance": "psp30",
+      "status": "feasible",
+      "makespan": 295,
+      "temporal_lower_bound": 282,
+      "ratio": 1.0460992907801419,
+      "runtime_seconds": 0.10018658300032257,
+      "restarts": 2
+    },
+    {
+      "instance": "psp31",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 227,
+      "ratio": null,
+      "runtime_seconds": 0.10026541700062808,
+      "restarts": 0
+    },
+    {
+      "instance": "psp32",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 131,
+      "ratio": null,
+      "runtime_seconds": 0.10167404200183228,
+      "restarts": 0
+    },
+    {
+      "instance": "psp33",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 151,
+      "ratio": null,
+      "runtime_seconds": 0.0013435829969239421,
+      "restarts": 0
+    },
+    {
+      "instance": "psp34",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 135,
+      "ratio": null,
+      "runtime_seconds": 0.10167841599832173,
+      "restarts": 0
+    },
+    {
+      "instance": "psp35",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 184,
+      "ratio": null,
+      "runtime_seconds": 0.0014955000006011687,
+      "restarts": 0
+    },
+    {
+      "instance": "psp36",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 105,
+      "ratio": null,
+      "runtime_seconds": 0.10166000000026543,
+      "restarts": 0
+    },
+    {
+      "instance": "psp37",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 156,
+      "ratio": null,
+      "runtime_seconds": 0.10183695800151327,
+      "restarts": 0
+    },
+    {
+      "instance": "psp38",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 130,
+      "ratio": null,
+      "runtime_seconds": 0.0015028749985503964,
+      "restarts": 0
+    },
+    {
+      "instance": "psp39",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 164,
+      "ratio": null,
+      "runtime_seconds": 0.0014344579976750538,
+      "restarts": 0
+    },
+    {
+      "instance": "psp4",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 97,
+      "ratio": null,
+      "runtime_seconds": 0.1005507919981028,
+      "restarts": 0
+    },
+    {
+      "instance": "psp40",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 92,
+      "ratio": null,
+      "runtime_seconds": 0.10191950000080396,
+      "restarts": 0
+    },
+    {
+      "instance": "psp41",
+      "status": "feasible",
+      "makespan": 155,
+      "temporal_lower_bound": 127,
+      "ratio": 1.220472440944882,
+      "runtime_seconds": 0.10048350000215578,
+      "restarts": 1
+    },
+    {
+      "instance": "psp42",
+      "status": "feasible",
+      "makespan": 178,
+      "temporal_lower_bound": 136,
+      "ratio": 1.3088235294117647,
+      "runtime_seconds": 0.10017741599949659,
+      "restarts": 1
+    },
+    {
+      "instance": "psp43",
+      "status": "feasible",
+      "makespan": 108,
+      "temporal_lower_bound": 89,
+      "ratio": 1.2134831460674158,
+      "runtime_seconds": 0.1001321250005276,
+      "restarts": 1
+    },
+    {
+      "instance": "psp44",
+      "status": "feasible",
+      "makespan": 190,
+      "temporal_lower_bound": 186,
+      "ratio": 1.021505376344086,
+      "runtime_seconds": 0.09003741599735804,
+      "restarts": 1
+    },
+    {
+      "instance": "psp45",
+      "status": "feasible",
+      "makespan": 190,
+      "temporal_lower_bound": 163,
+      "ratio": 1.165644171779141,
+      "runtime_seconds": 0.10013700000126846,
+      "restarts": 1
+    },
+    {
+      "instance": "psp46",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 187,
+      "ratio": null,
+      "runtime_seconds": 0.10091966700201738,
+      "restarts": 0
+    },
+    {
+      "instance": "psp47",
+      "status": "feasible",
+      "makespan": 199,
+      "temporal_lower_bound": 185,
+      "ratio": 1.0756756756756756,
+      "runtime_seconds": 0.1001957090011274,
+      "restarts": 1
+    },
+    {
+      "instance": "psp48",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 123,
+      "ratio": null,
+      "runtime_seconds": 0.00126362499941024,
+      "restarts": 0
+    },
+    {
+      "instance": "psp49",
+      "status": "feasible",
+      "makespan": 178,
+      "temporal_lower_bound": 137,
+      "ratio": 1.2992700729927007,
+      "runtime_seconds": 0.10019470800034469,
+      "restarts": 1
+    },
+    {
+      "instance": "psp5",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 80,
+      "ratio": null,
+      "runtime_seconds": 0.0009525000023131724,
+      "restarts": 0
+    },
+    {
+      "instance": "psp50",
+      "status": "feasible",
+      "makespan": 210,
+      "temporal_lower_bound": 202,
+      "ratio": 1.0396039603960396,
+      "runtime_seconds": 0.10035945799972978,
+      "restarts": 1
+    },
+    {
+      "instance": "psp51",
+      "status": "feasible",
+      "makespan": 139,
+      "temporal_lower_bound": 123,
+      "ratio": 1.1300813008130082,
+      "runtime_seconds": 0.10025779100033105,
+      "restarts": 2
+    },
+    {
+      "instance": "psp52",
+      "status": "feasible",
+      "makespan": 146,
+      "temporal_lower_bound": 132,
+      "ratio": 1.106060606060606,
+      "runtime_seconds": 0.10017216599953827,
+      "restarts": 2
+    },
+    {
+      "instance": "psp53",
+      "status": "feasible",
+      "makespan": 112,
+      "temporal_lower_bound": 112,
+      "ratio": 1.0,
+      "runtime_seconds": 0.10081224999885308,
+      "restarts": 1
+    },
+    {
+      "instance": "psp54",
+      "status": "feasible",
+      "makespan": 99,
+      "temporal_lower_bound": 88,
+      "ratio": 1.125,
+      "runtime_seconds": 0.1001064160009264,
+      "restarts": 3
+    },
+    {
+      "instance": "psp55",
+      "status": "feasible",
+      "makespan": 200,
+      "temporal_lower_bound": 184,
+      "ratio": 1.0869565217391304,
+      "runtime_seconds": 0.10034375000032014,
+      "restarts": 2
+    },
+    {
+      "instance": "psp56",
+      "status": "feasible",
+      "makespan": 152,
+      "temporal_lower_bound": 150,
+      "ratio": 1.0133333333333334,
+      "runtime_seconds": 0.0837396670031012,
+      "restarts": 2
+    },
+    {
+      "instance": "psp57",
+      "status": "feasible",
+      "makespan": 132,
+      "temporal_lower_bound": 129,
+      "ratio": 1.0232558139534884,
+      "runtime_seconds": 0.10024762499961071,
+      "restarts": 1
+    },
+    {
+      "instance": "psp58",
+      "status": "feasible",
+      "makespan": 182,
+      "temporal_lower_bound": 178,
+      "ratio": 1.0224719101123596,
+      "runtime_seconds": 0.10012154200012446,
+      "restarts": 2
+    },
+    {
+      "instance": "psp59",
+      "status": "feasible",
+      "makespan": 199,
+      "temporal_lower_bound": 199,
+      "ratio": 1.0,
+      "runtime_seconds": 0.00638766699921689,
+      "restarts": 1
+    },
+    {
+      "instance": "psp6",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 150,
+      "ratio": null,
+      "runtime_seconds": 0.1009263749983802,
+      "restarts": 0
+    },
+    {
+      "instance": "psp60",
+      "status": "feasible",
+      "makespan": 135,
+      "temporal_lower_bound": 121,
+      "ratio": 1.115702479338843,
+      "runtime_seconds": 0.10023733400157653,
+      "restarts": 2
+    },
+    {
+      "instance": "psp61",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 218,
+      "ratio": null,
+      "runtime_seconds": 0.10184362499785493,
+      "restarts": 0
+    },
+    {
+      "instance": "psp62",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 204,
+      "ratio": null,
+      "runtime_seconds": 0.10229441699993913,
+      "restarts": 0
+    },
+    {
+      "instance": "psp63",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 165,
+      "ratio": null,
+      "runtime_seconds": 0.10023079199891072,
+      "restarts": 0
+    },
+    {
+      "instance": "psp64",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 268,
+      "ratio": null,
+      "runtime_seconds": 0.10080204200130538,
+      "restarts": 0
+    },
+    {
+      "instance": "psp65",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 135,
+      "ratio": null,
+      "runtime_seconds": 0.10053254100057529,
+      "restarts": 0
+    },
+    {
+      "instance": "psp66",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 246,
+      "ratio": null,
+      "runtime_seconds": 0.001476541998272296,
+      "restarts": 0
+    },
+    {
+      "instance": "psp67",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 198,
+      "ratio": null,
+      "runtime_seconds": 0.10055670800284133,
+      "restarts": 0
+    },
+    {
+      "instance": "psp68",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 169,
+      "ratio": null,
+      "runtime_seconds": 0.10214783300034469,
+      "restarts": 0
+    },
+    {
+      "instance": "psp69",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 125,
+      "ratio": null,
+      "runtime_seconds": 0.0025814170003286563,
+      "restarts": 0
+    },
+    {
+      "instance": "psp7",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 94,
+      "ratio": null,
+      "runtime_seconds": 0.0008086670022748876,
+      "restarts": 0
+    },
+    {
+      "instance": "psp70",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 248,
+      "ratio": null,
+      "runtime_seconds": 0.0017544580005051102,
+      "restarts": 0
+    },
+    {
+      "instance": "psp71",
+      "status": "feasible",
+      "makespan": 159,
+      "temporal_lower_bound": 141,
+      "ratio": 1.127659574468085,
+      "runtime_seconds": 0.10031729100228404,
+      "restarts": 1
+    },
+    {
+      "instance": "psp72",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 186,
+      "ratio": null,
+      "runtime_seconds": 0.0019221249967813492,
+      "restarts": 0
+    },
+    {
+      "instance": "psp73",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 159,
+      "ratio": null,
+      "runtime_seconds": 0.10196316699875752,
+      "restarts": 0
+    },
+    {
+      "instance": "psp74",
+      "status": "infeasible",
+      "makespan": null,
+      "temporal_lower_bound": 184,
+      "ratio": null,
+      "runtime_seconds": 0.0021047919981356245,
+      "restarts": 0
+    },
+    {
+      "instance": "psp75",
+      "status": "feasible",
+      "makespan": 226,
+      "temporal_lower_bound": 198,
+      "ratio": 1.1414141414141414,
+      "runtime_seconds": 0.10021525000047404,
+      "restarts": 1
+    },
+    {
+      "instance": "psp76",
+      "status": "feasible",
+      "makespan": 180,
+      "temporal_lower_bound": 144,
+      "ratio": 1.25,
+      "runtime_seconds": 0.10059354199984227,
+      "restarts": 1
+    },
+    {
+      "instance": "psp77",
+      "status": "feasible",
+      "makespan": 271,
+      "temporal_lower_bound": 234,
+      "ratio": 1.1581196581196582,
+      "runtime_seconds": 0.10016499999983353,
+      "restarts": 1
+    },
+    {
+      "instance": "psp78",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 201,
+      "ratio": null,
+      "runtime_seconds": 0.10185237499899813,
+      "restarts": 0
+    },
+    {
+      "instance": "psp79",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 169,
+      "ratio": null,
+      "runtime_seconds": 0.10038395800074795,
+      "restarts": 0
+    },
+    {
+      "instance": "psp8",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 102,
+      "ratio": null,
+      "runtime_seconds": 0.10154045799936284,
+      "restarts": 0
+    },
+    {
+      "instance": "psp80",
+      "status": "feasible",
+      "makespan": 304,
+      "temporal_lower_bound": 260,
+      "ratio": 1.1692307692307693,
+      "runtime_seconds": 0.10018133300036425,
+      "restarts": 1
+    },
+    {
+      "instance": "psp81",
+      "status": "feasible",
+      "makespan": 274,
+      "temporal_lower_bound": 269,
+      "ratio": 1.0185873605947955,
+      "runtime_seconds": 0.10035483299725456,
+      "restarts": 1
+    },
+    {
+      "instance": "psp82",
+      "status": "feasible",
+      "makespan": 155,
+      "temporal_lower_bound": 148,
+      "ratio": 1.0472972972972974,
+      "runtime_seconds": 0.10041604099751567,
+      "restarts": 2
+    },
+    {
+      "instance": "psp83",
+      "status": "feasible",
+      "makespan": 139,
+      "temporal_lower_bound": 139,
+      "ratio": 1.0,
+      "runtime_seconds": 0.009269042002415517,
+      "restarts": 1
+    },
+    {
+      "instance": "psp84",
+      "status": "feasible",
+      "makespan": 182,
+      "temporal_lower_bound": 166,
+      "ratio": 1.0963855421686748,
+      "runtime_seconds": 0.10013820799940731,
+      "restarts": 2
+    },
+    {
+      "instance": "psp85",
+      "status": "feasible",
+      "makespan": 198,
+      "temporal_lower_bound": 189,
+      "ratio": 1.0476190476190477,
+      "runtime_seconds": 0.10036266699898988,
+      "restarts": 2
+    },
+    {
+      "instance": "psp86",
+      "status": "feasible",
+      "makespan": 139,
+      "temporal_lower_bound": 139,
+      "ratio": 1.0,
+      "runtime_seconds": 0.010618457999953534,
+      "restarts": 1
+    },
+    {
+      "instance": "psp87",
+      "status": "feasible",
+      "makespan": 276,
+      "temporal_lower_bound": 259,
+      "ratio": 1.0656370656370657,
+      "runtime_seconds": 0.10022920800111024,
+      "restarts": 1
+    },
+    {
+      "instance": "psp88",
+      "status": "feasible",
+      "makespan": 252,
+      "temporal_lower_bound": 232,
+      "ratio": 1.0862068965517242,
+      "runtime_seconds": 0.07910708399867872,
+      "restarts": 2
+    },
+    {
+      "instance": "psp89",
+      "status": "feasible",
+      "makespan": 220,
+      "temporal_lower_bound": 213,
+      "ratio": 1.0328638497652582,
+      "runtime_seconds": 0.10024116700151353,
+      "restarts": 3
+    },
+    {
+      "instance": "psp9",
+      "status": "unknown",
+      "makespan": null,
+      "temporal_lower_bound": 140,
+      "ratio": null,
+      "runtime_seconds": 0.10077070799889043,
+      "restarts": 0
+    },
+    {
+      "instance": "psp90",
+      "status": "feasible",
+      "makespan": 251,
+      "temporal_lower_bound": 241,
+      "ratio": 1.04149377593361,
+      "runtime_seconds": 0.10021487499761861,
+      "restarts": 2
+    }
+  ]
+}
