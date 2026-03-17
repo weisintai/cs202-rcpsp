@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+import time
 from pathlib import Path
 
 from rcpsp import HeuristicConfig, parse_sch, solve
@@ -18,6 +20,52 @@ def _instance_paths(path: Path) -> list[Path]:
             and "copy" not in candidate.name.lower()
         )
     return [path]
+
+
+def _format_duration(seconds: float) -> str:
+    total_seconds = max(0, int(seconds))
+    minutes, secs = divmod(total_seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours > 0:
+        return f"{hours:d}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
+
+
+def _render_progress(
+    *,
+    current: int,
+    total: int,
+    label: str,
+    started: float,
+    counts: dict[str, int],
+    detail: str,
+    tty: bool,
+) -> None:
+    elapsed = time.perf_counter() - started
+    average = elapsed / max(1, current)
+    eta = average * max(0, total - current)
+    if tty:
+        width = 24
+        filled = width if total == 0 else int(width * current / total)
+        bar = "#" * filled + "-" * (width - filled)
+        message = (
+            f"\r{label} [{bar}] {current}/{total} "
+            f"F:{counts['feasible']} I:{counts['infeasible']} U:{counts['unknown']} "
+            f"elapsed { _format_duration(elapsed) } eta { _format_duration(eta) } {detail}"
+        )
+        print(message[:220], end="", file=sys.stderr, flush=True)
+        if current == total:
+            print(file=sys.stderr, flush=True)
+    else:
+        print(
+            (
+                f"[{label}] {current}/{total} "
+                f"F:{counts['feasible']} I:{counts['infeasible']} U:{counts['unknown']} "
+                f"elapsed {_format_duration(elapsed)} eta {_format_duration(eta)} {detail}"
+            ),
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def cmd_solve(args: argparse.Namespace) -> int:
@@ -59,6 +107,9 @@ def cmd_solve(args: argparse.Namespace) -> int:
 def cmd_benchmark(args: argparse.Namespace) -> int:
     paths = _instance_paths(Path(args.path))
     rows = []
+    counts = {"feasible": 0, "infeasible": 0, "unknown": 0}
+    started = time.perf_counter()
+    tty = sys.stderr.isatty()
     for index, path in enumerate(paths, start=1):
         instance = parse_sch(path)
         result = solve(
@@ -82,6 +133,20 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
                 "restarts": result.restarts,
             }
         )
+        counts[result.status] += 1
+        if not args.no_progress:
+            detail = f"{result.instance_name} {result.status}"
+            if result.schedule is not None:
+                detail += f" mk={result.schedule.makespan}"
+            _render_progress(
+                current=index,
+                total=len(paths),
+                label="benchmark",
+                started=started,
+                counts=counts,
+                detail=detail,
+                tty=tty,
+            )
 
     feasible = [row for row in rows if row["status"] == "feasible" and row["ratio"] is not None]
     summary = {
@@ -110,6 +175,8 @@ def cmd_compare(args: argparse.Namespace) -> int:
     payload = json.loads(Path(args.benchmark_json).read_text())
     rows = payload["results"]
     references = fetch_reference_values(args.dataset)
+    started = time.perf_counter()
+    tty = sys.stderr.isatty()
 
     exact_cases = 0
     bounded_cases = 0
@@ -129,12 +196,26 @@ def cmd_compare(args: argparse.Namespace) -> int:
     unknown_known_instances: list[str] = []
     better_instances: list[str] = []
 
-    for row in rows:
+    for index, row in enumerate(rows, start=1):
         name = row["instance"]
         normalized_name = normalize_instance_name(name)
         reference = references.get(normalized_name)
         if reference is None:
             missing_reference.append(name)
+            if not args.no_progress:
+                _render_progress(
+                    current=index,
+                    total=len(rows),
+                    label="compare",
+                    started=started,
+                    counts={
+                        "feasible": feasible_exact + feasible_bounded,
+                        "infeasible": false_infeasible + matched_unsat,
+                        "unknown": unknown_against_known,
+                    },
+                    detail=f"{name} missing-ref",
+                    tty=tty,
+                )
             continue
 
         status = row["status"]
@@ -175,6 +256,21 @@ def cmd_compare(args: argparse.Namespace) -> int:
             unsat_cases += 1
             if status == "infeasible":
                 matched_unsat += 1
+
+        if not args.no_progress:
+            _render_progress(
+                current=index,
+                total=len(rows),
+                label="compare",
+                started=started,
+                counts={
+                    "feasible": feasible_exact + feasible_bounded,
+                    "infeasible": false_infeasible + matched_unsat,
+                    "unknown": unknown_against_known,
+                },
+                detail=f"{name} {status}",
+                tty=tty,
+            )
 
     summary = {
         "dataset": args.dataset,
@@ -232,12 +328,14 @@ def build_parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--seed", type=int, default=0)
     bench_parser.add_argument("--max-restarts", type=int, default=None)
     bench_parser.add_argument("--output")
+    bench_parser.add_argument("--no-progress", action="store_true")
     bench_parser.set_defaults(func=cmd_benchmark)
 
     compare_parser = subparsers.add_parser("compare", help="compare benchmark JSON against reference values")
     compare_parser.add_argument("benchmark_json")
     compare_parser.add_argument("--dataset", choices=tuple(sorted(REFERENCE_URLS)), required=True)
     compare_parser.add_argument("--output")
+    compare_parser.add_argument("--no-progress", action="store_true")
     compare_parser.set_defaults(func=cmd_compare)
     return parser
 
