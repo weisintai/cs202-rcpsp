@@ -668,6 +668,70 @@ This is a good sign overall:
 
 The main takeaway is that we are not obviously overfitting to `sm_j10` and `sm_j20`, but larger and harder sets still need stronger anytime improvement and better classification depth.
 
+## Accepted iteration: post-exact polishing
+
+The accepted change from this round is narrower than the first experiments:
+
+- keep the existing accepted ALNS-style heuristic layer
+- keep the exact-search layer
+- add one more incumbent-polishing pass after exact search returns a feasible schedule, but only for `time_limit >= 0.5`
+
+Why this was accepted:
+
+- it improves `sm_j10` and `sm_j20` at `1.0s`
+- it does not change feasibility coverage on those two sets
+- it uses the remaining wall-clock budget better on instances where exact search finds a decent incumbent early
+- the broader experiments with double justification and adaptive operator weighting were not kept because they hurt some short-budget generalization runs
+
+### Accepted benchmark summary at `1.0s`
+
+- `sm_j10`
+  - feasible: `187`
+  - infeasible: `83`
+  - unknown: `0`
+  - avg ratio: `1.3310 -> 1.3278`
+  - exact match rate: `86.6% -> 89.8%`
+  - average ratio to exact reference: `1.0107 -> 1.0082`
+- `sm_j20`
+  - feasible: `184`
+  - infeasible: `80`
+  - unknown: `6`
+  - avg ratio: `1.2832 -> 1.2786`
+  - exact match rate: `67.7% -> 71.5%`
+  - average ratio to exact reference: `1.0195 -> 1.0172`
+
+### Accepted short-budget guardrails at `0.1s`
+
+- `sm_j30`
+  - feasible: `170`
+  - infeasible: `79`
+  - unknown: `21`
+  - exact match rate on exact-reference cases: `55.0%`
+- `testset_ubo20`
+  - feasible: `70`
+  - infeasible: `19`
+  - unknown: `1`
+  - exact match rate on exact-reference cases: `66.7%`
+- `testset_ubo50`
+  - feasible: `51`
+  - infeasible: `14`
+  - unknown: `25`
+  - exact match rate on exact-reference cases: `39.4%`
+
+### Concrete win
+
+The post-exact polishing pass directly fixed one of the worst visible `sm_j10` outliers:
+
+- [sm_j10/PSP223.SCH](sm_j10/PSP223.SCH): the earlier solver was at `92`; the accepted post-exact pass found `68` within the same `1.0s` budget during targeted testing
+
+### Current clean benchmark files
+
+- [sm_j10_results_current_clean_1p0.json](sm_j10_results_current_clean_1p0.json)
+- [sm_j20_results_current_clean_1p0.json](sm_j20_results_current_clean_1p0.json)
+- [sm_j30_results_current_clean_0p1.json](sm_j30_results_current_clean_0p1.json)
+- [testset_ubo20_results_current_clean_0p1.json](testset_ubo20_results_current_clean_0p1.json)
+- [testset_ubo50_results_current_clean_0p1.json](testset_ubo50_results_current_clean_0p1.json)
+
 ## Current limitations
 
 - infeasibility screening is still only pairwise, so it is incomplete
