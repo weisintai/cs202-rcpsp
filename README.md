@@ -26,11 +26,19 @@ Benchmark a full folder:
 uv run main.py benchmark sm_j10 --time-limit 0.1 --output sm_j10_results.json
 ```
 
+`benchmark` now prints live progress to `stderr` by default. Use `--no-progress` if you want only the final summary:
+
+```bash
+uv run main.py benchmark sm_j10 --time-limit 0.1 --output sm_j10_results.json --no-progress
+```
+
 Compare a benchmark JSON against the public reference values:
 
 ```bash
 uv run main.py compare sm_j20_results_current_clean_1p0.json --dataset sm_j20
 ```
+
+`compare` also shows live progress by default and supports `--no-progress`.
 
 Supported datasets for `compare` are:
 
