@@ -4,9 +4,9 @@
     "feasible": 187,
     "infeasible": 83,
     "unknown": 0,
-    "avg_makespan": 45.657754010695186,
-    "avg_ratio": 1.330973992667301,
-    "avg_runtime_seconds": 0.32800854533711066,
+    "avg_makespan": 45.58288770053476,
+    "avg_ratio": 1.3278465434685494,
+    "avg_runtime_seconds": 0.6230480048519288,
     "best_ratio": 1.0,
     "worst_ratio": 2.9166666666666665
   },
@@ -17,8 +17,8 @@
       "makespan": 26,
       "temporal_lower_bound": 26,
       "ratio": 1.0,
-      "runtime_seconds": 0.5503879579991917,
-      "restarts": 512
+      "runtime_seconds": 0.5502679999990505,
+      "restarts": 460
     },
     {
       "instance": "PSP10",
@@ -26,8 +26,8 @@
       "makespan": 36,
       "temporal_lower_bound": 18,
       "ratio": 2.0,
-      "runtime_seconds": 0.558401958001923,
-      "restarts": 228
+      "runtime_seconds": 1.0000495000058436,
+      "restarts": 234
     },
     {
       "instance": "PSP100",
@@ -35,8 +35,8 @@
       "makespan": 44,
       "temporal_lower_bound": 31,
       "ratio": 1.4193548387096775,
-      "runtime_seconds": 0.5529929590011307,
-      "restarts": 306
+      "runtime_seconds": 1.0019901670020772,
+      "restarts": 274
     },
     {
       "instance": "PSP101",
@@ -44,8 +44,8 @@
       "makespan": 62,
       "temporal_lower_bound": 46,
       "ratio": 1.3478260869565217,
-      "runtime_seconds": 0.5534839159990952,
-      "restarts": 336
+      "runtime_seconds": 1.0026583750004647,
+      "restarts": 289
     },
     {
       "instance": "PSP102",
@@ -53,7 +53,7 @@
       "makespan": 52,
       "temporal_lower_bound": 35,
       "ratio": 1.4857142857142858,
-      "runtime_seconds": 0.2029112919990439,
+      "runtime_seconds": 1.0059179999952903,
       "restarts": 0
     },
     {
@@ -62,8 +62,8 @@
       "makespan": 18,
       "temporal_lower_bound": 14,
       "ratio": 1.2857142857142858,
-      "runtime_seconds": 0.5505972079990897,
-      "restarts": 737
+      "runtime_seconds": 1.0000753339991206,
+      "restarts": 666
     },
     {
       "instance": "PSP104",
@@ -71,16 +71,16 @@
       "makespan": 32,
       "temporal_lower_bound": 26,
       "ratio": 1.2307692307692308,
-      "runtime_seconds": 0.20235737500115647,
+      "runtime_seconds": 1.003388500001165,
       "restarts": 0
     },
     {
       "instance": "PSP105",
       "status": "feasible",
-      "makespan": 26,
+      "makespan": 25,
       "temporal_lower_bound": 18,
-      "ratio": 1.4444444444444444,
-      "runtime_seconds": 0.20319975000165869,
+      "ratio": 1.3888888888888888,
+      "runtime_seconds": 1.0011466249998193,
       "restarts": 0
     },
     {
@@ -89,8 +89,8 @@
       "makespan": 51,
       "temporal_lower_bound": 41,
       "ratio": 1.2439024390243902,
-      "runtime_seconds": 0.5506591670018679,
-      "restarts": 393
+      "runtime_seconds": 1.0000902079991647,
+      "restarts": 385
     },
     {
       "instance": "PSP107",
@@ -98,7 +98,7 @@
       "makespan": 46,
       "temporal_lower_bound": 38,
       "ratio": 1.2105263157894737,
-      "runtime_seconds": 0.20425604100091732,
+      "runtime_seconds": 1.0079187079973053,
       "restarts": 0
     },
     {
@@ -107,7 +107,7 @@
       "makespan": null,
       "temporal_lower_bound": 37,
       "ratio": null,
-      "runtime_seconds": 1.654200241318904e-05,
+      "runtime_seconds": 1.541700476082042e-05,
       "restarts": 0
     },
     {
@@ -116,7 +116,7 @@
       "makespan": null,
       "temporal_lower_bound": 37,
       "ratio": null,
-      "runtime_seconds": 5.429199882200919e-05,
+      "runtime_seconds": 6.150000263005495e-05,
       "restarts": 0
     },
     {
@@ -125,8 +125,8 @@
       "makespan": 31,
       "temporal_lower_bound": 17,
       "ratio": 1.8235294117647058,
-      "runtime_seconds": 0.5533768749992305,
-      "restarts": 311
+      "runtime_seconds": 1.0002453749984852,
+      "restarts": 297
     },
     {
       "instance": "PSP110",
@@ -134,8 +134,8 @@
       "makespan": 58,
       "temporal_lower_bound": 45,
       "ratio": 1.288888888888889,
-      "runtime_seconds": 0.5510913329999312,
-      "restarts": 380
+      "runtime_seconds": 1.0007726659969194,
+      "restarts": 359
     },
     {
       "instance": "PSP111",
@@ -143,7 +143,7 @@
       "makespan": 33,
       "temporal_lower_bound": 30,
       "ratio": 1.1,
-      "runtime_seconds": 0.5525029999989783,
+      "runtime_seconds": 1.0014400000000023,
       "restarts": 1
     },
     {
@@ -152,7 +152,7 @@
       "makespan": null,
       "temporal_lower_bound": 28,
       "ratio": null,
-      "runtime_seconds": 1.6916997992666438e-05,
+      "runtime_seconds": 1.6083999071270227e-05,
       "restarts": 0
     },
     {
@@ -161,17 +161,17 @@
       "makespan": 22,
       "temporal_lower_bound": 22,
       "ratio": 1.0,
-      "runtime_seconds": 0.5517177499968966,
-      "restarts": 571
+      "runtime_seconds": 0.5502499169961084,
+      "restarts": 543
     },
     {
       "instance": "PSP114",
       "status": "feasible",
-      "makespan": 41,
+      "makespan": 39,
       "temporal_lower_bound": 36,
-      "ratio": 1.1388888888888888,
-      "runtime_seconds": 0.5508580000023358,
-      "restarts": 511
+      "ratio": 1.0833333333333333,
+      "runtime_seconds": 1.0002754169981927,
+      "restarts": 465
     },
     {
       "instance": "PSP115",
@@ -179,8 +179,8 @@
       "makespan": 41,
       "temporal_lower_bound": 40,
       "ratio": 1.025,
-      "runtime_seconds": 0.5505704170027457,
-      "restarts": 498
+      "runtime_seconds": 1.000124833000882,
+      "restarts": 469
     },
     {
       "instance": "PSP116",
@@ -188,8 +188,8 @@
       "makespan": 16,
       "temporal_lower_bound": 13,
       "ratio": 1.2307692307692308,
-      "runtime_seconds": 0.5505439589978778,
-      "restarts": 596
+      "runtime_seconds": 1.0001014579975163,
+      "restarts": 571
     },
     {
       "instance": "PSP117",
@@ -197,8 +197,8 @@
       "makespan": 27,
       "temporal_lower_bound": 22,
       "ratio": 1.2272727272727273,
-      "runtime_seconds": 0.550828041999921,
-      "restarts": 488
+      "runtime_seconds": 1.0002067500026897,
+      "restarts": 479
     },
     {
       "instance": "PSP118",
@@ -206,7 +206,7 @@
       "makespan": null,
       "temporal_lower_bound": 29,
       "ratio": null,
-      "runtime_seconds": 6.120799662312493e-05,
+      "runtime_seconds": 5.233300180407241e-05,
       "restarts": 0
     },
     {
@@ -215,7 +215,7 @@
       "makespan": null,
       "temporal_lower_bound": 40,
       "ratio": null,
-      "runtime_seconds": 1.4666999049950391e-05,
+      "runtime_seconds": 2.7250003768131137e-05,
       "restarts": 0
     },
     {
@@ -224,7 +224,7 @@
       "makespan": null,
       "temporal_lower_bound": 31,
       "ratio": null,
-      "runtime_seconds": 3.941600152757019e-05,
+      "runtime_seconds": 0.00012395800149533898,
       "restarts": 0
     },
     {
@@ -233,7 +233,7 @@
       "makespan": 38,
       "temporal_lower_bound": 38,
       "ratio": 1.0,
-      "runtime_seconds": 0.5603390409996791,
+      "runtime_seconds": 0.5608515839994652,
       "restarts": 1
     },
     {
@@ -242,7 +242,7 @@
       "makespan": 57,
       "temporal_lower_bound": 34,
       "ratio": 1.6764705882352942,
-      "runtime_seconds": 0.20479070800138288,
+      "runtime_seconds": 1.0039832920010667,
       "restarts": 0
     },
     {
@@ -251,7 +251,7 @@
       "makespan": null,
       "temporal_lower_bound": 60,
       "ratio": null,
-      "runtime_seconds": 5.295800292515196e-05,
+      "runtime_seconds": 5.691600381396711e-05,
       "restarts": 0
     },
     {
@@ -260,7 +260,7 @@
       "makespan": null,
       "temporal_lower_bound": 29,
       "ratio": null,
-      "runtime_seconds": 4.9540998588781804e-05,
+      "runtime_seconds": 6.53750030323863e-05,
       "restarts": 0
     },
     {
@@ -269,7 +269,7 @@
       "makespan": null,
       "temporal_lower_bound": 36,
       "ratio": null,
-      "runtime_seconds": 5.1540999265853316e-05,
+      "runtime_seconds": 5.445800343295559e-05,
       "restarts": 0
     },
     {
@@ -278,7 +278,7 @@
       "makespan": null,
       "temporal_lower_bound": 42,
       "ratio": null,
-      "runtime_seconds": 0.20404475000032107,
+      "runtime_seconds": 0.20437229199887952,
       "restarts": 0
     },
     {
@@ -287,7 +287,7 @@
       "makespan": 70,
       "temporal_lower_bound": 33,
       "ratio": 2.121212121212121,
-      "runtime_seconds": 0.20348458399894298,
+      "runtime_seconds": 1.0040325000009034,
       "restarts": 0
     },
     {
@@ -296,8 +296,8 @@
       "makespan": 44,
       "temporal_lower_bound": 26,
       "ratio": 1.6923076923076923,
-      "runtime_seconds": 0.5640316250028263,
-      "restarts": 269
+      "runtime_seconds": 1.0034928750028485,
+      "restarts": 259
     },
     {
       "instance": "PSP128",
@@ -305,8 +305,8 @@
       "makespan": 49,
       "temporal_lower_bound": 40,
       "ratio": 1.225,
-      "runtime_seconds": 0.5511259580016485,
-      "restarts": 335
+      "runtime_seconds": 1.0002299580010003,
+      "restarts": 318
     },
     {
       "instance": "PSP129",
@@ -314,7 +314,7 @@
       "makespan": 53,
       "temporal_lower_bound": 24,
       "ratio": 2.2083333333333335,
-      "runtime_seconds": 0.204411082999286,
+      "runtime_seconds": 1.0052474999974947,
       "restarts": 0
     },
     {
@@ -323,8 +323,8 @@
       "makespan": 42,
       "temporal_lower_bound": 30,
       "ratio": 1.4,
-      "runtime_seconds": 0.5547333750000689,
-      "restarts": 355
+      "runtime_seconds": 1.0037384169991128,
+      "restarts": 350
     },
     {
       "instance": "PSP130",
@@ -332,8 +332,8 @@
       "makespan": 45,
       "temporal_lower_bound": 44,
       "ratio": 1.0227272727272727,
-      "runtime_seconds": 0.551392624998698,
-      "restarts": 329
+      "runtime_seconds": 1.0001720410000416,
+      "restarts": 323
     },
     {
       "instance": "PSP131",
@@ -341,17 +341,17 @@
       "makespan": 46,
       "temporal_lower_bound": 41,
       "ratio": 1.1219512195121952,
-      "runtime_seconds": 0.551416957998299,
-      "restarts": 413
+      "runtime_seconds": 1.0001030420025927,
+      "restarts": 376
     },
     {
       "instance": "PSP132",
       "status": "feasible",
-      "makespan": 37,
+      "makespan": 36,
       "temporal_lower_bound": 29,
-      "ratio": 1.2758620689655173,
-      "runtime_seconds": 0.5618345000002591,
-      "restarts": 299
+      "ratio": 1.2413793103448276,
+      "runtime_seconds": 1.001179749997391,
+      "restarts": 286
     },
     {
       "instance": "PSP133",
@@ -359,8 +359,8 @@
       "makespan": 41,
       "temporal_lower_bound": 35,
       "ratio": 1.1714285714285715,
-      "runtime_seconds": 0.5506843330003903,
-      "restarts": 508
+      "runtime_seconds": 1.0001244170052814,
+      "restarts": 500
     },
     {
       "instance": "PSP134",
@@ -368,7 +368,7 @@
       "makespan": 29,
       "temporal_lower_bound": 23,
       "ratio": 1.2608695652173914,
-      "runtime_seconds": 0.20430887499969685,
+      "runtime_seconds": 1.0091013749988633,
       "restarts": 0
     },
     {
@@ -377,8 +377,8 @@
       "makespan": 67,
       "temporal_lower_bound": 55,
       "ratio": 1.2181818181818183,
-      "runtime_seconds": 0.5569232910020219,
-      "restarts": 261
+      "runtime_seconds": 1.0035402080029598,
+      "restarts": 151
     },
     {
       "instance": "PSP136",
@@ -386,7 +386,7 @@
       "makespan": null,
       "temporal_lower_bound": 46,
       "ratio": null,
-      "runtime_seconds": 4.7500001528533176e-05,
+      "runtime_seconds": 5.270900146570057e-05,
       "restarts": 0
     },
     {
@@ -395,8 +395,8 @@
       "makespan": 44,
       "temporal_lower_bound": 41,
       "ratio": 1.0731707317073171,
-      "runtime_seconds": 0.5506872500009194,
-      "restarts": 485
+      "runtime_seconds": 1.000182625000889,
+      "restarts": 397
     },
     {
       "instance": "PSP138",
@@ -404,7 +404,7 @@
       "makespan": 45,
       "temporal_lower_bound": 29,
       "ratio": 1.5517241379310345,
-      "runtime_seconds": 0.5608040840015747,
+      "runtime_seconds": 1.0047142499970505,
       "restarts": 1
     },
     {
@@ -413,8 +413,8 @@
       "makespan": 55,
       "temporal_lower_bound": 34,
       "ratio": 1.6176470588235294,
-      "runtime_seconds": 0.5514874590007821,
-      "restarts": 289
+      "runtime_seconds": 1.000165958001162,
+      "restarts": 257
     },
     {
       "instance": "PSP14",
@@ -422,7 +422,7 @@
       "makespan": null,
       "temporal_lower_bound": 31,
       "ratio": null,
-      "runtime_seconds": 4.7375000576721504e-05,
+      "runtime_seconds": 5.5749995226506144e-05,
       "restarts": 0
     },
     {
@@ -431,7 +431,7 @@
       "makespan": null,
       "temporal_lower_bound": 34,
       "ratio": null,
-      "runtime_seconds": 4.7790999815333635e-05,
+      "runtime_seconds": 5.1750001148320735e-05,
       "restarts": 0
     },
     {
@@ -440,7 +440,7 @@
       "makespan": null,
       "temporal_lower_bound": 33,
       "ratio": null,
-      "runtime_seconds": 5.4874999477760866e-05,
+      "runtime_seconds": 6.42079976387322e-05,
       "restarts": 0
     },
     {
@@ -449,8 +449,8 @@
       "makespan": 53,
       "temporal_lower_bound": 47,
       "ratio": 1.127659574468085,
-      "runtime_seconds": 0.5509212090000801,
-      "restarts": 423
+      "runtime_seconds": 1.000274707999779,
+      "restarts": 372
     },
     {
       "instance": "PSP143",
@@ -458,8 +458,8 @@
       "makespan": 39,
       "temporal_lower_bound": 32,
       "ratio": 1.21875,
-      "runtime_seconds": 0.5512111669995647,
-      "restarts": 392
+      "runtime_seconds": 1.0002385420011706,
+      "restarts": 348
     },
     {
       "instance": "PSP144",
@@ -467,7 +467,7 @@
       "makespan": 31,
       "temporal_lower_bound": 31,
       "ratio": 1.0,
-      "runtime_seconds": 0.0005214159973547794,
+      "runtime_seconds": 0.0007377500005532056,
       "restarts": 1
     },
     {
@@ -476,7 +476,7 @@
       "makespan": null,
       "temporal_lower_bound": 36,
       "ratio": null,
-      "runtime_seconds": 1.5000001440057531e-05,
+      "runtime_seconds": 5.5374999647028744e-05,
       "restarts": 0
     },
     {
@@ -485,7 +485,7 @@
       "makespan": 32,
       "temporal_lower_bound": 32,
       "ratio": 1.0,
-      "runtime_seconds": 0.0004501250004977919,
+      "runtime_seconds": 0.0009737910004332662,
       "restarts": 1
     },
     {
@@ -494,8 +494,8 @@
       "makespan": 45,
       "temporal_lower_bound": 42,
       "ratio": 1.0714285714285714,
-      "runtime_seconds": 0.5505736669983889,
-      "restarts": 566
+      "runtime_seconds": 1.0003202090010745,
+      "restarts": 488
     },
     {
       "instance": "PSP148",
@@ -503,8 +503,8 @@
       "makespan": 43,
       "temporal_lower_bound": 38,
       "ratio": 1.131578947368421,
-      "runtime_seconds": 0.551282791999256,
-      "restarts": 349
+      "runtime_seconds": 1.0006685420012218,
+      "restarts": 120
     },
     {
       "instance": "PSP149",
@@ -512,8 +512,8 @@
       "makespan": 25,
       "temporal_lower_bound": 15,
       "ratio": 1.6666666666666667,
-      "runtime_seconds": 0.5518682500005525,
-      "restarts": 329
+      "runtime_seconds": 1.0001472080039093,
+      "restarts": 139
     },
     {
       "instance": "PSP15",
@@ -521,7 +521,7 @@
       "makespan": 39,
       "temporal_lower_bound": 23,
       "ratio": 1.6956521739130435,
-      "runtime_seconds": 0.5620052919985028,
+      "runtime_seconds": 1.0045406669960357,
       "restarts": 1
     },
     {
@@ -530,8 +530,8 @@
       "makespan": 29,
       "temporal_lower_bound": 26,
       "ratio": 1.1153846153846154,
-      "runtime_seconds": 0.5505684999989171,
-      "restarts": 481
+      "runtime_seconds": 1.000100792000012,
+      "restarts": 448
     },
     {
       "instance": "PSP151",
@@ -539,7 +539,7 @@
       "makespan": 78,
       "temporal_lower_bound": 66,
       "ratio": 1.1818181818181819,
-      "runtime_seconds": 0.5594634579974809,
+      "runtime_seconds": 1.0027383330016164,
       "restarts": 1
     },
     {
@@ -548,7 +548,7 @@
       "makespan": null,
       "temporal_lower_bound": 48,
       "ratio": null,
-      "runtime_seconds": 6.0165999457240105e-05,
+      "runtime_seconds": 5.750000127591193e-05,
       "restarts": 0
     },
     {
@@ -557,7 +557,7 @@
       "makespan": 53,
       "temporal_lower_bound": 28,
       "ratio": 1.8928571428571428,
-      "runtime_seconds": 0.2327122499991674,
+      "runtime_seconds": 1.0036767089986824,
       "restarts": 0
     },
     {
@@ -566,7 +566,7 @@
       "makespan": null,
       "temporal_lower_bound": 39,
       "ratio": null,
-      "runtime_seconds": 5.824999971082434e-05,
+      "runtime_seconds": 5.7666999055072665e-05,
       "restarts": 0
     },
     {
@@ -575,8 +575,8 @@
       "makespan": 52,
       "temporal_lower_bound": 35,
       "ratio": 1.4857142857142858,
-      "runtime_seconds": 0.5548899169989454,
-      "restarts": 392
+      "runtime_seconds": 1.000249625001743,
+      "restarts": 381
     },
     {
       "instance": "PSP156",
@@ -584,8 +584,8 @@
       "makespan": 66,
       "temporal_lower_bound": 54,
       "ratio": 1.2222222222222223,
-      "runtime_seconds": 0.5698645419979584,
-      "restarts": 262
+      "runtime_seconds": 1.0047267920017475,
+      "restarts": 252
     },
     {
       "instance": "PSP157",
@@ -593,7 +593,7 @@
       "makespan": 61,
       "temporal_lower_bound": 35,
       "ratio": 1.7428571428571429,
-      "runtime_seconds": 0.5869222910005192,
+      "runtime_seconds": 1.0019727920007426,
       "restarts": 1
     },
     {
@@ -602,7 +602,7 @@
       "makespan": 59,
       "temporal_lower_bound": 33,
       "ratio": 1.7878787878787878,
-      "runtime_seconds": 0.57013829099742,
+      "runtime_seconds": 1.0046491250031977,
       "restarts": 1
     },
     {
@@ -611,7 +611,7 @@
       "makespan": null,
       "temporal_lower_bound": 47,
       "ratio": null,
-      "runtime_seconds": 6.174999725772068e-05,
+      "runtime_seconds": 6.004200258757919e-05,
       "restarts": 0
     },
     {
@@ -620,8 +620,8 @@
       "makespan": 30,
       "temporal_lower_bound": 24,
       "ratio": 1.25,
-      "runtime_seconds": 0.5511751249978261,
-      "restarts": 457
+      "runtime_seconds": 1.000105833998532,
+      "restarts": 441
     },
     {
       "instance": "PSP160",
@@ -629,7 +629,7 @@
       "makespan": null,
       "temporal_lower_bound": 27,
       "ratio": null,
-      "runtime_seconds": 0.20467520800229977,
+      "runtime_seconds": 0.20366329100215808,
       "restarts": 0
     },
     {
@@ -638,8 +638,8 @@
       "makespan": 29,
       "temporal_lower_bound": 17,
       "ratio": 1.7058823529411764,
-      "runtime_seconds": 0.5519105830026092,
-      "restarts": 337
+      "runtime_seconds": 1.0001717500053928,
+      "restarts": 307
     },
     {
       "instance": "PSP162",
@@ -647,7 +647,7 @@
       "makespan": null,
       "temporal_lower_bound": 20,
       "ratio": null,
-      "runtime_seconds": 6.12499970884528e-05,
+      "runtime_seconds": 6.65420011500828e-05,
       "restarts": 0
     },
     {
@@ -656,7 +656,7 @@
       "makespan": 53,
       "temporal_lower_bound": 33,
       "ratio": 1.606060606060606,
-      "runtime_seconds": 0.21028658300201641,
+      "runtime_seconds": 1.00438120799663,
       "restarts": 0
     },
     {
@@ -665,7 +665,7 @@
       "makespan": null,
       "temporal_lower_bound": 40,
       "ratio": null,
-      "runtime_seconds": 6.220800059963949e-05,
+      "runtime_seconds": 6.283300172071904e-05,
       "restarts": 0
     },
     {
@@ -674,16 +674,16 @@
       "makespan": null,
       "temporal_lower_bound": 32,
       "ratio": null,
-      "runtime_seconds": 4.5916000090073794e-05,
+      "runtime_seconds": 4.629199975170195e-05,
       "restarts": 0
     },
     {
       "instance": "PSP166",
       "status": "feasible",
-      "makespan": 34,
+      "makespan": 32,
       "temporal_lower_bound": 32,
-      "ratio": 1.0625,
-      "runtime_seconds": 0.2041876660005073,
+      "ratio": 1.0,
+      "runtime_seconds": 1.0056942079972941,
       "restarts": 0
     },
     {
@@ -692,8 +692,8 @@
       "makespan": 50,
       "temporal_lower_bound": 26,
       "ratio": 1.9230769230769231,
-      "runtime_seconds": 0.5514982499989856,
-      "restarts": 208
+      "runtime_seconds": 1.0004934169992339,
+      "restarts": 198
     },
     {
       "instance": "PSP168",
@@ -701,7 +701,7 @@
       "makespan": null,
       "temporal_lower_bound": 26,
       "ratio": null,
-      "runtime_seconds": 6.508299702545628e-05,
+      "runtime_seconds": 0.0001319170041824691,
       "restarts": 0
     },
     {
@@ -710,7 +710,7 @@
       "makespan": null,
       "temporal_lower_bound": 54,
       "ratio": null,
-      "runtime_seconds": 1.0957999620586634e-05,
+      "runtime_seconds": 0.0001253750015166588,
       "restarts": 0
     },
     {
@@ -719,7 +719,7 @@
       "makespan": null,
       "temporal_lower_bound": 36,
       "ratio": null,
-      "runtime_seconds": 1.5624998923158273e-05,
+      "runtime_seconds": 3.1833995308261365e-05,
       "restarts": 0
     },
     {
@@ -728,8 +728,8 @@
       "makespan": 69,
       "temporal_lower_bound": 52,
       "ratio": 1.3269230769230769,
-      "runtime_seconds": 0.5571033750020433,
-      "restarts": 217
+      "runtime_seconds": 1.0004970830050297,
+      "restarts": 61
     },
     {
       "instance": "PSP171",
@@ -737,7 +737,7 @@
       "makespan": 33,
       "temporal_lower_bound": 33,
       "ratio": 1.0,
-      "runtime_seconds": 0.0003949999991164077,
+      "runtime_seconds": 0.0005175839978619479,
       "restarts": 1
     },
     {
@@ -746,8 +746,8 @@
       "makespan": 37,
       "temporal_lower_bound": 37,
       "ratio": 1.0,
-      "runtime_seconds": 0.5503472909986158,
-      "restarts": 539
+      "runtime_seconds": 0.2003855829971144,
+      "restarts": 335
     },
     {
       "instance": "PSP173",
@@ -755,7 +755,7 @@
       "makespan": 32,
       "temporal_lower_bound": 32,
       "ratio": 1.0,
-      "runtime_seconds": 0.00038891599979251623,
+      "runtime_seconds": 0.00039937499968800694,
       "restarts": 1
     },
     {
@@ -764,8 +764,8 @@
       "makespan": 50,
       "temporal_lower_bound": 50,
       "ratio": 1.0,
-      "runtime_seconds": 0.5504713750015071,
-      "restarts": 534
+      "runtime_seconds": 0.550419499995769,
+      "restarts": 379
     },
     {
       "instance": "PSP175",
@@ -773,8 +773,8 @@
       "makespan": 19,
       "temporal_lower_bound": 16,
       "ratio": 1.1875,
-      "runtime_seconds": 0.5519981249999546,
-      "restarts": 617
+      "runtime_seconds": 1.0001634579966776,
+      "restarts": 553
     },
     {
       "instance": "PSP176",
@@ -782,8 +782,8 @@
       "makespan": 57,
       "temporal_lower_bound": 55,
       "ratio": 1.0363636363636364,
-      "runtime_seconds": 0.5540252920000057,
-      "restarts": 488
+      "runtime_seconds": 1.0054075000007288,
+      "restarts": 478
     },
     {
       "instance": "PSP177",
@@ -791,7 +791,7 @@
       "makespan": 62,
       "temporal_lower_bound": 62,
       "ratio": 1.0,
-      "runtime_seconds": 0.00045937500181025825,
+      "runtime_seconds": 0.0004855410006712191,
       "restarts": 1
     },
     {
@@ -800,7 +800,7 @@
       "makespan": 55,
       "temporal_lower_bound": 55,
       "ratio": 1.0,
-      "runtime_seconds": 0.0005624580007861368,
+      "runtime_seconds": 0.0005967079996480606,
       "restarts": 1
     },
     {
@@ -809,8 +809,8 @@
       "makespan": 33,
       "temporal_lower_bound": 28,
       "ratio": 1.1785714285714286,
-      "runtime_seconds": 0.5506631669995841,
-      "restarts": 612
+      "runtime_seconds": 1.0001863750003395,
+      "restarts": 590
     },
     {
       "instance": "PSP18",
@@ -818,8 +818,8 @@
       "makespan": 27,
       "temporal_lower_bound": 26,
       "ratio": 1.0384615384615385,
-      "runtime_seconds": 0.5516436670004623,
-      "restarts": 362
+      "runtime_seconds": 1.0012463329985621,
+      "restarts": 355
     },
     {
       "instance": "PSP180",
@@ -827,7 +827,7 @@
       "makespan": null,
       "temporal_lower_bound": 40,
       "ratio": null,
-      "runtime_seconds": 6.270799713092856e-05,
+      "runtime_seconds": 5.8999998145736754e-05,
       "restarts": 0
     },
     {
@@ -836,8 +836,8 @@
       "makespan": 46,
       "temporal_lower_bound": 36,
       "ratio": 1.2777777777777777,
-      "runtime_seconds": 0.5516390829980082,
-      "restarts": 336
+      "runtime_seconds": 1.0002323750013602,
+      "restarts": 321
     },
     {
       "instance": "PSP182",
@@ -845,8 +845,8 @@
       "makespan": 44,
       "temporal_lower_bound": 37,
       "ratio": 1.1891891891891893,
-      "runtime_seconds": 0.55093358400336,
-      "restarts": 519
+      "runtime_seconds": 1.000206042001082,
+      "restarts": 507
     },
     {
       "instance": "PSP183",
@@ -854,7 +854,7 @@
       "makespan": 40,
       "temporal_lower_bound": 24,
       "ratio": 1.6666666666666667,
-      "runtime_seconds": 0.5564384159988549,
+      "runtime_seconds": 1.0033172499970533,
       "restarts": 1
     },
     {
@@ -863,7 +863,7 @@
       "makespan": null,
       "temporal_lower_bound": 30,
       "ratio": null,
-      "runtime_seconds": 0.2029213339992566,
+      "runtime_seconds": 0.20431724999798462,
       "restarts": 0
     },
     {
@@ -872,7 +872,7 @@
       "makespan": null,
       "temporal_lower_bound": 30,
       "ratio": null,
-      "runtime_seconds": 6.341700282064267e-05,
+      "runtime_seconds": 6.437500269385055e-05,
       "restarts": 0
     },
     {
@@ -881,8 +881,8 @@
       "makespan": 30,
       "temporal_lower_bound": 21,
       "ratio": 1.4285714285714286,
-      "runtime_seconds": 0.5507834580021154,
-      "restarts": 417
+      "runtime_seconds": 1.0000233329992625,
+      "restarts": 398
     },
     {
       "instance": "PSP187",
@@ -890,7 +890,7 @@
       "makespan": 77,
       "temporal_lower_bound": 64,
       "ratio": 1.203125,
-      "runtime_seconds": 0.20330791699961992,
+      "runtime_seconds": 1.0039838340017013,
       "restarts": 0
     },
     {
@@ -899,8 +899,8 @@
       "makespan": 38,
       "temporal_lower_bound": 35,
       "ratio": 1.0857142857142856,
-      "runtime_seconds": 0.5547535410005366,
-      "restarts": 496
+      "runtime_seconds": 1.007949833998282,
+      "restarts": 450
     },
     {
       "instance": "PSP189",
@@ -908,8 +908,8 @@
       "makespan": 33,
       "temporal_lower_bound": 32,
       "ratio": 1.03125,
-      "runtime_seconds": 0.5506493329994555,
-      "restarts": 558
+      "runtime_seconds": 1.0000582089996897,
+      "restarts": 235
     },
     {
       "instance": "PSP19",
@@ -917,7 +917,7 @@
       "makespan": 29,
       "temporal_lower_bound": 20,
       "ratio": 1.45,
-      "runtime_seconds": 0.553454791999684,
+      "runtime_seconds": 1.003065584001888,
       "restarts": 1
     },
     {
@@ -926,8 +926,8 @@
       "makespan": 53,
       "temporal_lower_bound": 49,
       "ratio": 1.0816326530612246,
-      "runtime_seconds": 0.5505505000000994,
-      "restarts": 619
+      "runtime_seconds": 1.0002599579966045,
+      "restarts": 546
     },
     {
       "instance": "PSP191",
@@ -935,17 +935,17 @@
       "makespan": 78,
       "temporal_lower_bound": 65,
       "ratio": 1.2,
-      "runtime_seconds": 0.5507757080013107,
-      "restarts": 344
+      "runtime_seconds": 1.0000385000021197,
+      "restarts": 337
     },
     {
       "instance": "PSP192",
       "status": "feasible",
-      "makespan": 53,
+      "makespan": 52,
       "temporal_lower_bound": 46,
-      "ratio": 1.1521739130434783,
-      "runtime_seconds": 0.5512510419976024,
-      "restarts": 339
+      "ratio": 1.1304347826086956,
+      "runtime_seconds": 1.0011241669999436,
+      "restarts": 345
     },
     {
       "instance": "PSP193",
@@ -953,7 +953,7 @@
       "makespan": null,
       "temporal_lower_bound": 81,
       "ratio": null,
-      "runtime_seconds": 5.804200191050768e-05,
+      "runtime_seconds": 5.479199899127707e-05,
       "restarts": 0
     },
     {
@@ -962,7 +962,7 @@
       "makespan": 39,
       "temporal_lower_bound": 36,
       "ratio": 1.0833333333333333,
-      "runtime_seconds": 0.557963084000221,
+      "runtime_seconds": 1.0058724159971462,
       "restarts": 1
     },
     {
@@ -971,7 +971,7 @@
       "makespan": null,
       "temporal_lower_bound": 49,
       "ratio": null,
-      "runtime_seconds": 1.424999936716631e-05,
+      "runtime_seconds": 1.4082994312047958e-05,
       "restarts": 0
     },
     {
@@ -980,7 +980,7 @@
       "makespan": null,
       "temporal_lower_bound": 82,
       "ratio": null,
-      "runtime_seconds": 1.3374999980442226e-05,
+      "runtime_seconds": 1.2707998394034803e-05,
       "restarts": 0
     },
     {
@@ -989,7 +989,7 @@
       "makespan": null,
       "temporal_lower_bound": 64,
       "ratio": null,
-      "runtime_seconds": 5.087500176159665e-05,
+      "runtime_seconds": 5.108299956191331e-05,
       "restarts": 0
     },
     {
@@ -998,7 +998,7 @@
       "makespan": null,
       "temporal_lower_bound": 51,
       "ratio": null,
-      "runtime_seconds": 1.2290998711250722e-05,
+      "runtime_seconds": 1.2167001841589808e-05,
       "restarts": 0
     },
     {
@@ -1007,8 +1007,8 @@
       "makespan": 45,
       "temporal_lower_bound": 35,
       "ratio": 1.2857142857142858,
-      "runtime_seconds": 0.5505497919984919,
-      "restarts": 433
+      "runtime_seconds": 1.0002165000041714,
+      "restarts": 418
     },
     {
       "instance": "PSP2",
@@ -1016,17 +1016,17 @@
       "makespan": null,
       "temporal_lower_bound": 24,
       "ratio": null,
-      "runtime_seconds": 4.0916998841566965e-05,
+      "runtime_seconds": 4.233299841871485e-05,
       "restarts": 0
     },
     {
       "instance": "PSP20",
       "status": "feasible",
-      "makespan": 40,
+      "makespan": 39,
       "temporal_lower_bound": 30,
-      "ratio": 1.3333333333333333,
-      "runtime_seconds": 0.558632291998947,
-      "restarts": 319
+      "ratio": 1.3,
+      "runtime_seconds": 1.0070692500012228,
+      "restarts": 310
     },
     {
       "instance": "PSP200",
@@ -1034,8 +1034,8 @@
       "makespan": 46,
       "temporal_lower_bound": 43,
       "ratio": 1.069767441860465,
-      "runtime_seconds": 0.5507568749999336,
-      "restarts": 587
+      "runtime_seconds": 1.0002563749949331,
+      "restarts": 569
     },
     {
       "instance": "PSP201",
@@ -1043,7 +1043,7 @@
       "makespan": null,
       "temporal_lower_bound": 43,
       "ratio": null,
-      "runtime_seconds": 1.5459001588169485e-05,
+      "runtime_seconds": 1.5000005078036338e-05,
       "restarts": 0
     },
     {
@@ -1052,7 +1052,7 @@
       "makespan": null,
       "temporal_lower_bound": 65,
       "ratio": null,
-      "runtime_seconds": 1.541700112284161e-05,
+      "runtime_seconds": 1.4416997146327049e-05,
       "restarts": 0
     },
     {
@@ -1061,8 +1061,8 @@
       "makespan": 44,
       "temporal_lower_bound": 43,
       "ratio": 1.0232558139534884,
-      "runtime_seconds": 0.5503719580010511,
-      "restarts": 745
+      "runtime_seconds": 1.00017854100588,
+      "restarts": 715
     },
     {
       "instance": "PSP204",
@@ -1070,7 +1070,7 @@
       "makespan": null,
       "temporal_lower_bound": 39,
       "ratio": null,
-      "runtime_seconds": 5.295799928717315e-05,
+      "runtime_seconds": 5.295900336932391e-05,
       "restarts": 0
     },
     {
@@ -1079,7 +1079,7 @@
       "makespan": null,
       "temporal_lower_bound": 13,
       "ratio": null,
-      "runtime_seconds": 5.0416001613484696e-05,
+      "runtime_seconds": 4.462499782675877e-05,
       "restarts": 0
     },
     {
@@ -1088,8 +1088,8 @@
       "makespan": 53,
       "temporal_lower_bound": 43,
       "ratio": 1.2325581395348837,
-      "runtime_seconds": 0.5506726670028002,
-      "restarts": 387
+      "runtime_seconds": 1.0002891249969252,
+      "restarts": 376
     },
     {
       "instance": "PSP207",
@@ -1097,7 +1097,7 @@
       "makespan": 66,
       "temporal_lower_bound": 65,
       "ratio": 1.0153846153846153,
-      "runtime_seconds": 0.20412441699954798,
+      "runtime_seconds": 1.0069380419954541,
       "restarts": 0
     },
     {
@@ -1106,7 +1106,7 @@
       "makespan": null,
       "temporal_lower_bound": 48,
       "ratio": null,
-      "runtime_seconds": 1.5083998732734472e-05,
+      "runtime_seconds": 1.6915997548494488e-05,
       "restarts": 0
     },
     {
@@ -1115,7 +1115,7 @@
       "makespan": null,
       "temporal_lower_bound": 40,
       "ratio": null,
-      "runtime_seconds": 1.5583002095809206e-05,
+      "runtime_seconds": 1.4208999346010387e-05,
       "restarts": 0
     },
     {
@@ -1124,8 +1124,8 @@
       "makespan": 37,
       "temporal_lower_bound": 30,
       "ratio": 1.2333333333333334,
-      "runtime_seconds": 0.5505595419999736,
-      "restarts": 562
+      "runtime_seconds": 1.000228333999985,
+      "restarts": 551
     },
     {
       "instance": "PSP210",
@@ -1133,7 +1133,7 @@
       "makespan": 44,
       "temporal_lower_bound": 44,
       "ratio": 1.0,
-      "runtime_seconds": 0.00038295799822662957,
+      "runtime_seconds": 0.00041208299808204174,
       "restarts": 1
     },
     {
@@ -1142,7 +1142,7 @@
       "makespan": null,
       "temporal_lower_bound": 52,
       "ratio": null,
-      "runtime_seconds": 7.92499995441176e-05,
+      "runtime_seconds": 6.787500024074689e-05,
       "restarts": 0
     },
     {
@@ -1151,8 +1151,8 @@
       "makespan": 66,
       "temporal_lower_bound": 56,
       "ratio": 1.1785714285714286,
-      "runtime_seconds": 0.5507730839999567,
-      "restarts": 398
+      "runtime_seconds": 1.0002122500009136,
+      "restarts": 376
     },
     {
       "instance": "PSP213",
@@ -1160,8 +1160,8 @@
       "makespan": 53,
       "temporal_lower_bound": 49,
       "ratio": 1.0816326530612246,
-      "runtime_seconds": 0.5511259170016274,
-      "restarts": 408
+      "runtime_seconds": 1.0001029999984894,
+      "restarts": 374
     },
     {
       "instance": "PSP214",
@@ -1169,8 +1169,8 @@
       "makespan": 37,
       "temporal_lower_bound": 25,
       "ratio": 1.48,
-      "runtime_seconds": 0.5519637920006062,
-      "restarts": 519
+      "runtime_seconds": 1.0001467499969294,
+      "restarts": 481
     },
     {
       "instance": "PSP215",
@@ -1178,7 +1178,7 @@
       "makespan": null,
       "temporal_lower_bound": 35,
       "ratio": null,
-      "runtime_seconds": 6.162499994388781e-05,
+      "runtime_seconds": 5.4416996135842055e-05,
       "restarts": 0
     },
     {
@@ -1187,8 +1187,8 @@
       "makespan": 45,
       "temporal_lower_bound": 34,
       "ratio": 1.3235294117647058,
-      "runtime_seconds": 0.5519327500005602,
-      "restarts": 198
+      "runtime_seconds": 1.000239667002461,
+      "restarts": 340
     },
     {
       "instance": "PSP217",
@@ -1196,8 +1196,8 @@
       "makespan": 74,
       "temporal_lower_bound": 58,
       "ratio": 1.2758620689655173,
-      "runtime_seconds": 0.551715833000344,
-      "restarts": 222
+      "runtime_seconds": 1.0002215839995188,
+      "restarts": 257
     },
     {
       "instance": "PSP218",
@@ -1205,7 +1205,7 @@
       "makespan": null,
       "temporal_lower_bound": 28,
       "ratio": null,
-      "runtime_seconds": 6.229100108612329e-05,
+      "runtime_seconds": 6.808300531702116e-05,
       "restarts": 0
     },
     {
@@ -1214,8 +1214,8 @@
       "makespan": 59,
       "temporal_lower_bound": 52,
       "ratio": 1.1346153846153846,
-      "runtime_seconds": 0.5571392499987269,
-      "restarts": 148
+      "runtime_seconds": 1.0002711659981287,
+      "restarts": 105
     },
     {
       "instance": "PSP22",
@@ -1223,8 +1223,8 @@
       "makespan": 38,
       "temporal_lower_bound": 29,
       "ratio": 1.3103448275862069,
-      "runtime_seconds": 0.5555791670012695,
-      "restarts": 136
+      "runtime_seconds": 1.0026562499988358,
+      "restarts": 263
     },
     {
       "instance": "PSP220",
@@ -1232,16 +1232,16 @@
       "makespan": null,
       "temporal_lower_bound": 64,
       "ratio": null,
-      "runtime_seconds": 6.4208001276711e-05,
+      "runtime_seconds": 6.045900227036327e-05,
       "restarts": 0
     },
     {
       "instance": "PSP221",
       "status": "feasible",
-      "makespan": 39,
+      "makespan": 38,
       "temporal_lower_bound": 24,
-      "ratio": 1.625,
-      "runtime_seconds": 0.5597257080007694,
+      "ratio": 1.5833333333333333,
+      "runtime_seconds": 1.0030867910027155,
       "restarts": 1
     },
     {
@@ -1250,8 +1250,8 @@
       "makespan": 74,
       "temporal_lower_bound": 64,
       "ratio": 1.15625,
-      "runtime_seconds": 0.550874707998446,
-      "restarts": 283
+      "runtime_seconds": 1.000306374997308,
+      "restarts": 330
     },
     {
       "instance": "PSP223",
@@ -1259,7 +1259,7 @@
       "makespan": 92,
       "temporal_lower_bound": 42,
       "ratio": 2.1904761904761907,
-      "runtime_seconds": 0.5566039999976056,
+      "runtime_seconds": 1.0049744589996408,
       "restarts": 1
     },
     {
@@ -1268,8 +1268,8 @@
       "makespan": 91,
       "temporal_lower_bound": 74,
       "ratio": 1.2297297297297298,
-      "runtime_seconds": 0.5509602499987523,
-      "restarts": 257
+      "runtime_seconds": 1.0001429160038242,
+      "restarts": 344
     },
     {
       "instance": "PSP225",
@@ -1277,7 +1277,7 @@
       "makespan": null,
       "temporal_lower_bound": 33,
       "ratio": null,
-      "runtime_seconds": 6.54579998808913e-05,
+      "runtime_seconds": 5.733400030294433e-05,
       "restarts": 0
     },
     {
@@ -1286,8 +1286,8 @@
       "makespan": 68,
       "temporal_lower_bound": 62,
       "ratio": 1.096774193548387,
-      "runtime_seconds": 0.5514164999985951,
-      "restarts": 409
+      "runtime_seconds": 1.0000716250069672,
+      "restarts": 382
     },
     {
       "instance": "PSP227",
@@ -1295,7 +1295,7 @@
       "makespan": 59,
       "temporal_lower_bound": 59,
       "ratio": 1.0,
-      "runtime_seconds": 0.0006462499986810144,
+      "runtime_seconds": 0.0004749590007122606,
       "restarts": 1
     },
     {
@@ -1304,8 +1304,8 @@
       "makespan": 50,
       "temporal_lower_bound": 38,
       "ratio": 1.3157894736842106,
-      "runtime_seconds": 0.5513084580015857,
-      "restarts": 341
+      "runtime_seconds": 1.000153541994223,
+      "restarts": 418
     },
     {
       "instance": "PSP229",
@@ -1313,7 +1313,7 @@
       "makespan": 73,
       "temporal_lower_bound": 64,
       "ratio": 1.140625,
-      "runtime_seconds": 0.20393662500282517,
+      "runtime_seconds": 1.0033546249978826,
       "restarts": 0
     },
     {
@@ -1322,7 +1322,7 @@
       "makespan": 34,
       "temporal_lower_bound": 34,
       "ratio": 1.0,
-      "runtime_seconds": 0.0008949160001066048,
+      "runtime_seconds": 0.00048616699496051297,
       "restarts": 1
     },
     {
@@ -1331,8 +1331,8 @@
       "makespan": 58,
       "temporal_lower_bound": 51,
       "ratio": 1.1372549019607843,
-      "runtime_seconds": 0.552962124998885,
-      "restarts": 144
+      "runtime_seconds": 1.0002638750011101,
+      "restarts": 258
     },
     {
       "instance": "PSP231",
@@ -1340,8 +1340,8 @@
       "makespan": 51,
       "temporal_lower_bound": 49,
       "ratio": 1.0408163265306123,
-      "runtime_seconds": 0.550564499997563,
-      "restarts": 356
+      "runtime_seconds": 1.0001998340012506,
+      "restarts": 417
     },
     {
       "instance": "PSP232",
@@ -1349,7 +1349,7 @@
       "makespan": 46,
       "temporal_lower_bound": 46,
       "ratio": 1.0,
-      "runtime_seconds": 0.20439312500093365,
+      "runtime_seconds": 0.20407274999888614,
       "restarts": 0
     },
     {
@@ -1358,8 +1358,8 @@
       "makespan": 56,
       "temporal_lower_bound": 47,
       "ratio": 1.1914893617021276,
-      "runtime_seconds": 0.550459417001548,
-      "restarts": 444
+      "runtime_seconds": 1.0002950410053018,
+      "restarts": 477
     },
     {
       "instance": "PSP234",
@@ -1367,7 +1367,7 @@
       "makespan": null,
       "temporal_lower_bound": 37,
       "ratio": null,
-      "runtime_seconds": 5.687500015483238e-05,
+      "runtime_seconds": 6.054199911886826e-05,
       "restarts": 0
     },
     {
@@ -1376,8 +1376,8 @@
       "makespan": 43,
       "temporal_lower_bound": 36,
       "ratio": 1.1944444444444444,
-      "runtime_seconds": 0.5502597080012492,
-      "restarts": 427
+      "runtime_seconds": 1.000292917000479,
+      "restarts": 424
     },
     {
       "instance": "PSP236",
@@ -1385,8 +1385,8 @@
       "makespan": 36,
       "temporal_lower_bound": 34,
       "ratio": 1.0588235294117647,
-      "runtime_seconds": 0.5506422920007026,
-      "restarts": 499
+      "runtime_seconds": 1.0002542500005802,
+      "restarts": 359
     },
     {
       "instance": "PSP237",
@@ -1394,7 +1394,7 @@
       "makespan": null,
       "temporal_lower_bound": 49,
       "ratio": null,
-      "runtime_seconds": 7.337499846471474e-05,
+      "runtime_seconds": 5.879200034542009e-05,
       "restarts": 0
     },
     {
@@ -1403,8 +1403,8 @@
       "makespan": 49,
       "temporal_lower_bound": 32,
       "ratio": 1.53125,
-      "runtime_seconds": 0.5508059999992838,
-      "restarts": 417
+      "runtime_seconds": 1.0002996249968419,
+      "restarts": 371
     },
     {
       "instance": "PSP239",
@@ -1412,7 +1412,7 @@
       "makespan": null,
       "temporal_lower_bound": 60,
       "ratio": null,
-      "runtime_seconds": 1.3249999028630555e-05,
+      "runtime_seconds": 1.3457996828947216e-05,
       "restarts": 0
     },
     {
@@ -1421,7 +1421,7 @@
       "makespan": 33,
       "temporal_lower_bound": 33,
       "ratio": 1.0,
-      "runtime_seconds": 0.00031237499933922663,
+      "runtime_seconds": 0.0003184590023010969,
       "restarts": 1
     },
     {
@@ -1430,8 +1430,8 @@
       "makespan": 47,
       "temporal_lower_bound": 46,
       "ratio": 1.0217391304347827,
-      "runtime_seconds": 0.5505135000021255,
-      "restarts": 376
+      "runtime_seconds": 1.0001324170007138,
+      "restarts": 335
     },
     {
       "instance": "PSP241",
@@ -1439,8 +1439,8 @@
       "makespan": 94,
       "temporal_lower_bound": 79,
       "ratio": 1.1898734177215189,
-      "runtime_seconds": 0.5506403340004908,
-      "restarts": 332
+      "runtime_seconds": 1.0002691670015338,
+      "restarts": 306
     },
     {
       "instance": "PSP242",
@@ -1448,7 +1448,7 @@
       "makespan": 70,
       "temporal_lower_bound": 55,
       "ratio": 1.2727272727272727,
-      "runtime_seconds": 0.5568689579995407,
+      "runtime_seconds": 1.00466458399751,
       "restarts": 10
     },
     {
@@ -1457,7 +1457,7 @@
       "makespan": null,
       "temporal_lower_bound": 30,
       "ratio": null,
-      "runtime_seconds": 0.20307145900005708,
+      "runtime_seconds": 0.20319049999670824,
       "restarts": 0
     },
     {
@@ -1466,7 +1466,7 @@
       "makespan": null,
       "temporal_lower_bound": 54,
       "ratio": null,
-      "runtime_seconds": 6.841600043117069e-05,
+      "runtime_seconds": 5.529100599233061e-05,
       "restarts": 0
     },
     {
@@ -1475,7 +1475,7 @@
       "makespan": null,
       "temporal_lower_bound": 39,
       "ratio": null,
-      "runtime_seconds": 5.983300070511177e-05,
+      "runtime_seconds": 5.6666001910343766e-05,
       "restarts": 0
     },
     {
@@ -1484,7 +1484,7 @@
       "makespan": null,
       "temporal_lower_bound": 25,
       "ratio": null,
-      "runtime_seconds": 5.020800017518923e-05,
+      "runtime_seconds": 5.491699994308874e-05,
       "restarts": 0
     },
     {
@@ -1493,7 +1493,7 @@
       "makespan": null,
       "temporal_lower_bound": 38,
       "ratio": null,
-      "runtime_seconds": 5.541700011235662e-05,
+      "runtime_seconds": 6.012499943608418e-05,
       "restarts": 0
     },
     {
@@ -1502,8 +1502,8 @@
       "makespan": 65,
       "temporal_lower_bound": 45,
       "ratio": 1.4444444444444444,
-      "runtime_seconds": 0.5523662500017963,
-      "restarts": 311
+      "runtime_seconds": 1.000292915996397,
+      "restarts": 304
     },
     {
       "instance": "PSP249",
@@ -1511,8 +1511,8 @@
       "makespan": 61,
       "temporal_lower_bound": 53,
       "ratio": 1.150943396226415,
-      "runtime_seconds": 0.5507757919986034,
-      "restarts": 410
+      "runtime_seconds": 1.0001927909979713,
+      "restarts": 400
     },
     {
       "instance": "PSP25",
@@ -1520,8 +1520,8 @@
       "makespan": 40,
       "temporal_lower_bound": 35,
       "ratio": 1.1428571428571428,
-      "runtime_seconds": 0.5562161669986381,
-      "restarts": 1
+      "runtime_seconds": 1.0059422920021461,
+      "restarts": 0
     },
     {
       "instance": "PSP250",
@@ -1529,7 +1529,7 @@
       "makespan": null,
       "temporal_lower_bound": 57,
       "ratio": null,
-      "runtime_seconds": 5.1250000979052857e-05,
+      "runtime_seconds": 4.9583002692088485e-05,
       "restarts": 0
     },
     {
@@ -1538,8 +1538,8 @@
       "makespan": 61,
       "temporal_lower_bound": 50,
       "ratio": 1.22,
-      "runtime_seconds": 0.5532736670029408,
-      "restarts": 335
+      "runtime_seconds": 1.0035432500008028,
+      "restarts": 328
     },
     {
       "instance": "PSP252",
@@ -1547,7 +1547,7 @@
       "makespan": null,
       "temporal_lower_bound": 60,
       "ratio": null,
-      "runtime_seconds": 0.20215662500049802,
+      "runtime_seconds": 0.20227687499573221,
       "restarts": 0
     },
     {
@@ -1556,7 +1556,7 @@
       "makespan": null,
       "temporal_lower_bound": 21,
       "ratio": null,
-      "runtime_seconds": 5.166700066183694e-05,
+      "runtime_seconds": 5.0417002057656646e-05,
       "restarts": 0
     },
     {
@@ -1565,7 +1565,7 @@
       "makespan": null,
       "temporal_lower_bound": 47,
       "ratio": null,
-      "runtime_seconds": 5.8000001445179805e-05,
+      "runtime_seconds": 5.887499719392508e-05,
       "restarts": 0
     },
     {
@@ -1574,8 +1574,8 @@
       "makespan": 48,
       "temporal_lower_bound": 29,
       "ratio": 1.6551724137931034,
-      "runtime_seconds": 0.5525679999991553,
-      "restarts": 333
+      "runtime_seconds": 1.0026885839979514,
+      "restarts": 315
     },
     {
       "instance": "PSP256",
@@ -1583,8 +1583,8 @@
       "makespan": 52,
       "temporal_lower_bound": 31,
       "ratio": 1.6774193548387097,
-      "runtime_seconds": 0.5510151669986953,
-      "restarts": 323
+      "runtime_seconds": 1.0002986660038005,
+      "restarts": 333
     },
     {
       "instance": "PSP257",
@@ -1592,8 +1592,8 @@
       "makespan": 60,
       "temporal_lower_bound": 52,
       "ratio": 1.1538461538461537,
-      "runtime_seconds": 0.5511597909971897,
-      "restarts": 370
+      "runtime_seconds": 1.000291208998533,
+      "restarts": 356
     },
     {
       "instance": "PSP258",
@@ -1601,7 +1601,7 @@
       "makespan": null,
       "temporal_lower_bound": 43,
       "ratio": null,
-      "runtime_seconds": 5.020800017518923e-05,
+      "runtime_seconds": 5.2833005611319095e-05,
       "restarts": 0
     },
     {
@@ -1610,8 +1610,8 @@
       "makespan": 45,
       "temporal_lower_bound": 22,
       "ratio": 2.0454545454545454,
-      "runtime_seconds": 0.551144541001122,
-      "restarts": 416
+      "runtime_seconds": 1.0001792920011212,
+      "restarts": 392
     },
     {
       "instance": "PSP26",
@@ -1619,7 +1619,7 @@
       "makespan": null,
       "temporal_lower_bound": 54,
       "ratio": null,
-      "runtime_seconds": 1.4833000022917986e-05,
+      "runtime_seconds": 1.4583005395252258e-05,
       "restarts": 0
     },
     {
@@ -1628,7 +1628,7 @@
       "makespan": 32,
       "temporal_lower_bound": 18,
       "ratio": 1.7777777777777777,
-      "runtime_seconds": 0.20441820800260757,
+      "runtime_seconds": 1.003821667000011,
       "restarts": 0
     },
     {
@@ -1637,7 +1637,7 @@
       "makespan": null,
       "temporal_lower_bound": 46,
       "ratio": null,
-      "runtime_seconds": 5.0917002226924524e-05,
+      "runtime_seconds": 5.775000317953527e-05,
       "restarts": 0
     },
     {
@@ -1646,8 +1646,8 @@
       "makespan": 63,
       "temporal_lower_bound": 58,
       "ratio": 1.0862068965517242,
-      "runtime_seconds": 0.5521994580012688,
-      "restarts": 357
+      "runtime_seconds": 1.0002054590004263,
+      "restarts": 333
     },
     {
       "instance": "PSP263",
@@ -1655,8 +1655,8 @@
       "makespan": 64,
       "temporal_lower_bound": 56,
       "ratio": 1.1428571428571428,
-      "runtime_seconds": 0.5508042090004892,
-      "restarts": 286
+      "runtime_seconds": 1.000186291996215,
+      "restarts": 463
     },
     {
       "instance": "PSP264",
@@ -1664,8 +1664,8 @@
       "makespan": 78,
       "temporal_lower_bound": 68,
       "ratio": 1.1470588235294117,
-      "runtime_seconds": 0.5506046250011423,
-      "restarts": 272
+      "runtime_seconds": 1.0000777500026743,
+      "restarts": 363
     },
     {
       "instance": "PSP265",
@@ -1673,7 +1673,7 @@
       "makespan": null,
       "temporal_lower_bound": 37,
       "ratio": null,
-      "runtime_seconds": 0.0002717499992286321,
+      "runtime_seconds": 5.287499516271055e-05,
       "restarts": 0
     },
     {
@@ -1682,7 +1682,7 @@
       "makespan": null,
       "temporal_lower_bound": 53,
       "ratio": null,
-      "runtime_seconds": 7.391600229311734e-05,
+      "runtime_seconds": 5.937500100117177e-05,
       "restarts": 0
     },
     {
@@ -1691,8 +1691,8 @@
       "makespan": 60,
       "temporal_lower_bound": 57,
       "ratio": 1.0526315789473684,
-      "runtime_seconds": 0.5505193339995458,
-      "restarts": 333
+      "runtime_seconds": 1.0003244999970775,
+      "restarts": 424
     },
     {
       "instance": "PSP268",
@@ -1700,8 +1700,8 @@
       "makespan": 36,
       "temporal_lower_bound": 28,
       "ratio": 1.2857142857142858,
-      "runtime_seconds": 0.5508862919996318,
-      "restarts": 399
+      "runtime_seconds": 1.0001943750030478,
+      "restarts": 430
     },
     {
       "instance": "PSP269",
@@ -1709,8 +1709,8 @@
       "makespan": 35,
       "temporal_lower_bound": 34,
       "ratio": 1.0294117647058822,
-      "runtime_seconds": 0.5503002500008733,
-      "restarts": 487
+      "runtime_seconds": 1.0002052499985439,
+      "restarts": 583
     },
     {
       "instance": "PSP27",
@@ -1718,7 +1718,7 @@
       "makespan": null,
       "temporal_lower_bound": 40,
       "ratio": null,
-      "runtime_seconds": 1.270900247618556e-05,
+      "runtime_seconds": 1.3084005331620574e-05,
       "restarts": 0
     },
     {
@@ -1727,7 +1727,7 @@
       "makespan": 75,
       "temporal_lower_bound": 52,
       "ratio": 1.4423076923076923,
-      "runtime_seconds": 0.20637400000123307,
+      "runtime_seconds": 1.0070829589967616,
       "restarts": 0
     },
     {
@@ -1736,8 +1736,8 @@
       "makespan": 34,
       "temporal_lower_bound": 31,
       "ratio": 1.096774193548387,
-      "runtime_seconds": 0.5508488749983371,
-      "restarts": 588
+      "runtime_seconds": 1.0002146250044461,
+      "restarts": 645
     },
     {
       "instance": "PSP29",
@@ -1745,8 +1745,8 @@
       "makespan": 32,
       "temporal_lower_bound": 26,
       "ratio": 1.2307692307692308,
-      "runtime_seconds": 0.5514453329997195,
-      "restarts": 434
+      "runtime_seconds": 1.0014862079988234,
+      "restarts": 408
     },
     {
       "instance": "PSP3",
@@ -1754,8 +1754,8 @@
       "makespan": 36,
       "temporal_lower_bound": 28,
       "ratio": 1.2857142857142858,
-      "runtime_seconds": 0.557067083002039,
-      "restarts": 314
+      "runtime_seconds": 1.0029008749988861,
+      "restarts": 228
     },
     {
       "instance": "PSP30",
@@ -1763,7 +1763,7 @@
       "makespan": 32,
       "temporal_lower_bound": 23,
       "ratio": 1.391304347826087,
-      "runtime_seconds": 0.20462441599738668,
+      "runtime_seconds": 1.0002495419976185,
       "restarts": 0
     },
     {
@@ -1772,7 +1772,7 @@
       "makespan": null,
       "temporal_lower_bound": 27,
       "ratio": null,
-      "runtime_seconds": 5.2292001782916486e-05,
+      "runtime_seconds": 5.120900459587574e-05,
       "restarts": 0
     },
     {
@@ -1781,7 +1781,7 @@
       "makespan": null,
       "temporal_lower_bound": 46,
       "ratio": null,
-      "runtime_seconds": 5.1416998758213595e-05,
+      "runtime_seconds": 4.774999979417771e-05,
       "restarts": 0
     },
     {
@@ -1790,8 +1790,8 @@
       "makespan": 70,
       "temporal_lower_bound": 24,
       "ratio": 2.9166666666666665,
-      "runtime_seconds": 0.7921899169996323,
-      "restarts": 212
+      "runtime_seconds": 1.0000607500041951,
+      "restarts": 213
     },
     {
       "instance": "PSP34",
@@ -1799,7 +1799,7 @@
       "makespan": 58,
       "temporal_lower_bound": 21,
       "ratio": 2.761904761904762,
-      "runtime_seconds": 0.2838492079972639,
+      "runtime_seconds": 1.0042747909974423,
       "restarts": 0
     },
     {
@@ -1808,8 +1808,8 @@
       "makespan": 45,
       "temporal_lower_bound": 26,
       "ratio": 1.7307692307692308,
-      "runtime_seconds": 0.590209624999261,
-      "restarts": 300
+      "runtime_seconds": 1.0002574589962023,
+      "restarts": 305
     },
     {
       "instance": "PSP36",
@@ -1817,7 +1817,7 @@
       "makespan": 55,
       "temporal_lower_bound": 26,
       "ratio": 2.1153846153846154,
-      "runtime_seconds": 0.20582137500241515,
+      "runtime_seconds": 1.003109500001301,
       "restarts": 0
     },
     {
@@ -1826,8 +1826,8 @@
       "makespan": 32,
       "temporal_lower_bound": 24,
       "ratio": 1.3333333333333333,
-      "runtime_seconds": 0.5571979579981416,
-      "restarts": 379
+      "runtime_seconds": 1.0000821669964353,
+      "restarts": 396
     },
     {
       "instance": "PSP38",
@@ -1835,8 +1835,8 @@
       "makespan": 45,
       "temporal_lower_bound": 20,
       "ratio": 2.25,
-      "runtime_seconds": 0.5737279579989263,
-      "restarts": 220
+      "runtime_seconds": 1.0036631670009228,
+      "restarts": 240
     },
     {
       "instance": "PSP39",
@@ -1844,8 +1844,8 @@
       "makespan": 49,
       "temporal_lower_bound": 37,
       "ratio": 1.3243243243243243,
-      "runtime_seconds": 0.5564797500010172,
-      "restarts": 301
+      "runtime_seconds": 1.0046363750007004,
+      "restarts": 286
     },
     {
       "instance": "PSP4",
@@ -1853,8 +1853,8 @@
       "makespan": 39,
       "temporal_lower_bound": 29,
       "ratio": 1.3448275862068966,
-      "runtime_seconds": 0.5533361669986334,
-      "restarts": 275
+      "runtime_seconds": 1.0014583340016543,
+      "restarts": 274
     },
     {
       "instance": "PSP40",
@@ -1862,7 +1862,7 @@
       "makespan": null,
       "temporal_lower_bound": 22,
       "ratio": null,
-      "runtime_seconds": 5.2874998800689355e-05,
+      "runtime_seconds": 5.099999543745071e-05,
       "restarts": 0
     },
     {
@@ -1871,7 +1871,7 @@
       "makespan": null,
       "temporal_lower_bound": 31,
       "ratio": null,
-      "runtime_seconds": 4.8417001380585134e-05,
+      "runtime_seconds": 4.637499660020694e-05,
       "restarts": 0
     },
     {
@@ -1880,7 +1880,7 @@
       "makespan": null,
       "temporal_lower_bound": 25,
       "ratio": null,
-      "runtime_seconds": 0.20201558299959288,
+      "runtime_seconds": 0.20227129200065974,
       "restarts": 0
     },
     {
@@ -1889,8 +1889,8 @@
       "makespan": 32,
       "temporal_lower_bound": 23,
       "ratio": 1.391304347826087,
-      "runtime_seconds": 0.5520870830005151,
-      "restarts": 420
+      "runtime_seconds": 1.0034694170026341,
+      "restarts": 402
     },
     {
       "instance": "PSP44",
@@ -1898,8 +1898,8 @@
       "makespan": 37,
       "temporal_lower_bound": 21,
       "ratio": 1.7619047619047619,
-      "runtime_seconds": 0.5544442499995057,
-      "restarts": 314
+      "runtime_seconds": 1.0025723330036271,
+      "restarts": 302
     },
     {
       "instance": "PSP45",
@@ -1907,8 +1907,8 @@
       "makespan": 36,
       "temporal_lower_bound": 25,
       "ratio": 1.44,
-      "runtime_seconds": 0.5537147080030991,
-      "restarts": 328
+      "runtime_seconds": 1.0002898329985328,
+      "restarts": 329
     },
     {
       "instance": "PSP46",
@@ -1916,8 +1916,8 @@
       "makespan": 32,
       "temporal_lower_bound": 27,
       "ratio": 1.1851851851851851,
-      "runtime_seconds": 0.5560107910023362,
-      "restarts": 359
+      "runtime_seconds": 1.0039148750001914,
+      "restarts": 345
     },
     {
       "instance": "PSP47",
@@ -1925,7 +1925,7 @@
       "makespan": 35,
       "temporal_lower_bound": 31,
       "ratio": 1.1290322580645162,
-      "runtime_seconds": 0.5515124590019695,
+      "runtime_seconds": 1.0002137920018868,
       "restarts": 308
     },
     {
@@ -1934,7 +1934,7 @@
       "makespan": null,
       "temporal_lower_bound": 40,
       "ratio": null,
-      "runtime_seconds": 5.895800131838769e-05,
+      "runtime_seconds": 5.4333999287337065e-05,
       "restarts": 0
     },
     {
@@ -1943,7 +1943,7 @@
       "makespan": 27,
       "temporal_lower_bound": 22,
       "ratio": 1.2272727272727273,
-      "runtime_seconds": 0.5556757500016829,
+      "runtime_seconds": 1.0026058340008603,
       "restarts": 1
     },
     {
@@ -1952,7 +1952,7 @@
       "makespan": 32,
       "temporal_lower_bound": 22,
       "ratio": 1.4545454545454546,
-      "runtime_seconds": 0.20398983400082216,
+      "runtime_seconds": 1.0075583750003716,
       "restarts": 0
     },
     {
@@ -1961,8 +1961,8 @@
       "makespan": 68,
       "temporal_lower_bound": 46,
       "ratio": 1.4782608695652173,
-      "runtime_seconds": 0.5610319170009461,
-      "restarts": 202
+      "runtime_seconds": 1.0052578750037355,
+      "restarts": 201
     },
     {
       "instance": "PSP51",
@@ -1970,17 +1970,17 @@
       "makespan": null,
       "temporal_lower_bound": 33,
       "ratio": null,
-      "runtime_seconds": 1.166700167232193e-05,
+      "runtime_seconds": 1.3374999980442226e-05,
       "restarts": 0
     },
     {
       "instance": "PSP52",
       "status": "feasible",
-      "makespan": 31,
+      "makespan": 29,
       "temporal_lower_bound": 25,
-      "ratio": 1.24,
-      "runtime_seconds": 0.5540807499965013,
-      "restarts": 521
+      "ratio": 1.16,
+      "runtime_seconds": 1.0051672920017154,
+      "restarts": 520
     },
     {
       "instance": "PSP53",
@@ -1988,8 +1988,8 @@
       "makespan": 36,
       "temporal_lower_bound": 30,
       "ratio": 1.2,
-      "runtime_seconds": 0.551210749999882,
-      "restarts": 360
+      "runtime_seconds": 1.0040165419995901,
+      "restarts": 351
     },
     {
       "instance": "PSP54",
@@ -1997,8 +1997,8 @@
       "makespan": 32,
       "temporal_lower_bound": 27,
       "ratio": 1.1851851851851851,
-      "runtime_seconds": 0.5535028749982303,
-      "restarts": 338
+      "runtime_seconds": 1.0030609579989687,
+      "restarts": 337
     },
     {
       "instance": "PSP55",
@@ -2006,7 +2006,7 @@
       "makespan": null,
       "temporal_lower_bound": 12,
       "ratio": null,
-      "runtime_seconds": 4.762500248034485e-05,
+      "runtime_seconds": 4.937499761581421e-05,
       "restarts": 0
     },
     {
@@ -2015,8 +2015,8 @@
       "makespan": 34,
       "temporal_lower_bound": 33,
       "ratio": 1.0303030303030303,
-      "runtime_seconds": 0.5504287910007406,
-      "restarts": 654
+      "runtime_seconds": 1.0001108750002459,
+      "restarts": 652
     },
     {
       "instance": "PSP57",
@@ -2024,8 +2024,8 @@
       "makespan": 40,
       "temporal_lower_bound": 36,
       "ratio": 1.1111111111111112,
-      "runtime_seconds": 0.5509484579997661,
-      "restarts": 482
+      "runtime_seconds": 1.0002848750009434,
+      "restarts": 479
     },
     {
       "instance": "PSP58",
@@ -2033,8 +2033,8 @@
       "makespan": 20,
       "temporal_lower_bound": 19,
       "ratio": 1.0526315789473684,
-      "runtime_seconds": 0.5506825420015957,
-      "restarts": 647
+      "runtime_seconds": 1.0002333750016987,
+      "restarts": 638
     },
     {
       "instance": "PSP59",
@@ -2042,8 +2042,8 @@
       "makespan": 37,
       "temporal_lower_bound": 25,
       "ratio": 1.48,
-      "runtime_seconds": 0.5538339590020769,
-      "restarts": 509
+      "runtime_seconds": 1.004814540996449,
+      "restarts": 506
     },
     {
       "instance": "PSP6",
@@ -2051,7 +2051,7 @@
       "makespan": null,
       "temporal_lower_bound": 22,
       "ratio": null,
-      "runtime_seconds": 5.679099922417663e-05,
+      "runtime_seconds": 4.820899630431086e-05,
       "restarts": 0
     },
     {
@@ -2060,7 +2060,7 @@
       "makespan": 37,
       "temporal_lower_bound": 37,
       "ratio": 1.0,
-      "runtime_seconds": 0.00047766700299689546,
+      "runtime_seconds": 0.0004888330004177988,
       "restarts": 1
     },
     {
@@ -2069,7 +2069,7 @@
       "makespan": null,
       "temporal_lower_bound": 32,
       "ratio": null,
-      "runtime_seconds": 4.416699812281877e-05,
+      "runtime_seconds": 4.483399970922619e-05,
       "restarts": 0
     },
     {
@@ -2078,7 +2078,7 @@
       "makespan": 54,
       "temporal_lower_bound": 35,
       "ratio": 1.542857142857143,
-      "runtime_seconds": 0.22922795799968299,
+      "runtime_seconds": 1.0037687919975724,
       "restarts": 0
     },
     {
@@ -2087,7 +2087,7 @@
       "makespan": 67,
       "temporal_lower_bound": 34,
       "ratio": 1.9705882352941178,
-      "runtime_seconds": 0.2557779169983405,
+      "runtime_seconds": 1.006900707994646,
       "restarts": 0
     },
     {
@@ -2096,7 +2096,7 @@
       "makespan": 47,
       "temporal_lower_bound": 18,
       "ratio": 2.611111111111111,
-      "runtime_seconds": 0.2701117079996038,
+      "runtime_seconds": 1.004950334005116,
       "restarts": 0
     },
     {
@@ -2105,7 +2105,7 @@
       "makespan": 49,
       "temporal_lower_bound": 19,
       "ratio": 2.5789473684210527,
-      "runtime_seconds": 1.0000398750016757,
+      "runtime_seconds": 1.0000357090029866,
       "restarts": 1
     },
     {
@@ -2114,7 +2114,7 @@
       "makespan": null,
       "temporal_lower_bound": 28,
       "ratio": null,
-      "runtime_seconds": 5.962500290479511e-05,
+      "runtime_seconds": 6.41250007902272e-05,
       "restarts": 0
     },
     {
@@ -2123,7 +2123,7 @@
       "makespan": null,
       "temporal_lower_bound": 34,
       "ratio": null,
-      "runtime_seconds": 3.941600152757019e-05,
+      "runtime_seconds": 4.091699520358816e-05,
       "restarts": 0
     },
     {
@@ -2132,7 +2132,7 @@
       "makespan": null,
       "temporal_lower_bound": 17,
       "ratio": null,
-      "runtime_seconds": 4.3000000005122274e-05,
+      "runtime_seconds": 4.295799590181559e-05,
       "restarts": 0
     },
     {
@@ -2141,8 +2141,8 @@
       "makespan": 46,
       "temporal_lower_bound": 42,
       "ratio": 1.0952380952380953,
-      "runtime_seconds": 0.5511403750024328,
-      "restarts": 437
+      "runtime_seconds": 1.0000740420000511,
+      "restarts": 436
     },
     {
       "instance": "PSP7",
@@ -2150,8 +2150,8 @@
       "makespan": 43,
       "temporal_lower_bound": 38,
       "ratio": 1.131578947368421,
-      "runtime_seconds": 0.5511228750001465,
-      "restarts": 443
+      "runtime_seconds": 1.0002509170008125,
+      "restarts": 435
     },
     {
       "instance": "PSP70",
@@ -2159,7 +2159,7 @@
       "makespan": 54,
       "temporal_lower_bound": 28,
       "ratio": 1.9285714285714286,
-      "runtime_seconds": 0.22210604199790396,
+      "runtime_seconds": 1.0027138330042362,
       "restarts": 0
     },
     {
@@ -2168,7 +2168,7 @@
       "makespan": null,
       "temporal_lower_bound": 32,
       "ratio": null,
-      "runtime_seconds": 4.7375000576721504e-05,
+      "runtime_seconds": 5.291699926601723e-05,
       "restarts": 0
     },
     {
@@ -2177,7 +2177,7 @@
       "makespan": null,
       "temporal_lower_bound": 29,
       "ratio": null,
-      "runtime_seconds": 4.3708998418878764e-05,
+      "runtime_seconds": 4.73749969387427e-05,
       "restarts": 0
     },
     {
@@ -2186,8 +2186,8 @@
       "makespan": 31,
       "temporal_lower_bound": 26,
       "ratio": 1.1923076923076923,
-      "runtime_seconds": 0.5506710410008964,
-      "restarts": 376
+      "runtime_seconds": 1.000206166994758,
+      "restarts": 365
     },
     {
       "instance": "PSP74",
@@ -2195,7 +2195,7 @@
       "makespan": null,
       "temporal_lower_bound": 22,
       "ratio": null,
-      "runtime_seconds": 4.837500091525726e-05,
+      "runtime_seconds": 5.575000250246376e-05,
       "restarts": 0
     },
     {
@@ -2204,8 +2204,8 @@
       "makespan": 28,
       "temporal_lower_bound": 21,
       "ratio": 1.3333333333333333,
-      "runtime_seconds": 0.555746416997863,
-      "restarts": 369
+      "runtime_seconds": 1.002660542006197,
+      "restarts": 352
     },
     {
       "instance": "PSP76",
@@ -2213,7 +2213,7 @@
       "makespan": null,
       "temporal_lower_bound": 47,
       "ratio": null,
-      "runtime_seconds": 4.3082996853627264e-05,
+      "runtime_seconds": 4.62079988210462e-05,
       "restarts": 0
     },
     {
@@ -2222,8 +2222,8 @@
       "makespan": 56,
       "temporal_lower_bound": 38,
       "ratio": 1.4736842105263157,
-      "runtime_seconds": 0.5587054169991461,
-      "restarts": 230
+      "runtime_seconds": 1.0002800840011332,
+      "restarts": 214
     },
     {
       "instance": "PSP78",
@@ -2231,8 +2231,8 @@
       "makespan": 26,
       "temporal_lower_bound": 26,
       "ratio": 1.0,
-      "runtime_seconds": 0.20036920799975633,
-      "restarts": 324
+      "runtime_seconds": 0.20031849999941187,
+      "restarts": 317
     },
     {
       "instance": "PSP79",
@@ -2240,7 +2240,7 @@
       "makespan": 30,
       "temporal_lower_bound": 30,
       "ratio": 1.0,
-      "runtime_seconds": 0.5562456660009047,
+      "runtime_seconds": 0.5541911250038538,
       "restarts": 380
     },
     {
@@ -2249,8 +2249,8 @@
       "makespan": 40,
       "temporal_lower_bound": 33,
       "ratio": 1.2121212121212122,
-      "runtime_seconds": 0.5513790000004519,
-      "restarts": 363
+      "runtime_seconds": 1.0002737500035437,
+      "restarts": 355
     },
     {
       "instance": "PSP80",
@@ -2258,17 +2258,17 @@
       "makespan": 40,
       "temporal_lower_bound": 31,
       "ratio": 1.2903225806451613,
-      "runtime_seconds": 0.5534235000013723,
+      "runtime_seconds": 1.0055400830024155,
       "restarts": 539
     },
     {
       "instance": "PSP81",
       "status": "feasible",
-      "makespan": 26,
+      "makespan": 23,
       "temporal_lower_bound": 15,
-      "ratio": 1.7333333333333334,
-      "runtime_seconds": 0.5534609589994943,
-      "restarts": 416
+      "ratio": 1.5333333333333334,
+      "runtime_seconds": 1.004197458998533,
+      "restarts": 411
     },
     {
       "instance": "PSP82",
@@ -2276,8 +2276,8 @@
       "makespan": 16,
       "temporal_lower_bound": 16,
       "ratio": 1.0,
-      "runtime_seconds": 0.5501614169988898,
-      "restarts": 765
+      "runtime_seconds": 0.5502318750004633,
+      "restarts": 745
     },
     {
       "instance": "PSP83",
@@ -2285,7 +2285,7 @@
       "makespan": 25,
       "temporal_lower_bound": 25,
       "ratio": 1.0,
-      "runtime_seconds": 0.00045991599836270325,
+      "runtime_seconds": 0.0004551250021904707,
       "restarts": 1
     },
     {
@@ -2294,8 +2294,8 @@
       "makespan": 47,
       "temporal_lower_bound": 47,
       "ratio": 1.0,
-      "runtime_seconds": 0.553144000001339,
-      "restarts": 439
+      "runtime_seconds": 0.5532740420021582,
+      "restarts": 421
     },
     {
       "instance": "PSP85",
@@ -2303,7 +2303,7 @@
       "makespan": 23,
       "temporal_lower_bound": 23,
       "ratio": 1.0,
-      "runtime_seconds": 0.00044666699977824464,
+      "runtime_seconds": 0.00040720800461713225,
       "restarts": 1
     },
     {
@@ -2312,8 +2312,8 @@
       "makespan": 46,
       "temporal_lower_bound": 34,
       "ratio": 1.3529411764705883,
-      "runtime_seconds": 0.551298833997862,
-      "restarts": 354
+      "runtime_seconds": 1.000111499997729,
+      "restarts": 367
     },
     {
       "instance": "PSP87",
@@ -2321,7 +2321,7 @@
       "makespan": 35,
       "temporal_lower_bound": 32,
       "ratio": 1.09375,
-      "runtime_seconds": 0.5540252910031995,
+      "runtime_seconds": 1.0026485839989618,
       "restarts": 563
     },
     {
@@ -2330,7 +2330,7 @@
       "makespan": 43,
       "temporal_lower_bound": 26,
       "ratio": 1.6538461538461537,
-      "runtime_seconds": 0.5597658330007107,
+      "runtime_seconds": 1.0040086250010063,
       "restarts": 1
     },
     {
@@ -2339,8 +2339,8 @@
       "makespan": 53,
       "temporal_lower_bound": 45,
       "ratio": 1.1777777777777778,
-      "runtime_seconds": 0.5506868329975987,
-      "restarts": 487
+      "runtime_seconds": 1.0000997499955702,
+      "restarts": 510
     },
     {
       "instance": "PSP9",
@@ -2348,8 +2348,8 @@
       "makespan": 45,
       "temporal_lower_bound": 29,
       "ratio": 1.5517241379310345,
-      "runtime_seconds": 0.5654808750005031,
-      "restarts": 269
+      "runtime_seconds": 1.0030743749957765,
+      "restarts": 281
     },
     {
       "instance": "PSP90",
@@ -2357,8 +2357,8 @@
       "makespan": 49,
       "temporal_lower_bound": 49,
       "ratio": 1.0,
-      "runtime_seconds": 0.554202625000471,
-      "restarts": 384
+      "runtime_seconds": 0.20037887500075158,
+      "restarts": 389
     },
     {
       "instance": "PSP91",
@@ -2366,7 +2366,7 @@
       "makespan": 47,
       "temporal_lower_bound": 34,
       "ratio": 1.3823529411764706,
-      "runtime_seconds": 0.2029267500001879,
+      "runtime_seconds": 1.0050803749982151,
       "restarts": 0
     },
     {
@@ -2375,7 +2375,7 @@
       "makespan": null,
       "temporal_lower_bound": 81,
       "ratio": null,
-      "runtime_seconds": 4.875000013271347e-05,
+      "runtime_seconds": 5.395799962570891e-05,
       "restarts": 0
     },
     {
@@ -2384,7 +2384,7 @@
       "makespan": null,
       "temporal_lower_bound": 31,
       "ratio": null,
-      "runtime_seconds": 5.7666999055072665e-05,
+      "runtime_seconds": 6.650000432273373e-05,
       "restarts": 0
     },
     {
@@ -2393,8 +2393,8 @@
       "makespan": 33,
       "temporal_lower_bound": 25,
       "ratio": 1.32,
-      "runtime_seconds": 0.5509527499998512,
-      "restarts": 449
+      "runtime_seconds": 1.0001940419970197,
+      "restarts": 452
     },
     {
       "instance": "PSP95",
@@ -2402,8 +2402,8 @@
       "makespan": 47,
       "temporal_lower_bound": 31,
       "ratio": 1.5161290322580645,
-      "runtime_seconds": 0.5515190410005744,
-      "restarts": 415
+      "runtime_seconds": 1.0001510419970145,
+      "restarts": 416
     },
     {
       "instance": "PSP96",
@@ -2411,8 +2411,8 @@
       "makespan": 52,
       "temporal_lower_bound": 33,
       "ratio": 1.5757575757575757,
-      "runtime_seconds": 0.5509441249996598,
-      "restarts": 379
+      "runtime_seconds": 1.000184292002814,
+      "restarts": 372
     },
     {
       "instance": "PSP97",
@@ -2420,7 +2420,7 @@
       "makespan": 61,
       "temporal_lower_bound": 61,
       "ratio": 1.0,
-      "runtime_seconds": 0.000417291001213016,
+      "runtime_seconds": 0.0004432909991010092,
       "restarts": 1
     },
     {
@@ -2429,7 +2429,7 @@
       "makespan": null,
       "temporal_lower_bound": 51,
       "ratio": null,
-      "runtime_seconds": 5.3291998483473435e-05,
+      "runtime_seconds": 5.3832998673897237e-05,
       "restarts": 0
     },
     {
@@ -2438,8 +2438,8 @@
       "makespan": 42,
       "temporal_lower_bound": 27,
       "ratio": 1.5555555555555556,
-      "runtime_seconds": 0.5513878329984436,
-      "restarts": 373
+      "runtime_seconds": 1.0052825419988949,
+      "restarts": 369
     }
   ]
 }
