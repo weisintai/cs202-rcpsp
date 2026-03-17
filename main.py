@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from rcpsp import HeuristicConfig, parse_sch, solve
+from rcpsp.reference import fetch_reference_values
 
 
 def _instance_paths(path: Path) -> list[Path]:
@@ -103,6 +104,113 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_compare(args: argparse.Namespace) -> int:
+    payload = json.loads(Path(args.benchmark_json).read_text())
+    rows = payload["results"]
+    references = fetch_reference_values(args.dataset)
+
+    exact_cases = 0
+    bounded_cases = 0
+    unsat_cases = 0
+    matched_exact = 0
+    feasible_exact = 0
+    feasible_bounded = 0
+    matched_unsat = 0
+    false_infeasible = 0
+    unknown_against_known = 0
+    better_than_best_known = 0
+    matched_best_known_upper = 0
+    exact_gap_sum = 0.0
+    bounded_upper_ratio_sum = 0.0
+    missing_reference: list[str] = []
+    false_infeasible_instances: list[str] = []
+    unknown_known_instances: list[str] = []
+    better_instances: list[str] = []
+
+    for row in rows:
+        name = row["instance"]
+        reference = references.get(name)
+        if reference is None:
+            missing_reference.append(name)
+            continue
+
+        status = row["status"]
+        makespan = row["makespan"]
+
+        if reference.kind == "exact":
+            exact_cases += 1
+            optimum = reference.upper
+            if status == "feasible" and makespan is not None:
+                feasible_exact += 1
+                if makespan == optimum:
+                    matched_exact += 1
+                exact_gap_sum += makespan / optimum
+            elif status == "infeasible":
+                false_infeasible += 1
+                false_infeasible_instances.append(name)
+            elif status == "unknown":
+                unknown_against_known += 1
+                unknown_known_instances.append(name)
+        elif reference.kind == "bounded":
+            bounded_cases += 1
+            upper = reference.upper
+            if status == "feasible" and makespan is not None:
+                feasible_bounded += 1
+                bounded_upper_ratio_sum += makespan / upper
+                if makespan < upper:
+                    better_than_best_known += 1
+                    better_instances.append(name)
+                elif makespan == upper:
+                    matched_best_known_upper += 1
+            elif status == "infeasible":
+                false_infeasible += 1
+                false_infeasible_instances.append(name)
+            elif status == "unknown":
+                unknown_against_known += 1
+                unknown_known_instances.append(name)
+        else:
+            unsat_cases += 1
+            if status == "infeasible":
+                matched_unsat += 1
+
+    summary = {
+        "dataset": args.dataset,
+        "benchmark_json": args.benchmark_json,
+        "instances": len(rows),
+        "exact_cases": exact_cases,
+        "bounded_cases": bounded_cases,
+        "unsat_cases": unsat_cases,
+        "matched_exact": matched_exact,
+        "feasible_exact": feasible_exact,
+        "exact_match_rate": matched_exact / exact_cases if exact_cases else 0.0,
+        "avg_exact_ratio_to_reference": exact_gap_sum / feasible_exact if feasible_exact else None,
+        "feasible_bounded": feasible_bounded,
+        "avg_ratio_to_best_known_upper": (
+            bounded_upper_ratio_sum / feasible_bounded if feasible_bounded else None
+        ),
+        "matched_best_known_upper": matched_best_known_upper,
+        "better_than_best_known": better_than_best_known,
+        "matched_unsat": matched_unsat,
+        "unsat_match_rate": matched_unsat / unsat_cases if unsat_cases else 0.0,
+        "false_infeasible": false_infeasible,
+        "unknown_against_known_reference": unknown_against_known,
+        "missing_reference": len(missing_reference),
+    }
+
+    details = {
+        "false_infeasible_instances": false_infeasible_instances,
+        "unknown_known_instances": unknown_known_instances,
+        "better_than_best_known_instances": better_instances,
+        "missing_reference_instances": missing_reference,
+    }
+    result = {"summary": summary, "details": details}
+    if args.output:
+        Path(args.output).write_text(json.dumps(result, indent=2))
+
+    print(json.dumps(result, indent=2))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="RCPSP/max heuristic solver")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -122,6 +230,12 @@ def build_parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--max-restarts", type=int, default=None)
     bench_parser.add_argument("--output")
     bench_parser.set_defaults(func=cmd_benchmark)
+
+    compare_parser = subparsers.add_parser("compare", help="compare benchmark JSON against reference values")
+    compare_parser.add_argument("benchmark_json")
+    compare_parser.add_argument("--dataset", choices=("sm_j10", "sm_j20"), required=True)
+    compare_parser.add_argument("--output")
+    compare_parser.set_defaults(func=cmd_compare)
     return parser
 
 
