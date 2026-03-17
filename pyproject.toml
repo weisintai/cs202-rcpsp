@@ -1,0 +1,13 @@
+[project]
+name = "rcpsp-max-solver"
+version = "0.1.0"
+description = "Heuristic solver for RCPSP/max benchmark instances"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

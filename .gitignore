@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+sm_j10_results*.json
+sm_j20_results*.json
+!sm_j10_results_current_clean_0p1.json
+!sm_j10_results_current_clean_1p0.json
+!sm_j20_results_current_clean_0p1.json
+!sm_j20_results_current_clean_1p0.json
