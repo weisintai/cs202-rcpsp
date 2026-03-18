@@ -953,3 +953,97 @@ Interpretation:
   - idea: when branching on a resource conflict, prioritize delaying activities that are not compulsory at the hotspot and still have larger `EST/LST` windows
   - result at `0.05s`: essentially neutral on `sm_j20`, but `sm_j10` regressed from `186 feasible / 4 unknown` to `185 / 5`
   - verdict: rejected; not strong enough to justify changing the accepted timetable-propagation baseline
+
+### CP backend iteration: explicit timetable-overload explanations
+
+Implemented the next blueprint step in [rcpsp/cp/solver.py](rcpsp/cp/solver.py):
+
+- introduce explicit `OverloadExplanation` objects for timetable failures
+- return propagation outcomes as `(node, overload explanation)` instead of anonymous failure
+- track explanation statistics in solver metadata:
+  - `timetable_failures`
+  - `max_timetable_explanation`
+
+This is mainly infrastructure for the next blueprint steps:
+
+- failure caching keyed by explained conflicts
+- explanation-driven branching
+
+Short-budget preview impact at `0.05s`:
+
+- `sm_j10`
+  - feasible: `186 -> 185`
+  - infeasible: `80 -> 80`
+  - unknown: `4 -> 5`
+  - exact matches: stayed at `141/187`
+  - average ratio to exact reference: `1.0201 -> 1.0206`
+- `sm_j20`
+  - feasible/infeasible/unknown: unchanged at `169 / 70 / 31`
+  - exact matches: `70/158 -> 71/158`
+  - average ratio to exact reference: `1.0558 -> 1.0594`
+
+Interpretation:
+
+- this is not a clean benchmark win by itself
+- but it is the correct architectural step: timetable failures are no longer opaque `None` returns
+- the backend now exposes the exact failure object needed for the next logical implementation, namely explanation-based failure caching
+
+### Rejected explanation-based search follow-ups
+
+- `exact-state failure cache`
+  - idea: cache failed CP states keyed by the exact order set and store the associated timetable-overload explanation
+  - result: no cache hits on the public `0.05s` preview and no evidence of benefit on the checked harder `1.0s` `j20` instances
+  - verdict: rejected for now; too weak at the current state granularity
+- `explanation-guided branch ordering`
+  - idea: use timetable-overload explanation frequency as a VSIDS-like activity score for future conflict-set branching
+  - result at `0.05s`: regressed both main preview sets relative to the accepted timetable baseline
+    - `sm_j10` exact matches: `141 -> 139`
+    - `sm_j20` exact matches: `70 -> 69`
+  - verdict: rejected; the explanation signal is too sparse/weak in the current backend
+
+### Rejected CP follow-up: energetic window overload detection
+
+- `window-level overload explanations`
+  - idea: extend timetable failure detection from point-time compulsory overloads to energetic overloads on whole time windows `[a, b)` using minimum unavoidable overlap under the current `EST/LST` bounds
+  - result at `0.05s`: severe regression relative to the accepted explanation baseline
+    - `sm_j10`: exact matches `141 -> 104`, unsat matches `83 -> 80`, unknown known-reference cases `0 -> 1`
+    - `sm_j20`: exact matches `71 -> 50`, matched unsat `70 -> 70`, unknown known-reference cases `15 -> 15`, average exact ratio to reference worsened to `1.1049`
+  - interpretation: the concept is valid, but this implementation was far too expensive for the pruning it delivered in the current CP architecture
+  - verdict: rejected; if energetic reasoning comes back later, it needs to be either much cheaper or much tighter than this full window scan
+
+### CP backend iteration: hybrid-guided incumbent warm start
+
+Implemented in [rcpsp/cp/solver.py](rcpsp/cp/solver.py):
+
+- keep the accepted timetable/explanation CP backend intact
+- on larger budgets, spend a short slice of time in the accepted `hybrid` backend first
+- use the resulting incumbent to tighten the CP backend's `LST` bounds before branch-and-propagate search
+- keep the cheap randomized constructor loop afterward so tiny budgets still behave like the earlier CP baseline
+
+This is the first recent CP change that clearly pays off on full `1.0s` public benchmarks instead of only on micro-budget previews.
+
+Accepted benchmark impact:
+
+- `sm_j10 @ 1.0s`
+  - feasible/infeasible/unknown: `187 / 83 / 0`
+  - exact matches: `166/187` (`88.8%`)
+  - average exact ratio to reference: `1.0074`
+- `sm_j20 @ 1.0s`
+  - feasible/infeasible/unknown: `181 / 72 / 17`
+  - exact matches: `106/158` (`67.1%`)
+  - average exact ratio to reference: `1.0216`
+  - bounded feasible cases: `24/26`
+  - average ratio to best-known upper bound on bounded cases: `1.0552`
+
+Interpretation:
+
+- the CP backend is still behind the accepted `hybrid` backend on `sm_j20`, but the gap is now materially smaller
+- the key gain came from a better incumbent bound, not a new pruning rule
+- this is a strong sign that incumbent quality is a primary bottleneck for the current CP architecture
+
+### Rejected warm-start over-tuning
+
+- `larger warm-start slice for budgets >= 1.0s`
+  - idea: give the hybrid-guided warm-start phase an even larger share of the time budget once `time_limit >= 1.0`
+  - result on `sm_j20 @ 1.0s`: slightly better average exact ratio to reference (`1.0216 -> 1.0198`), but worse exact matches (`106 -> 104`) and fewer matches to the best-known bounded upper bound (`7 -> 6`)
+  - verdict: rejected; keep the simpler warm-start budget because it wins on the more important count metrics
