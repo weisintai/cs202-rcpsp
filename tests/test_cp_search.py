@@ -1,5 +1,5 @@
-from rcpsp.cp.search import failure_cache_hit, record_failed_pairs
-from rcpsp.cp.state import CpSearchStats
+from rcpsp.cp.search import failure_cache_hit, node_signature, record_failed_pairs
+from rcpsp.cp.state import CpNode, CpSearchStats
 
 
 def test_failure_cache_prunes_supersets_and_keeps_minimal_sets() -> None:
@@ -16,3 +16,20 @@ def test_failure_cache_prunes_supersets_and_keeps_minimal_sets() -> None:
     record_failed_pairs(subset, failed_pair_sets, stats)
     assert failed_pair_sets == {subset}
     assert failure_cache_hit(parent, failed_pair_sets)
+
+
+def test_node_signature_distinguishes_tighter_latest_bounds() -> None:
+    loose = CpNode(
+        lower=(0, 1, 3),
+        latest=(0, 4, 6),
+        edges=(),
+        pairs=frozenset({(1, 2)}),
+    )
+    tight = CpNode(
+        lower=(0, 1, 3),
+        latest=(0, 3, 5),
+        edges=(),
+        pairs=frozenset({(1, 2)}),
+    )
+
+    assert node_signature(loose) != node_signature(tight)

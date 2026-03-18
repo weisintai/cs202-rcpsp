@@ -18,6 +18,12 @@ from .propagation import propagate_cp_node
 from .state import CpNode, CpSearchStats
 
 
+def node_signature(
+    node: CpNode,
+) -> tuple[tuple[tuple[int, int], ...], tuple[int, ...], tuple[int, ...] | None]:
+    return tuple(sorted(node.pairs)), node.lower, node.latest
+
+
 def failure_cache_hit(
     pairs: frozenset[tuple[int, int]],
     failed_pair_sets: set[frozenset[tuple[int, int]]],
@@ -75,7 +81,7 @@ def branch_children(
     resource: int,
     overload: list[int],
     incumbent_makespan: int | None,
-    seen: set[tuple[tuple[tuple[int, int], ...], tuple[int, ...]]],
+    seen: set[tuple[tuple[tuple[int, int], ...], tuple[int, ...], tuple[int, ...] | None]],
     failed_pair_sets: set[frozenset[tuple[int, int]]],
     failure_cache_enabled: bool,
     stats: CpSearchStats,
@@ -125,7 +131,7 @@ def branch_children(
             if failure_cache_enabled and failure_cache_hit(child.node.pairs, failed_pair_sets):
                 stats.failure_cache_hits += 1
                 continue
-            child_key = (tuple(sorted(child.node.pairs)), child.node.lower)
+            child_key = node_signature(child.node)
             if child_key in seen:
                 continue
             children.append((child.node.lower[instance.sink], order_index, child.node.pairs, child.node))
@@ -174,7 +180,7 @@ def solve_cp(
 
     intensity = resource_intensity(instance)
     stats = CpSearchStats()
-    seen: set[tuple[tuple[tuple[int, int], ...], tuple[int, ...]]] = set()
+    seen: set[tuple[tuple[tuple[int, int], ...], tuple[int, ...], tuple[int, ...] | None]] = set()
     failed_pair_sets: set[frozenset[tuple[int, int]]] = set()
     failure_cache_enabled = time_limit >= 0.5
     incumbent: Schedule | None = None
@@ -253,7 +259,7 @@ def solve_cp(
                 stats.failure_cache_hits += 1
                 return False
 
-        key = (tuple(sorted(node.pairs)), node.lower)
+        key = node_signature(node)
         if key in seen:
             return True
         seen.add(key)
