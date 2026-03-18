@@ -7,9 +7,16 @@ This is the experimental CP-style backend.
 - provide a separate branch-and-propagate architecture
 - make CP-style changes without destabilizing the accepted heuristic backend
 
-## Main file
+## Layout
 
+- `state.py`
+  - CP node and explanation dataclasses
+- `propagation.py`
+  - EST/LST tightening, timetable propagation, forced pair-order inference
+- `search.py`
+  - branching policy, incumbent management, and DFS orchestration
 - `solver.py`
+  - thin public wrapper and compatibility exports
 
 ## Scope
 
