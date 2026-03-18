@@ -15,10 +15,11 @@ This is the experimental CP-style backend.
 
 This backend currently owns:
 
-- CP node state over pair ordering decisions
+- CP node state over resource-ordering decisions
 - temporal propagation under added order edges
 - incumbent-based latest-start bounds
-- compulsory-part overload checks
-- pairwise disjunctive branching
+- compulsory-part / timetable pruning on EST/LST windows
+- conflict-set branching that can add several disjunctive orders at once
+- a small warm-start phase that leaves most of the budget to CP search
 
 It is currently a scaffold, not the accepted main solver. Changes here should target `stronger propagation and branching`, not heuristic polishing.
