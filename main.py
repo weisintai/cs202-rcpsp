@@ -9,6 +9,8 @@ from pathlib import Path
 from rcpsp import HeuristicConfig, parse_sch, solve, solve_cp
 from rcpsp.reference import REFERENCE_URLS, fetch_reference_values, normalize_instance_name
 
+BENCHMARK_DATA_ROOT = Path("benchmarks/data")
+
 
 def _solve_with_backend(
     instance,
@@ -24,7 +26,17 @@ def _solve_with_backend(
     return solve(instance, time_limit=time_limit, seed=seed, config=config)
 
 
+def _resolve_dataset_path(path: Path) -> Path:
+    if path.exists():
+        return path
+    candidate = BENCHMARK_DATA_ROOT / path
+    if candidate.exists():
+        return candidate
+    return path
+
+
 def _instance_paths(path: Path) -> list[Path]:
+    path = _resolve_dataset_path(path)
     if path.is_dir():
         return sorted(
             candidate
@@ -83,7 +95,7 @@ def _render_progress(
 
 
 def cmd_solve(args: argparse.Namespace) -> int:
-    instance = parse_sch(args.path)
+    instance = parse_sch(_resolve_dataset_path(Path(args.path)))
     result = _solve_with_backend(
         instance,
         backend=args.backend,
