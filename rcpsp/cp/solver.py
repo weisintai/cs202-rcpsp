@@ -166,6 +166,18 @@ def _minimal_overload_explanation(
     )
 
 
+def _minimum_overlap_in_window(
+    est: int,
+    lst: int,
+    duration: int,
+    window_start: int,
+    window_end: int,
+) -> int:
+    before = max(0, window_start - est)
+    after = max(0, lst + duration - window_end)
+    return max(0, duration - before - after)
+
+
 def _propagate_compulsory_parts(
     instance: Instance,
     lower: list[int],
@@ -234,6 +246,80 @@ def _propagate_compulsory_parts(
                 changed = True
 
     return changed, lower, latest, None
+
+
+def _forced_pair_order_propagation(
+    instance: Instance,
+    lower: list[int],
+    latest: list[int],
+    pairs: set[tuple[int, int]],
+) -> tuple[tuple[tuple[int, int], ...], OverloadExplanation | None]:
+    if instance.n_jobs < 20:
+        return (), None
+
+    inferred: list[tuple[int, int]] = []
+    pending = set(pairs)
+
+    for first in range(1, instance.sink):
+        for second in range(first + 1, instance.sink):
+            if (first, second) in pending or (second, first) in pending:
+                continue
+
+            forced_pair: tuple[int, int] | None = None
+            blocking_resource: int | None = None
+
+            for resource in range(instance.n_resources):
+                combined_demand = instance.demands[first][resource] + instance.demands[second][resource]
+                if combined_demand <= instance.capacities[resource]:
+                    continue
+
+                first_before_second = lower[first] + instance.durations[first] <= latest[second]
+                second_before_first = lower[second] + instance.durations[second] <= latest[first]
+
+                if not first_before_second and not second_before_first:
+                    window_start = max(lower[first], lower[second])
+                    window_end = min(
+                        latest[first] + instance.durations[first],
+                        latest[second] + instance.durations[second],
+                    )
+                    return (), OverloadExplanation(
+                        kind="pair",
+                        resource=resource,
+                        window_start=window_start,
+                        window_end=max(window_start + 1, window_end),
+                        activities=(first, second),
+                        required=combined_demand,
+                        limit=instance.capacities[resource],
+                    )
+
+                if first_before_second == second_before_first:
+                    continue
+
+                candidate = (first, second) if first_before_second else (second, first)
+                if forced_pair is not None and forced_pair != candidate:
+                    window_start = max(lower[first], lower[second])
+                    window_end = min(
+                        latest[first] + instance.durations[first],
+                        latest[second] + instance.durations[second],
+                    )
+                    resource = blocking_resource if blocking_resource is not None else resource
+                    return (), OverloadExplanation(
+                        kind="pair",
+                        resource=resource,
+                        window_start=window_start,
+                        window_end=max(window_start + 1, window_end),
+                        activities=(first, second),
+                        required=combined_demand,
+                        limit=instance.capacities[resource],
+                    )
+                forced_pair = candidate
+                blocking_resource = resource
+
+            if forced_pair is not None and forced_pair not in pending:
+                pending.add(forced_pair)
+                inferred.append(forced_pair)
+
+    return tuple(inferred), None
 
 
 def _improving_latest_starts(
@@ -314,13 +400,36 @@ def _propagate_cp_node(
                 ),
                 overload=overload,
             )
+        lower = new_lower
+        latest = new_latest
+
+        inferred_pairs, pair_overload = _forced_pair_order_propagation(instance, lower, latest, local_pairs)
+        if pair_overload is not None:
+            return CpNodePropagation(
+                node=CpNode(
+                    lower=tuple(lower),
+                    latest=tuple(latest),
+                    edges=tuple(edges),
+                    pairs=frozenset(local_pairs),
+                    lag_dist=lag_dist,
+                ),
+                overload=pair_overload,
+            )
+
+        if inferred_pairs:
+            for source, target in inferred_pairs:
+                local_pairs.add((source, target))
+                edge = Edge(source=source, target=target, lag=instance.durations[source])
+                edges.append(edge)
+                if lag_dist is not None:
+                    lag_dist = _extend_longest_lags(lag_dist, edge)
+            release_bounds = lower
+            continue
+
         if not changed:
-            lower = new_lower
-            latest = new_latest
             break
 
-        release_bounds = new_lower
-        latest = new_latest
+        release_bounds = lower
 
     return CpNodePropagation(
         node=CpNode(
