@@ -2,6 +2,8 @@
 
 Python-first heuristic solver for the project scheduling instances in this folder.
 
+Raw benchmark datasets now live under `benchmarks/data/` to keep the project root cleaner. The CLI still accepts the old shorthand dataset names such as `sm_j10` and `testset_ubo50`.
+
 ## Project layout
 
 - [rcpsp/README.md](rcpsp/README.md)
@@ -29,6 +31,7 @@ Solve one instance:
 
 ```bash
 uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0
+uv run main.py solve benchmarks/data/sm_j10/PSP1.SCH --time-limit 1.0
 ```
 
 You can switch solver backends explicitly:
@@ -42,6 +45,13 @@ Benchmark a full folder:
 
 ```bash
 uv run main.py benchmark sm_j10 --time-limit 0.1 --output sm_j10_results.json
+uv run main.py benchmark benchmarks/data/sm_j10 --time-limit 0.1 --output sm_j10_results.json
+```
+
+Run the standard guardrail suite in one command:
+
+```bash
+uv run python scripts/run_guardrails.py --backend hybrid --preset full
 ```
 
 `benchmark` now prints live progress to `stderr` by default. Use `--no-progress` if you want only the final summary:
@@ -68,6 +78,35 @@ Supported datasets for `compare` are:
 - `testset_ubo50`
 
 The benchmark command prints aggregate metrics and optionally writes per-instance results to JSON.
+
+## Benchmark Guardrails
+
+Do not evaluate solver changes on `sm_j10` and `sm_j20` alone.
+
+Every solver change should be screened on:
+
+- `sm_j10`
+  - easy-set correctness and regression check
+- `sm_j20`
+  - main public quality target
+- `sm_j30`
+  - broader family guardrail
+- `testset_ubo50`
+  - hardest public stress test currently in the repo
+
+Recommended validation loop:
+
+1. fast screen on short budgets
+   - `sm_j10 @ 0.1s`
+   - `sm_j20 @ 0.1s`
+   - `sm_j30 @ 0.1s`
+   - `testset_ubo50 @ 0.1s`
+2. if the change survives, run the main medium-budget checks
+   - `sm_j10 @ 1.0s`
+   - `sm_j20 @ 1.0s`
+3. only keep changes that improve the target set without clearly damaging the broader guardrails
+
+This is the minimum anti-overfitting policy for the repo. A change that helps only `j10/j20` but hurts `sm_j30` or `ubo50` should be treated as suspect.
 
 ## Reading the benchmark JSON
 
