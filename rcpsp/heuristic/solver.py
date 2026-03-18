@@ -616,7 +616,7 @@ def _branch_and_bound_search(
                 best = candidate
             return
 
-        _, resource, conflict_set, overload = conflict
+        conflict_time, resource, conflict_set, overload = conflict
         if len(conflict_set) <= 1:
             return
 
@@ -627,35 +627,28 @@ def _branch_and_bound_search(
                     stats.timed_out = True
                     return
 
-                child_edges = extra_edges[:]
-                child_pairs = set(extra_pairs)
-                changed = False
-                child_lag_dist = lag_dist
-
                 for other in conflict_set:
                     if other == selected or instance.demands[other][resource] == 0:
                         continue
                     pair = (other, selected)
-                    if pair in child_pairs:
+                    if pair in extra_pairs:
                         continue
-                    child_pairs.add(pair)
+
                     edge = Edge(source=other, target=selected, lag=instance.durations[other])
-                    child_edges.append(edge)
+                    child_edges = extra_edges + [edge]
+                    child_pairs = set(extra_pairs)
+                    child_pairs.add(pair)
+                    child_lag_dist = lag_dist
                     if child_lag_dist is not None:
                         child_lag_dist = _extend_longest_lags(child_lag_dist, edge)
-                    changed = True
+                        if _pairwise_infeasibility_reason_from_dist(instance, child_lag_dist) is not None:
+                            continue
 
-                if not changed:
-                    continue
-
-                if child_lag_dist is not None and _pairwise_infeasibility_reason_from_dist(instance, child_lag_dist) is not None:
-                    continue
-
-                dfs(child_edges, child_pairs, None, child_lag_dist)
-                if best is not None and best.makespan == global_lower_bound:
-                    return
-                if stats.timed_out:
-                    return
+                    dfs(child_edges, child_pairs, None, child_lag_dist)
+                    if best is not None and best.makespan == global_lower_bound:
+                        return
+                    if stats.timed_out:
+                        return
             return
 
         children: list[tuple[int, int, list[Edge], set[tuple[int, int]], list[int]]] = []
@@ -664,33 +657,27 @@ def _branch_and_bound_search(
                 stats.timed_out = True
                 return
 
-            child_edges = extra_edges[:]
-            child_pairs = set(extra_pairs)
-            changed = False
-
             for other in conflict_set:
                 if other == selected or instance.demands[other][resource] == 0:
                     continue
                 pair = (other, selected)
-                if pair in child_pairs:
+                if pair in extra_pairs:
                     continue
+
+                child_edges = extra_edges + [Edge(source=other, target=selected, lag=instance.durations[other])]
+                child_pairs = set(extra_pairs)
                 child_pairs.add(pair)
-                child_edges.append(Edge(source=other, target=selected, lag=instance.durations[other]))
-                changed = True
 
-            if not changed:
-                continue
+                try:
+                    child_starts = longest_feasible_starts(instance, extra_edges=child_edges)
+                except TemporalInfeasibleError:
+                    continue
 
-            try:
-                child_starts = longest_feasible_starts(instance, extra_edges=child_edges)
-            except TemporalInfeasibleError:
-                continue
+                child_lower_bound = child_starts[instance.sink]
+                if child_lower_bound >= best.makespan:
+                    continue
 
-            child_lower_bound = child_starts[instance.sink]
-            if child_lower_bound >= best.makespan:
-                continue
-
-            children.append((child_lower_bound, order_index, child_edges, child_pairs, child_starts))
+                children.append((child_lower_bound, order_index, child_edges, child_pairs, child_starts))
 
         children.sort(key=lambda child: (child[0], child[1]))
 
@@ -766,30 +753,42 @@ def construct_schedule(
                 key=lambda activity: (current[activity] + instance.durations[activity], current[activity], activity),
             )
             if not use_focused_repair:
-                candidate_edges = extra_edges[:]
-                candidate_pairs = set(extra_pairs)
-                candidate_schedule = current
-                added_any = False
+                candidate_options: list[tuple[int, int, list[Edge], set[tuple[int, int]], list[int]]] = []
                 for blocker in blockers:
-                    pair = (blocker, selected)
-                    edge = Edge(source=blocker, target=selected, lag=instance.durations[blocker])
-                    if pair in candidate_pairs:
-                        continue
-                    try:
-                        candidate_schedule = longest_feasible_starts(
-                            instance,
-                            release_times=release,
-                            extra_edges=candidate_edges + [edge],
+                    for direction in ("after", "before"):
+                        if direction == "after":
+                            pair = (blocker, selected)
+                            edge = Edge(source=blocker, target=selected, lag=instance.durations[blocker])
+                        else:
+                            pair = (selected, blocker)
+                            edge = Edge(source=selected, target=blocker, lag=instance.durations[selected])
+                        if pair in extra_pairs:
+                            continue
+                        candidate_edges = extra_edges + [edge]
+                        candidate_pairs = set(extra_pairs)
+                        candidate_pairs.add(pair)
+                        try:
+                            candidate_schedule = longest_feasible_starts(
+                                instance,
+                                release_times=release,
+                                extra_edges=candidate_edges,
+                            )
+                        except TemporalInfeasibleError:
+                            continue
+                        candidate_options.append(
+                            (
+                                candidate_schedule[instance.sink],
+                                len(candidate_edges),
+                                candidate_edges,
+                                candidate_pairs,
+                                candidate_schedule,
+                            )
                         )
-                    except TemporalInfeasibleError:
-                        continue
-                    candidate_edges.append(edge)
-                    candidate_pairs.add(pair)
-                    added_any = True
-                if added_any:
-                    extra_edges = candidate_edges
-                    extra_pairs = candidate_pairs
-                    current = candidate_schedule
+                if candidate_options:
+                    _, _, extra_edges, extra_pairs, current = min(
+                        candidate_options,
+                        key=lambda option: (option[0], option[1]),
+                    )
                     updated = True
                     break
             else:

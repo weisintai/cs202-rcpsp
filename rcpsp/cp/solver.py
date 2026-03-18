@@ -255,6 +255,7 @@ def _propagate_cp_node(
     incumbent_makespan: int | None,
     base_lag_dist: list[list[float]] | None = None,
     new_edges: tuple[Edge, ...] = (),
+    release_times: tuple[int, ...] | list[int] | None = None,
 ) -> CpNodePropagation:
     local_pairs = set(pairs)
     if new_edges:
@@ -275,11 +276,11 @@ def _propagate_cp_node(
         lag_dist = _all_pairs_longest_lags(instance, extra_edges=edges)
 
     latest = _improving_latest_starts(instance, tail, incumbent_makespan)
-    release_times = [0] * instance.n_activities
+    release_bounds = [0] * instance.n_activities if release_times is None else [max(0, int(value)) for value in release_times]
 
     while True:
         try:
-            lower = longest_feasible_starts(instance, release_times=release_times, extra_edges=edges)
+            lower = longest_feasible_starts(instance, release_times=release_bounds, extra_edges=edges)
         except TemporalInfeasibleError:
             return CpNodePropagation(node=None)
 
@@ -318,7 +319,7 @@ def _propagate_cp_node(
             latest = new_latest
             break
 
-        release_times = new_lower
+        release_bounds = new_lower
         latest = new_latest
 
     return CpNodePropagation(
@@ -365,7 +366,7 @@ def _branch_children(
     resource: int,
     overload: list[int],
     incumbent_makespan: int | None,
-    seen: set[tuple[tuple[int, int], ...]],
+    seen: set[tuple[tuple[tuple[int, int], ...], tuple[int, ...]]],
     stats: CpSearchStats,
 ) -> list[tuple[int, int, frozenset[tuple[int, int]], CpNode]]:
     ordered = _branch_order(
@@ -378,40 +379,35 @@ def _branch_children(
     )
     children: list[tuple[int, int, frozenset[tuple[int, int]], CpNode]] = []
     for order_index, selected in enumerate(ordered):
-        additions: list[Edge] = []
-        child_pairs_set = set(node.pairs)
         for other in conflict_set:
             if other == selected or instance.demands[other][resource] == 0:
                 continue
             pair = (other, selected)
-            if pair in child_pairs_set:
+            if pair in node.pairs:
                 continue
-            child_pairs_set.add(pair)
-            additions.append(Edge(source=other, target=selected, lag=instance.durations[other]))
 
-        if not additions:
-            continue
-
-        child_pairs = frozenset(child_pairs_set)
-        if tuple(sorted(child_pairs)) in seen:
-            continue
-        child = _propagate_cp_node(
-            instance=instance,
-            tail=tail,
-            pairs=child_pairs,
-            incumbent_makespan=incumbent_makespan,
-            base_lag_dist=node.lag_dist,
-            new_edges=tuple(additions),
-        )
-        if child.overload is not None:
-            stats.timetable_failures += 1
-            stats.max_timetable_explanation = max(
-                stats.max_timetable_explanation,
-                child.overload.size,
+            child_pairs = frozenset((*node.pairs, pair))
+            child = _propagate_cp_node(
+                instance=instance,
+                tail=tail,
+                pairs=child_pairs,
+                incumbent_makespan=incumbent_makespan,
+                base_lag_dist=node.lag_dist if incumbent_makespan is None else None,
+                new_edges=(Edge(source=other, target=selected, lag=instance.durations[other]),),
             )
-        if child.node is None:
-            continue
-        children.append((child.node.lower[instance.sink], order_index, child_pairs, child.node))
+            if child.overload is not None:
+                stats.timetable_failures += 1
+                stats.max_timetable_explanation = max(
+                    stats.max_timetable_explanation,
+                    child.overload.size,
+                )
+                continue
+            if child.node is None:
+                continue
+            child_key = (tuple(sorted(child.node.pairs)), child.node.lower)
+            if child_key in seen:
+                continue
+            children.append((child.node.lower[instance.sink], order_index, child.node.pairs, child.node))
     children.sort(key=lambda item: (item[0], item[1]))
     return children
 
@@ -457,7 +453,7 @@ def solve_cp(
 
     intensity = _resource_intensity(instance)
     stats = CpSearchStats()
-    seen: set[tuple[tuple[int, int], ...]] = set()
+    seen: set[tuple[tuple[tuple[int, int], ...], tuple[int, ...]]] = set()
     incumbent: Schedule | None = None
     restarts = 0
     root_lag_dist = _all_pairs_longest_lags(instance)
@@ -507,11 +503,6 @@ def solve_cp(
             return
         stats.nodes += 1
 
-        key = tuple(sorted(pairs))
-        if key in seen:
-            return
-        seen.add(key)
-
         if node is None:
             propagation = _propagate_cp_node(
                 instance=instance,
@@ -530,6 +521,11 @@ def solve_cp(
             node = propagation.node
             if node is None:
                 return
+
+        key = (tuple(sorted(node.pairs)), node.lower)
+        if key in seen:
+            return
+        seen.add(key)
 
         lower = list(node.lower)
         lower_schedule = Schedule(start_times=tuple(lower), makespan=lower[instance.sink])
