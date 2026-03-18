@@ -71,7 +71,8 @@ This explanation should become the driver for:
 Status:
 
 - explicit timetable-overload explanations are now implemented
-- they are not yet used directly for branching or failure caching
+- they now feed a lightweight monotone failure cache over pair-order sets
+- they are not yet used directly for branching
 
 ### 4. Conflict-directed branching
 
@@ -94,7 +95,7 @@ Purpose:
 - avoid rediscovering the same dead subtree
 - make restarts worthwhile
 
-Current `seen` handling is only a basic duplicate-state filter. The target is a real failure-oriented cache.
+Current implementation includes a conservative failure-oriented cache over pair-order sets, enabled only on medium-or-long budgets so short-budget guardrails do not pay the bookkeeping cost. The next target is a stronger explanation-driven cache instead of the current monotone order-set version.
 
 ### 6. Restarts with incumbent guidance
 
@@ -117,13 +118,14 @@ Implemented in [rcpsp/cp/solver.py](rcpsp/cp/solver.py):
 - timetable / compulsory-part pruning
 - limited forced pair-order propagation from `EST/LST` windows on larger instances
 - explicit timetable-overload explanations
+- a monotone failure cache over pair-order decisions, enabled for medium/long CP runs
 - hybrid-guided warm-start incumbent phase
 - basic duplicate-state filtering
 
 Not implemented yet:
 
 - explanation-driven branching
-- failure cache / nogood learning beyond the current `seen` set
+- explanation-driven nogood learning beyond the current monotone failure cache
 - stronger cumulative reasoning such as edge-finding or energetic explanations
 - restart policy informed by failures
 

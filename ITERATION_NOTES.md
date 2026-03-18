@@ -1274,3 +1274,60 @@ Verdict:
 - rejected
 - this version helped the main `J20` target slightly, but it damaged `sm_j30` too much to keep
 - if energetic reasoning comes back again, it needs a more stable explanation/boundary strategy than this hotspot-local version
+
+### Accepted CP search step: gated monotone failure cache over pair orders
+
+Used delegated CP search work to add a safer failure cache in [rcpsp/cp/search.py](rcpsp/cp/search.py) and [rcpsp/cp/state.py](rcpsp/cp/state.py):
+
+- cache only monotone `node.pairs` order sets, never the full `(pairs, lower)` state
+- prune a child or node if its pair set is a superset of a known failed pair set
+- avoid caching the empty pair set
+- enable the cache only for `time_limit >= 0.5` so short-budget guardrails do not pay unnecessary bookkeeping cost
+- expose `failure_cache_hits`, `failure_cache_inserts`, and `failure_cache_size` in CP metadata
+
+Added a focused search-level regression in [tests/test_cp_search.py](tests/test_cp_search.py) to keep the failure cache minimal and monotone.
+
+Accepted benchmark impact:
+
+- `sm_j10 @ 1.0s` `cp`
+  - feasible/infeasible/unknown: `187 / 83 / 0`
+  - exact matches: `187/187`
+  - exact match rate: `100%`
+  - average exact ratio to reference: `1.0000`
+- `sm_j20 @ 1.0s` `cp`
+  - feasible/infeasible/unknown: `181 / 69 / 20`
+  - exact matches: `130/158`
+  - exact match rate: `82.3%`
+  - average exact ratio to reference: `1.0162`
+  - better-than-best-known bounded cases: `PSP150`
+- `sm_j30 @ 0.1s` `cp`
+  - feasible/infeasible/unknown: `154 / 78 / 38`
+  - exact matches: `66/120`
+  - exact match rate: `55.0%`
+  - average exact ratio to reference: `1.0311`
+- `testset_ubo50 @ 0.1s` `cp`
+  - feasible/infeasible/unknown: `53 / 14 / 23`
+  - exact matches: `12/33`
+  - exact match rate: `36.4%`
+  - average exact ratio to reference: `1.0375`
+
+Comparison against the previous accepted CP baseline:
+
+- `sm_j10 @ 1.0s`
+  - exact matches: `187 -> 187`
+  - no regression on the already-solved easy set
+- `sm_j20 @ 1.0s`
+  - exact matches: `128 -> 130`
+  - average exact ratio to reference: `1.0178 -> 1.0162`
+- `sm_j30 @ 0.1s`
+  - exact matches: `68 -> 66`
+  - but feasible coverage improved `153 -> 154`, unsat matches improved `77 -> 78`, and known-reference unknowns dropped `32 -> 31`
+- `testset_ubo50 @ 0.1s`
+  - exact matches: `12 -> 12`
+  - average exact ratio to reference improved slightly `1.0407 -> 1.0375`
+
+Verdict:
+
+- accepted
+- this is the first search-side CP change in a while that improves the main `sm_j20 @ 1.0s` target without clearly damaging the broader guardrails
+- the cache still needs stronger explanations before it becomes real nogood learning, but it is now a useful medium-budget pruning layer
