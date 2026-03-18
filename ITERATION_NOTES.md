@@ -779,6 +779,22 @@ Target for a strong final solver:
 - `sm_j20`: push exact-match rate above `70%`
 - reduce the average exact-reference gap on `sm_j20` from `1.95%` toward `1.5%` or below
 
+### Rejected follow-up experiments
+
+- `focused bottleneck-pair post-polishing`:
+  - idea: reserve a small tail budget after the main post-exact ALNS pass and spend it on repairing only `2-3` tightly coupled activities around the current highest-load region
+  - result: `sm_j10 @ 1.0s` improved to `171/187` exact matches (`91.4%`), but `sm_j20 @ 1.0s` fell to `107/158` exact matches (`67.7%`)
+  - verdict: rejected because the budget split hurt `sm_j20`
+- `focused bottleneck-pair operator inside the ALNS loop`:
+  - idea: keep the original time allocation, but add the same small pair neighborhood as an occasional destroy operator instead of a separate post-pass
+  - result: `sm_j20 @ 1.0s` recovered slightly to `108/158` exact matches (`68.4%`), still below the accepted baseline `113/158` (`71.5%`)
+  - verdict: rejected because it still weakened the main quality target
+
+What we learned:
+
+- the `pair / bottleneck` neighborhood itself is not obviously bad, but it is not strong enough yet to justify taking probability mass or budget away from the accepted ALNS mix
+- future experiments should avoid broad operator-mix changes unless they clearly help `sm_j20`, because that set is the most sensitive quality guardrail right now
+
 ### Secondary improvements
 
 - keep improving the persistent `J20` unknown cases, but only after the incumbent-improvement layer exists
