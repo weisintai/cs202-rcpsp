@@ -1175,3 +1175,102 @@ Interpretation:
 - the weaker pairwise branch shape improves exact-search quality substantially at `1.0s`
 - `hybrid` remains the stronger submission backend because its coverage is better on `sm_j20`
 - `cp` now has the better `sm_j20` quality profile among the cases it solves, but it still leaves too many unknowns to replace `hybrid` as the default
+
+### Accepted test-runner wiring
+
+Test execution is now wired cleanly through `uv`:
+
+- added `pytest` as a dev dependency in `pyproject.toml`
+- added `tests/conftest.py` so imports resolve from the repo root
+- `uv run pytest` now passes on the current regression suite
+
+### Rejected CP overload-nogood pass
+
+Tried a small explanation-based overload cache in the CP backend:
+
+- cache key was based on the overload explanation plus local windows/order pattern
+- goal was to reuse repeated timetable failures instead of only relying on the current `seen` filter
+
+Result on `sm_j20 @ 1.0s`:
+
+- exact matches: `126/158`
+- exact match rate: `79.7%`
+- avg exact ratio to reference: `1.0183`
+
+Comparison against the current accepted CP baseline:
+
+- baseline exact matches: `127/158`
+- baseline avg exact ratio to reference: `1.0159`
+
+Verdict:
+
+- rejected
+- the idea still looks directionally right, but this lightweight local cache was not strong enough to beat the accepted CP baseline
+
+### Accepted CP propagation step: scoped forced pair-order inference
+
+Implemented a stronger cumulative propagation step in [rcpsp/cp/solver.py](rcpsp/cp/solver.py):
+
+- after timetable propagation updates `EST/LST`, inspect pairs of activities that cannot overlap on some resource
+- if the current windows make only one relative order feasible, add that resource order immediately as a propagated edge
+- scope this propagation to `n_jobs >= 20` so it strengthens the harder sets without perturbing the already-solved `J10` regime
+
+This is effectively a small disjunctive propagation layer sitting inside the CP fixpoint, rather than waiting to discover the same forced order by branching later.
+
+Accepted benchmark impact:
+
+- `sm_j10 @ 1.0s` `cp`
+  - feasible/infeasible/unknown: `187 / 83 / 0`
+  - exact matches: `187/187`
+  - exact match rate: `100%`
+  - average exact ratio to reference: `1.0000`
+- `sm_j20 @ 1.0s` `cp`
+  - feasible/infeasible/unknown: `181 / 69 / 20`
+  - exact matches: `128/158`
+  - exact match rate: `81.0%`
+  - average exact ratio to reference: `1.0178`
+  - matched best-known bounded upper bounds: `7`
+  - better-than-best-known bounded cases: `PSP150`
+
+Comparison against the previous accepted CP baseline:
+
+- `sm_j10 @ 1.0s`
+  - exact matches: `187 -> 187`
+  - no regression after scoping the propagator to `n_jobs >= 20`
+- `sm_j20 @ 1.0s`
+  - exact matches: `127 -> 128`
+  - average exact ratio to reference: `1.0159 -> 1.0178`
+  - matched best-known bounded upper bounds: `6 -> 7`
+
+Verdict:
+
+- accepted
+- the gain is modest but real on the main `sm_j20` count metric
+- scoping it away from `J10` kept the easy-set frontier intact
+- this is a better next-step cumulative propagator than the earlier rejected full energetic-window scan
+
+### Rejected CP follow-up: localized energetic overload around hotspot windows
+
+Tried a cheaper energetic variant inside the CP fixpoint:
+
+- use the current `lower` schedule to find the hotspot resource/time
+- build candidate windows around that hotspot from nearby `EST/LST` boundaries
+- compute minimum unavoidable energy in those windows
+- fail early when required energy exceeds window capacity
+
+This was meant to be a cheaper replacement for the previously rejected full energetic-window scan.
+
+Results:
+
+- `sm_j20 @ 1.0s`
+  - exact matches improved `128 -> 129`
+  - average exact ratio to reference improved `1.0178 -> 1.0159`
+- but broader guardrails regressed:
+  - `sm_j30 @ 0.1s` exact matches dropped `68 -> 57`
+  - `testset_ubo50 @ 0.1s` exact matches stayed flat at `12`
+
+Verdict:
+
+- rejected
+- this version helped the main `J20` target slightly, but it damaged `sm_j30` too much to keep
+- if energetic reasoning comes back again, it needs a more stable explanation/boundary strategy than this hotspot-local version

@@ -115,6 +115,7 @@ Implemented in [rcpsp/cp/solver.py](rcpsp/cp/solver.py):
 - incumbent-based backward propagation for `LST`
 - conflict-set branching
 - timetable / compulsory-part pruning
+- limited forced pair-order propagation from `EST/LST` windows on larger instances
 - explicit timetable-overload explanations
 - hybrid-guided warm-start incumbent phase
 - basic duplicate-state filtering

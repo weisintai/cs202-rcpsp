@@ -19,6 +19,7 @@ This backend currently owns:
 - temporal propagation under added order edges
 - incumbent-based latest-start bounds
 - compulsory-part / timetable pruning on EST/LST windows
+- limited forced pair-order propagation from EST/LST windows on larger instances
 - explicit timetable-overload explanations
 - pairwise conflict branching from resource explanations
 - a hybrid-guided warm-start phase that gives CP search a stronger incumbent bound
