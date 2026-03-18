@@ -4,41 +4,14 @@ import random
 import time
 
 from ..config import HeuristicConfig, sample_heuristic_config
-from ..core.branching import branch_order, delay_scores
-from ..core.compress import compress_valid_schedule, left_shift, normalized_time_loads, resource_order_edges
-from ..core.conflicts import first_conflict, minimal_conflict_set, shared_resource_overload
-from ..core.lag import (
-    all_pairs_longest_lags,
-    extend_longest_lags,
-    pairwise_infeasibility_reason,
-    pairwise_infeasibility_reason_from_dist,
-)
+from ..core.lag import pairwise_infeasibility_reason
 from ..core.metrics import resource_intensity
 from ..models import Instance, Schedule, SolveResult
 from ..temporal import TemporalInfeasibleError, longest_feasible_starts, longest_tail_to_sink
 from ..validate import validate_schedule
 from .construct import construct_schedule
-from .exact import SearchStats, branch_and_bound_search
+from .exact import branch_and_bound_search
 from .improve import improve_incumbent
-
-# Backward-compatible helper exports for tests and the experimental CP backend.
-_resource_intensity = resource_intensity
-_all_pairs_longest_lags = all_pairs_longest_lags
-_extend_longest_lags = extend_longest_lags
-_pairwise_infeasibility_reason_from_dist = pairwise_infeasibility_reason_from_dist
-_pairwise_infeasibility_reason = pairwise_infeasibility_reason
-_first_conflict = first_conflict
-_delay_scores = delay_scores
-_shared_resource_overload = shared_resource_overload
-_left_shift = left_shift
-_resource_order_edges = resource_order_edges
-_compress_valid_schedule = compress_valid_schedule
-_normalized_time_loads = normalized_time_loads
-_minimal_conflict_set = minimal_conflict_set
-_branch_order = branch_order
-_sample_heuristic_config = sample_heuristic_config
-_branch_and_bound_search = branch_and_bound_search
-_improve_incumbent = improve_incumbent
 
 
 def solve(

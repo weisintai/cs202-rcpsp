@@ -4,8 +4,11 @@ import random
 import unittest
 from pathlib import Path
 
-from rcpsp.cp.solver import solve_cp
-from rcpsp.heuristic.solver import HeuristicConfig, _resource_intensity, construct_schedule, solve
+from rcpsp.config import HeuristicConfig
+from rcpsp.core.metrics import resource_intensity
+from rcpsp.cp.search import solve_cp
+from rcpsp.heuristic.construct import construct_schedule
+from rcpsp.heuristic.solver import solve
 from rcpsp.models import Edge, Instance
 from rcpsp.temporal import longest_tail_to_sink
 
@@ -85,7 +88,7 @@ class BranchingRegressionTests(unittest.TestCase):
             instance=instance,
             rng=random.Random(0),
             tail=longest_tail_to_sink(instance),
-            intensity=_resource_intensity(instance),
+            intensity=resource_intensity(instance),
             config=HeuristicConfig(noise_weight=0.0, max_restarts=1),
         )
 
