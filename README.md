@@ -2,6 +2,17 @@
 
 Python-first heuristic solver for the project scheduling instances in this folder.
 
+## Project layout
+
+- [rcpsp/README.md](/Users/weisintai/Library/Mobile%20Documents/com~apple~CloudDocs/SMU/Y2S2/CS202/Project/rcpsp/README.md)
+  - package index and shared module layout
+- [rcpsp/heuristic/README.md](/Users/weisintai/Library/Mobile%20Documents/com~apple~CloudDocs/SMU/Y2S2/CS202/Project/rcpsp/heuristic/README.md)
+  - accepted main backend
+- [rcpsp/cp/README.md](/Users/weisintai/Library/Mobile%20Documents/com~apple~CloudDocs/SMU/Y2S2/CS202/Project/rcpsp/cp/README.md)
+  - experimental CP-style backend
+- [references/README.md](/Users/weisintai/Library/Mobile%20Documents/com~apple~CloudDocs/SMU/Y2S2/CS202/Project/references/README.md)
+  - external reference repos cloned for study
+
 ## What it does
 
 - Parses ProGenMax `.SCH` files across the benchmark folders in this repo, including `sm_j10`, `sm_j20`, `sm_j30`, `testset_ubo20`, and `testset_ubo50`
@@ -20,6 +31,13 @@ Solve one instance:
 uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0
 ```
 
+You can switch solver backends explicitly:
+
+```bash
+uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0 --backend hybrid
+uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0 --backend cp
+```
+
 Benchmark a full folder:
 
 ```bash
@@ -30,6 +48,7 @@ uv run main.py benchmark sm_j10 --time-limit 0.1 --output sm_j10_results.json
 
 ```bash
 uv run main.py benchmark sm_j10 --time-limit 0.1 --output sm_j10_results.json --no-progress
+uv run main.py benchmark sm_j10 --time-limit 0.1 --backend cp --output sm_j10_cp.json --no-progress
 ```
 
 Compare a benchmark JSON against the public reference values:
@@ -95,3 +114,7 @@ What we are deliberately not trying to build from scratch right now:
 - a full external-solver-grade CP / MIP engine
 
 Those are valid research directions, but they are much larger engineering projects than this assignment needs.
+
+## References
+
+Public solver and model references cloned for local study live in [references/README.md](/Users/weisintai/Library/Mobile%20Documents/com~apple~CloudDocs/SMU/Y2S2/CS202/Project/references/README.md).

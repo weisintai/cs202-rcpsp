@@ -1,6 +1,8 @@
 .DS_Store
 __pycache__/
 *.pyc
+references/*
+!references/README.md
 
 sm_j10_results*.json
 sm_j20_results*.json

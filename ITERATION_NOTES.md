@@ -24,7 +24,7 @@ The provided instances behave like `RCPSP/max`, not only plain DAG precedence sc
   - longest-path style propagation for lag constraints
 - [rcpsp/validate.py](rcpsp/validate.py)
   - validates temporal and resource feasibility
-- [rcpsp/solver.py](rcpsp/solver.py)
+- [rcpsp/heuristic/solver.py](rcpsp/heuristic/solver.py)
   - incumbent heuristic
   - pairwise infeasibility screening
   - conflict-set branch-and-bound
@@ -75,7 +75,7 @@ Implemented a fast incumbent builder:
 
 Relevant code:
 
-- [rcpsp/solver.py](rcpsp/solver.py)
+- [rcpsp/heuristic/solver.py](rcpsp/heuristic/solver.py)
 
 ### 5. Pairwise infeasibility screening
 
@@ -87,7 +87,7 @@ Implemented a lightweight infeasibility screen:
 
 Relevant code:
 
-- [rcpsp/solver.py](rcpsp/solver.py)
+- [rcpsp/heuristic/solver.py](rcpsp/heuristic/solver.py)
 
 ### 6. Conflict-set branch-and-bound
 
@@ -101,7 +101,7 @@ Replaced the weak fallback search with a stronger exact-style search:
 
 Relevant code:
 
-- [rcpsp/solver.py](rcpsp/solver.py)
+- [rcpsp/heuristic/solver.py](rcpsp/heuristic/solver.py)
 
 ### 7. uv project setup
 
@@ -432,7 +432,7 @@ Added a post-processing step for heuristic and exact-search schedules:
 
 Relevant code is in:
 
-- [rcpsp/solver.py](rcpsp/solver.py)
+- [rcpsp/heuristic/solver.py](rcpsp/heuristic/solver.py)
 
 ### Why this was needed
 
@@ -540,7 +540,7 @@ Implemented neighborhoods:
 
 Relevant code is in:
 
-- [rcpsp/solver.py](rcpsp/solver.py)
+- [rcpsp/heuristic/solver.py](rcpsp/heuristic/solver.py)
 
 ### Why this helped
 
@@ -789,11 +789,16 @@ Target for a strong final solver:
   - idea: keep the original time allocation, but add the same small pair neighborhood as an occasional destroy operator instead of a separate post-pass
   - result: `sm_j20 @ 1.0s` recovered slightly to `108/158` exact matches (`68.4%`), still below the accepted baseline `113/158` (`71.5%`)
   - verdict: rejected because it still weakened the main quality target
+- `light energetic window pruning inside exact search`:
+  - idea: add incumbent-aware resource-window pruning on the currently overloaded resource, but only near the incumbent where the bound should be tightest
+  - result: `sm_j20 @ 1.0s` dropped to `110/158` exact matches (`69.6%`) and average exact ratio worsened from `1.0172` to `1.0216`
+  - verdict: rejected because the extra bound cost more search time than it saved in this implementation
 
 What we learned:
 
 - the `pair / bottleneck` neighborhood itself is not obviously bad, but it is not strong enough yet to justify taking probability mass or budget away from the accepted ALNS mix
 - future experiments should avoid broad operator-mix changes unless they clearly help `sm_j20`, because that set is the most sensitive quality guardrail right now
+- CP-style pruning needs to be either much cheaper or much stronger; the first lightweight energetic-window attempt was neither
 
 ### Secondary improvements
 
@@ -823,3 +828,47 @@ If we write this up as algorithm iterations:
 - [Why cumulative decomposition is not as bad as it sounds](https://people.eng.unimelb.edu.au/pstuckey/papers/cp09-cu.pdf)
 - [ALNS RCPSP example](https://alns.readthedocs.io/en/stable/examples/resource_constrained_project_scheduling_problem.html)
 - [ptal/kobe-scheduling](https://github.com/ptal/kobe-scheduling)
+
+## CP-style backend scaffold
+
+Started a separate experimental `cp` backend instead of continuing to force CP-style ideas into the accepted hybrid solver.
+
+### References cloned locally
+
+- `references/kobe-scheduling`
+  - RCPSP/max MiniZinc cumulative model and benchmark references
+- `references/minicp`
+  - compact CP engine structure, cumulative propagator, DFS search
+- `references/chuffed`
+  - lazy clause generation / nogood-learning reference
+
+See [references/README.md](references/README.md) for the curated list of relevant files.
+
+### Implementation shape
+
+Added:
+
+- [rcpsp/cp/solver.py](rcpsp/cp/solver.py)
+  - separate CP-style backend
+  - pair-disjunction search state
+  - temporal propagation by recomputing earliest feasible starts under added order edges
+  - incumbent-based latest-start bounds
+  - compulsory-part overload check
+  - pairwise disjunctive branching on resource conflicts
+  - small primal heuristic using the existing constructive scheduler under the current branch
+- [main.py](main.py)
+  - `--backend hybrid|cp` for `solve` and `benchmark`
+
+The accepted `hybrid` solver remains the default. The `cp` backend is experimental and currently weaker.
+
+### Preview result
+
+Quick preview on `sm_j10 @ 0.05s`:
+
+- feasible: `161`
+- infeasible: `77`
+- unknown: `32`
+- exact matches: `59/187` (`31.6%`)
+- average ratio to exact reference: `1.0976`
+
+This confirms the backend is alive and can be iterated on, but it is still far behind the accepted hybrid solver.
