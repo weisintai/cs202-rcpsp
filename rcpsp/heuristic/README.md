@@ -17,7 +17,7 @@ This is the accepted main solver backend.
 - `exact.py`
   - pairwise exact-search intensification
 - `solver.py`
-  - thin public wrapper and orchestration
+  - backend entrypoint and orchestration
 
 ## Scope
 

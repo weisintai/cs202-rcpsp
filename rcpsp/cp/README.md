@@ -16,7 +16,7 @@ This is the experimental CP-style backend.
 - `search.py`
   - branching policy, incumbent management, and DFS orchestration
 - `solver.py`
-  - thin public wrapper and compatibility exports
+  - backend entrypoint
 
 ## Scope
 

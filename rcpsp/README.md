@@ -45,6 +45,6 @@ The `rcpsp/` package is split into shared infrastructure, a reusable solver core
 
 - package exports are re-exported from `rcpsp/__init__.py`
 - CLI dispatch lives in `main.py`
-- backend wrappers stay in `heuristic/solver.py` and `cp/solver.py` for stable imports
+- backend entrypoints live in `heuristic/solver.py` and `cp/solver.py`
 
 The goal of this layout is to isolate backend-specific work while keeping shared scheduling primitives in one place.
