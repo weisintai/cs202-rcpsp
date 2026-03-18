@@ -4,13 +4,13 @@ Python-first heuristic solver for the project scheduling instances in this folde
 
 ## Project layout
 
-- [rcpsp/README.md](/Users/weisintai/Library/Mobile%20Documents/com~apple~CloudDocs/SMU/Y2S2/CS202/Project/rcpsp/README.md)
+- [rcpsp/README.md](rcpsp/README.md)
   - package index and shared module layout
-- [rcpsp/heuristic/README.md](/Users/weisintai/Library/Mobile%20Documents/com~apple~CloudDocs/SMU/Y2S2/CS202/Project/rcpsp/heuristic/README.md)
+- [rcpsp/heuristic/README.md](rcpsp/heuristic/README.md)
   - accepted main backend
-- [rcpsp/cp/README.md](/Users/weisintai/Library/Mobile%20Documents/com~apple~CloudDocs/SMU/Y2S2/CS202/Project/rcpsp/cp/README.md)
+- [rcpsp/cp/README.md](rcpsp/cp/README.md)
   - experimental CP-style backend
-- [references/README.md](/Users/weisintai/Library/Mobile%20Documents/com~apple~CloudDocs/SMU/Y2S2/CS202/Project/references/README.md)
+- [references/README.md](references/README.md)
   - external reference repos cloned for study
 
 ## What it does
@@ -117,4 +117,4 @@ Those are valid research directions, but they are much larger engineering projec
 
 ## References
 
-Public solver and model references cloned for local study live in [references/README.md](/Users/weisintai/Library/Mobile%20Documents/com~apple~CloudDocs/SMU/Y2S2/CS202/Project/references/README.md).
+Public solver and model references cloned for local study live in [references/README.md](references/README.md).
