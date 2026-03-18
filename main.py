@@ -6,8 +6,22 @@ import sys
 import time
 from pathlib import Path
 
-from rcpsp import HeuristicConfig, parse_sch, solve
+from rcpsp import HeuristicConfig, parse_sch, solve, solve_cp
 from rcpsp.reference import REFERENCE_URLS, fetch_reference_values, normalize_instance_name
+
+
+def _solve_with_backend(
+    instance,
+    *,
+    backend: str,
+    time_limit: float,
+    seed: int,
+    max_restarts: int | None,
+):
+    config = HeuristicConfig(max_restarts=max_restarts)
+    if backend == "cp":
+        return solve_cp(instance, time_limit=time_limit, seed=seed, config=config)
+    return solve(instance, time_limit=time_limit, seed=seed, config=config)
 
 
 def _instance_paths(path: Path) -> list[Path]:
@@ -70,11 +84,12 @@ def _render_progress(
 
 def cmd_solve(args: argparse.Namespace) -> int:
     instance = parse_sch(args.path)
-    result = solve(
+    result = _solve_with_backend(
         instance,
+        backend=args.backend,
         time_limit=args.time_limit,
         seed=args.seed,
-        config=HeuristicConfig(max_restarts=args.max_restarts),
+        max_restarts=args.max_restarts,
     )
     payload = {
         "instance": result.instance_name,
@@ -85,6 +100,7 @@ def cmd_solve(args: argparse.Namespace) -> int:
         "restarts": result.restarts,
         "start_times": list(result.schedule.start_times) if result.schedule is not None else None,
         "metadata": result.metadata,
+        "backend": args.backend,
     }
     if args.json:
         print(json.dumps(payload))
@@ -112,11 +128,12 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     tty = sys.stderr.isatty()
     for index, path in enumerate(paths, start=1):
         instance = parse_sch(path)
-        result = solve(
+        result = _solve_with_backend(
             instance,
+            backend=args.backend,
             time_limit=args.time_limit,
             seed=args.seed + index - 1,
-            config=HeuristicConfig(max_restarts=args.max_restarts),
+            max_restarts=args.max_restarts,
         )
         rows.append(
             {
@@ -131,6 +148,7 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
                 ),
                 "runtime_seconds": result.runtime_seconds,
                 "restarts": result.restarts,
+                "backend": args.backend,
             }
         )
         counts[result.status] += 1
@@ -150,6 +168,7 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
 
     feasible = [row for row in rows if row["status"] == "feasible" and row["ratio"] is not None]
     summary = {
+        "backend": args.backend,
         "instances": len(rows),
         "feasible": sum(row["status"] == "feasible" for row in rows),
         "infeasible": sum(row["status"] == "infeasible" for row in rows),
@@ -319,6 +338,7 @@ def build_parser() -> argparse.ArgumentParser:
     solve_parser.add_argument("--time-limit", type=float, default=1.0)
     solve_parser.add_argument("--seed", type=int, default=0)
     solve_parser.add_argument("--max-restarts", type=int, default=None)
+    solve_parser.add_argument("--backend", choices=("hybrid", "cp"), default="hybrid")
     solve_parser.add_argument("--json", action="store_true")
     solve_parser.set_defaults(func=cmd_solve)
 
@@ -327,6 +347,7 @@ def build_parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--time-limit", type=float, default=0.1)
     bench_parser.add_argument("--seed", type=int, default=0)
     bench_parser.add_argument("--max-restarts", type=int, default=None)
+    bench_parser.add_argument("--backend", choices=("hybrid", "cp"), default="hybrid")
     bench_parser.add_argument("--output")
     bench_parser.add_argument("--no-progress", action="store_true")
     bench_parser.set_defaults(func=cmd_benchmark)
