@@ -20,7 +20,7 @@ This backend currently owns:
 - incumbent-based latest-start bounds
 - compulsory-part / timetable pruning on EST/LST windows
 - explicit timetable-overload explanations
-- conflict-set branching that can add several disjunctive orders at once
+- pairwise conflict branching from resource explanations
 - a hybrid-guided warm-start phase that gives CP search a stronger incumbent bound
 
 It is currently a scaffold, not the accepted main solver. Changes here should target `stronger propagation and branching`, not heuristic polishing.

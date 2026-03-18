@@ -18,7 +18,7 @@ This backend owns:
 
 - heuristic construction
 - local repair and compression
-- conflict-set branch-and-bound
+- pairwise conflict branch-and-bound
 - incumbent polishing
 
 It should stay focused on `anytime performance`, since this is still the submission-quality default backend.

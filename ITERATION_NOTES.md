@@ -1047,3 +1047,131 @@ Interpretation:
   - idea: give the hybrid-guided warm-start phase an even larger share of the time budget once `time_limit >= 1.0`
   - result on `sm_j20 @ 1.0s`: slightly better average exact ratio to reference (`1.0216 -> 1.0198`), but worse exact matches (`106 -> 104`) and fewer matches to the best-known bounded upper bound (`7 -> 6`)
   - verdict: rejected; keep the simpler warm-start budget because it wins on the more important count metrics
+
+### Individual tests of the next three CP ideas
+
+Tested the next three ideas individually against the accepted CP warm-start baseline, using `sm_j20 @ 1.0s` as the decisive comparison.
+
+Accepted CP warm-start baseline:
+
+- `sm_j20 @ 1.0s`
+  - exact matches: `106/158` (`67.1%`)
+  - avg exact ratio to reference: `1.0216`
+  - bounded feasible cases: `24/26`
+  - matched best-known bounded upper bounds: `7`
+
+1. `overload-based nogoods only`
+- idea: cache timetable-overload explanations as small nogoods keyed by the explained activity set and local order pattern
+- result:
+  - exact matches: `104/158`
+  - avg exact ratio to reference: `1.0209`
+  - bounded feasible cases: `24/26`
+  - matched best-known bounded upper bounds: `9`
+- interpretation:
+  - slightly better average quality and bounded-case matching
+  - but worse on the primary count metric `exact matches`
+- verdict: rejected for now; promising signal, but not enough to displace the accepted baseline
+
+2. `incumbent-triggered search resets only`
+- idea: when CP finds a better incumbent, clear the duplicate-state filter and restart search under the tighter makespan bound
+- result:
+  - exact matches: `104/158`
+  - avg exact ratio to reference: `1.0207`
+  - bounded feasible cases: `24/26`
+  - matched best-known bounded upper bounds: `5`
+- interpretation:
+  - again slightly better average ratio
+  - but exact matches still fell, and bounded-case matching worsened
+- verdict: rejected
+
+3. `explanation-driven overload branching only`
+- idea: when timetable propagation returns a small overload explanation, branch immediately on that explained resource conflict instead of only treating it as failure
+- result:
+  - exact matches: `102/158`
+  - avg exact ratio to reference: `1.0224`
+  - bounded feasible cases: `24/26`
+  - matched best-known bounded upper bounds: `6`
+- interpretation:
+  - this was the weakest of the three single-idea variants
+- verdict: rejected
+
+Overall conclusion:
+
+- none of the three individual ideas beat the accepted CP warm-start baseline on the main public `sm_j20 @ 1.0s` benchmark
+- `nogoods only` was the most interesting of the three because it improved bounded-case matching, but it still lost on exact-match count
+- this reinforces the current read: the next meaningful CP step is likely stronger cumulative propagation rather than more search bookkeeping
+
+### Accepted fix: weaker pairwise exact branching
+
+The review findings about the exact branch shape were correct.
+
+What was wrong:
+
+- both the heuristic exact layer and the CP backend were branching by selecting one activity from a conflict set and forcing **every** other conflicting activity before it
+- that is stronger than the actual cumulative disjunction, so it can cut off valid improving schedules
+- the CP backend also kept children that timetable propagation had already marked with an overload explanation, which wasted search effort
+
+Accepted code changes:
+
+- `rcpsp/heuristic/solver.py`
+  - changed the exact brancher from `all others before selected` to `one pairwise order edge per child`
+  - changed the small-instance repair path to try weaker single-blocker moves in both directions instead of greedily accumulating blocker-before-selected edges
+- `rcpsp/cp/solver.py`
+  - changed CP branching to the same weaker pairwise resource-order children
+  - dropped children immediately when `_propagate_cp_node()` returns an overload explanation
+- `tests/test_branching_regressions.py`
+  - added regression tests for the two 4-job counterexamples that exposed the issue
+
+Regression tests now locked in:
+
+- exact branching toy:
+  - heuristic solve returns makespan `5`
+  - CP solve returns makespan `5`
+- small-instance repair toy:
+  - `construct_schedule()` now returns makespan `7`
+
+Public benchmark impact:
+
+- `sm_j10 @ 0.1s` `hybrid`
+  - feasible/infeasible/unknown: `187 / 83 / 0`
+  - exact matches: `185/187`
+  - exact match rate: `98.9%`
+  - average exact ratio to reference: `1.0008`
+- `sm_j20 @ 0.1s` `hybrid`
+  - feasible/infeasible/unknown: `180 / 73 / 17`
+  - exact matches: `103/158`
+  - exact match rate: `65.2%`
+  - average exact ratio to reference: `1.0348`
+  - note: this is a mixed short-budget result; coverage slipped slightly even though the brancher is more correct
+
+- `sm_j10 @ 1.0s` `hybrid`
+  - feasible/infeasible/unknown: `187 / 83 / 0`
+  - exact matches: `187/187`
+  - exact match rate: `100%`
+  - average exact ratio to reference: `1.0000`
+- `sm_j20 @ 1.0s` `hybrid`
+  - feasible/infeasible/unknown: `184 / 79 / 7`
+  - exact matches: `120/158`
+  - exact match rate: `75.9%`
+  - average exact ratio to reference: `1.0210`
+  - matched best-known bounded upper bounds: `8`
+
+- `sm_j10 @ 1.0s` `cp`
+  - feasible/infeasible/unknown: `187 / 83 / 0`
+  - exact matches: `187/187`
+  - exact match rate: `100%`
+  - average exact ratio to reference: `1.0000`
+- `sm_j20 @ 1.0s` `cp`
+  - feasible/infeasible/unknown: `181 / 69 / 20`
+  - exact matches: `127/158`
+  - exact match rate: `80.4%`
+  - average exact ratio to reference: `1.0159`
+  - matched best-known bounded upper bounds: `6`
+  - improved one bounded case beyond the published best-known upper bound: `PSP150`
+
+Interpretation:
+
+- this is a real accepted fix, not only a toy-case cleanup
+- the weaker pairwise branch shape improves exact-search quality substantially at `1.0s`
+- `hybrid` remains the stronger submission backend because its coverage is better on `sm_j20`
+- `cp` now has the better `sm_j20` quality profile among the cases it solves, but it still leaves too many unknowns to replace `hybrid` as the default
