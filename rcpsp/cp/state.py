@@ -13,6 +13,9 @@ class CpSearchStats:
     branches: int = 0
     timetable_failures: int = 0
     max_timetable_explanation: int = 0
+    failure_cache_hits: int = 0
+    failure_cache_inserts: int = 0
+    failure_cache_size: int = 0
 
 
 @dataclass(frozen=True)

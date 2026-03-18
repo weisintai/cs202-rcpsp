@@ -18,6 +18,30 @@ from .propagation import propagate_cp_node
 from .state import CpNode, CpSearchStats
 
 
+def failure_cache_hit(
+    pairs: frozenset[tuple[int, int]],
+    failed_pair_sets: set[frozenset[tuple[int, int]]],
+) -> bool:
+    return any(failed.issubset(pairs) for failed in failed_pair_sets)
+
+
+def record_failed_pairs(
+    pairs: frozenset[tuple[int, int]],
+    failed_pair_sets: set[frozenset[tuple[int, int]]],
+    stats: CpSearchStats,
+) -> None:
+    if not pairs:
+        return
+    if any(failed.issubset(pairs) for failed in failed_pair_sets):
+        return
+    redundant = [failed for failed in failed_pair_sets if pairs.issubset(failed)]
+    for failed in redundant:
+        failed_pair_sets.remove(failed)
+    failed_pair_sets.add(pairs)
+    stats.failure_cache_inserts += 1
+    stats.failure_cache_size = len(failed_pair_sets)
+
+
 def try_cp_incumbent(
     instance: Instance,
     node: CpNode,
@@ -52,6 +76,8 @@ def branch_children(
     overload: list[int],
     incumbent_makespan: int | None,
     seen: set[tuple[tuple[tuple[int, int], ...], tuple[int, ...]]],
+    failed_pair_sets: set[frozenset[tuple[int, int]]],
+    failure_cache_enabled: bool,
     stats: CpSearchStats,
 ) -> list[tuple[int, int, frozenset[tuple[int, int]], CpNode]]:
     ordered = branch_order(
@@ -72,6 +98,9 @@ def branch_children(
                 continue
 
             child_pairs = frozenset((*node.pairs, pair))
+            if failure_cache_enabled and failure_cache_hit(child_pairs, failed_pair_sets):
+                stats.failure_cache_hits += 1
+                continue
             child = propagate_cp_node(
                 instance=instance,
                 tail=tail,
@@ -86,8 +115,15 @@ def branch_children(
                     stats.max_timetable_explanation,
                     child.overload.size,
                 )
+                if failure_cache_enabled:
+                    record_failed_pairs(child_pairs, failed_pair_sets, stats)
                 continue
             if child.node is None:
+                if failure_cache_enabled:
+                    record_failed_pairs(child_pairs, failed_pair_sets, stats)
+                continue
+            if failure_cache_enabled and failure_cache_hit(child.node.pairs, failed_pair_sets):
+                stats.failure_cache_hits += 1
                 continue
             child_key = (tuple(sorted(child.node.pairs)), child.node.lower)
             if child_key in seen:
@@ -139,6 +175,8 @@ def solve_cp(
     intensity = resource_intensity(instance)
     stats = CpSearchStats()
     seen: set[tuple[tuple[tuple[int, int], ...], tuple[int, ...]]] = set()
+    failed_pair_sets: set[frozenset[tuple[int, int]]] = set()
+    failure_cache_enabled = time_limit >= 0.5
     incumbent: Schedule | None = None
     restarts = 0
     root_lag_dist = all_pairs_longest_lags(instance)
@@ -178,12 +216,16 @@ def solve_cp(
         if incumbent.makespan == temporal_lower[instance.sink]:
             break
 
-    def dfs(pairs: frozenset[tuple[int, int]], node: CpNode | None = None) -> None:
+    def dfs(pairs: frozenset[tuple[int, int]], node: CpNode | None = None) -> bool:
         nonlocal incumbent
         if time.perf_counter() >= final_deadline:
             stats.timed_out = True
-            return
+            return False
         stats.nodes += 1
+
+        if failure_cache_enabled and failure_cache_hit(pairs, failed_pair_sets):
+            stats.failure_cache_hits += 1
+            return False
 
         if node is None:
             propagation = propagate_cp_node(
@@ -199,14 +241,21 @@ def solve_cp(
                     stats.max_timetable_explanation,
                     propagation.overload.size,
                 )
-                return
+                if failure_cache_enabled:
+                    record_failed_pairs(pairs, failed_pair_sets, stats)
+                return False
             node = propagation.node
             if node is None:
-                return
+                if failure_cache_enabled:
+                    record_failed_pairs(pairs, failed_pair_sets, stats)
+                return False
+            if failure_cache_enabled and failure_cache_hit(node.pairs, failed_pair_sets):
+                stats.failure_cache_hits += 1
+                return False
 
         key = (tuple(sorted(node.pairs)), node.lower)
         if key in seen:
-            return
+            return True
         seen.add(key)
 
         lower = list(node.lower)
@@ -214,11 +263,16 @@ def solve_cp(
         if not validate_schedule(instance, lower_schedule):
             candidate_starts = compress_valid_schedule(instance, lower)
             candidate = Schedule(start_times=tuple(candidate_starts), makespan=candidate_starts[instance.sink])
-            if incumbent is None or candidate.makespan < incumbent.makespan:
-                incumbent = candidate
-                stats.incumbent_updates += 1
-            return
+            if not validate_schedule(instance, candidate):
+                if incumbent is None or candidate.makespan < incumbent.makespan:
+                    incumbent = candidate
+                    stats.incumbent_updates += 1
+                return True
+            if failure_cache_enabled:
+                record_failed_pairs(node.pairs, failed_pair_sets, stats)
+            return False
 
+        found_feasible = False
         if time.perf_counter() < final_deadline:
             local_budget = min(final_deadline, time.perf_counter() + min(0.02, max(0.002, time_limit * 0.01)))
             candidate = try_cp_incumbent(
@@ -230,26 +284,34 @@ def solve_cp(
                 rng=rng,
                 deadline=local_budget,
             )
-            if candidate is not None and (incumbent is None or candidate.makespan < incumbent.makespan):
-                incumbent = candidate
-                stats.incumbent_updates += 1
-                if incumbent.makespan == temporal_lower[instance.sink]:
-                    return
+            if candidate is not None:
+                found_feasible = True
+                if incumbent is None or candidate.makespan < incumbent.makespan:
+                    incumbent = candidate
+                    stats.incumbent_updates += 1
+                    if incumbent.makespan == temporal_lower[instance.sink]:
+                        return True
 
         conflict = minimal_conflict_set(instance, lower)
         if conflict is None:
             candidate_starts = compress_valid_schedule(instance, lower)
             candidate = Schedule(start_times=tuple(candidate_starts), makespan=candidate_starts[instance.sink])
-            if not validate_schedule(instance, candidate) and (
-                incumbent is None or candidate.makespan < incumbent.makespan
-            ):
-                incumbent = candidate
-                stats.incumbent_updates += 1
-            return
+            if not validate_schedule(instance, candidate):
+                found_feasible = True
+                if incumbent is None or candidate.makespan < incumbent.makespan:
+                    incumbent = candidate
+                    stats.incumbent_updates += 1
+                return True
+            if failure_cache_enabled:
+                record_failed_pairs(node.pairs, failed_pair_sets, stats)
+            return False
 
         _, resource, conflict_set, overload = conflict
         if len(conflict_set) <= 1:
-            return
+            if not found_feasible:
+                if failure_cache_enabled:
+                    record_failed_pairs(node.pairs, failed_pair_sets, stats)
+            return found_feasible
 
         children = branch_children(
             instance=instance,
@@ -261,16 +323,24 @@ def solve_cp(
             overload=overload,
             incumbent_makespan=incumbent.makespan if incumbent is not None else None,
             seen=seen,
+            failed_pair_sets=failed_pair_sets,
+            failure_cache_enabled=failure_cache_enabled,
             stats=stats,
         )
 
         for _, _, child_pairs, child in children:
             stats.branches += 1
-            dfs(child_pairs, child)
+            child_found_feasible = dfs(child_pairs, child)
+            found_feasible = found_feasible or child_found_feasible
             if stats.timed_out:
-                return
+                return False
             if incumbent is not None and incumbent.makespan == temporal_lower[instance.sink]:
-                return
+                return True
+
+        if not found_feasible:
+            if failure_cache_enabled:
+                record_failed_pairs(node.pairs, failed_pair_sets, stats)
+        return found_feasible
 
     dfs(frozenset())
 
@@ -293,6 +363,9 @@ def solve_cp(
                 "branches": stats.branches,
                 "timetable_failures": stats.timetable_failures,
                 "max_timetable_explanation": stats.max_timetable_explanation,
+                "failure_cache_hits": stats.failure_cache_hits,
+                "failure_cache_inserts": stats.failure_cache_inserts,
+                "failure_cache_size": stats.failure_cache_size,
             },
         )
 
@@ -313,5 +386,8 @@ def solve_cp(
             "branches": stats.branches,
             "timetable_failures": stats.timetable_failures,
             "max_timetable_explanation": stats.max_timetable_explanation,
+            "failure_cache_hits": stats.failure_cache_hits,
+            "failure_cache_inserts": stats.failure_cache_inserts,
+            "failure_cache_size": stats.failure_cache_size,
         },
     )
