@@ -77,3 +77,21 @@ For whole-benchmark comparisons, the most useful summary fields are:
 4. `avg_runtime_seconds`
 
 When two solver versions solve different sets of instances, compare `avg_ratio` on the common feasible set as well, not only on all feasible instances.
+
+## Research-Inspired Next Steps
+
+These are the smaller CP-style ideas that still fit the current project scope and codebase:
+
+- stronger `mandatory-overlap clique` pruning instead of only pairwise overlap checks
+- light `energetic / window-based` resource pruning for obvious overload windows
+- better exact-search branching using conflict history or activity failure counts
+- stronger incumbent improvement around critical-chain and bottleneck-resource activities
+- richer local moves such as pair reinsertion / swap near hard conflicts
+
+What we are deliberately not trying to build from scratch right now:
+
+- a full `lazy clause generation` engine
+- a full `global cumulative` propagator
+- a full external-solver-grade CP / MIP engine
+
+Those are valid research directions, but they are much larger engineering projects than this assignment needs.
