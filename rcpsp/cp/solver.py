@@ -17,6 +17,7 @@ from ..heuristic.solver import (
     _resource_intensity,
     _sample_heuristic_config,
     construct_schedule,
+    solve as solve_heuristic,
 )
 from ..temporal import TemporalInfeasibleError, longest_feasible_starts, longest_tail_to_sink
 from ..validate import validate_schedule
@@ -28,6 +29,8 @@ class CpSearchStats:
     timed_out: bool = False
     incumbent_updates: int = 0
     branches: int = 0
+    timetable_failures: int = 0
+    max_timetable_explanation: int = 0
 
 
 @dataclass(frozen=True)
@@ -37,6 +40,35 @@ class CpNode:
     edges: tuple[Edge, ...]
     pairs: frozenset[tuple[int, int]]
     lag_dist: list[list[float]] | None = None
+
+
+@dataclass(frozen=True)
+class OverloadExplanation:
+    kind: str
+    resource: int
+    window_start: int
+    window_end: int
+    activities: tuple[int, ...]
+    required: int
+    limit: int
+
+    @property
+    def size(self) -> int:
+        return len(self.activities)
+
+    def summary(self) -> str:
+        activities = ",".join(str(activity) for activity in self.activities)
+        return (
+            f"{self.kind} overload on resource {self.resource} in "
+            f"[{self.window_start},{self.window_end}) by activities [{activities}] "
+            f"with load {self.required}>{self.limit}"
+        )
+
+
+@dataclass(frozen=True)
+class CpNodePropagation:
+    node: CpNode | None
+    overload: OverloadExplanation | None = None
 
 
 def _tighten_latest_starts(
@@ -95,11 +127,50 @@ def _build_mandatory_profile(
     return profiles, mandatory_intervals
 
 
+def _minimal_overload_explanation(
+    instance: Instance,
+    resource: int,
+    time_index: int,
+    mandatory: list[tuple[int, int, int]],
+) -> OverloadExplanation:
+    active = [
+        activity
+        for activity, left, right in mandatory
+        if left <= time_index < right
+    ]
+    total = sum(instance.demands[activity][resource] for activity in active)
+    conflict = active[:]
+    while conflict:
+        smallest = min(
+            conflict,
+            key=lambda activity: (
+                instance.demands[activity][resource],
+                instance.durations[activity],
+                activity,
+            ),
+        )
+        if total - instance.demands[smallest][resource] > instance.capacities[resource]:
+            total -= instance.demands[smallest][resource]
+            conflict.remove(smallest)
+        else:
+            break
+    conflict.sort()
+    return OverloadExplanation(
+        kind="point",
+        resource=resource,
+        window_start=time_index,
+        window_end=time_index + 1,
+        activities=tuple(conflict),
+        required=total,
+        limit=instance.capacities[resource],
+    )
+
+
 def _propagate_compulsory_parts(
     instance: Instance,
     lower: list[int],
     latest: list[int],
-) -> tuple[bool, list[int], list[int]] | None:
+) -> tuple[bool, list[int], list[int], OverloadExplanation | None] | None:
     changed = False
     profiles, mandatory_intervals = _build_mandatory_profile(instance, lower, latest)
 
@@ -108,12 +179,8 @@ def _propagate_compulsory_parts(
         for time_index, usage in enumerate(profile):
             if usage <= instance.capacities[resource]:
                 continue
-            active = [
-                activity
-                for activity, left, right in mandatory
-                if left <= time_index < right
-            ]
-            return None
+            explanation = _minimal_overload_explanation(instance, resource, time_index, mandatory)
+            return changed, lower, latest, explanation
 
         for activity in range(1, instance.sink):
             demand = instance.demands[activity][resource]
@@ -166,7 +233,7 @@ def _propagate_compulsory_parts(
                 latest[activity] = new_latest
                 changed = True
 
-    return changed, lower, latest
+    return changed, lower, latest, None
 
 
 def _improving_latest_starts(
@@ -188,7 +255,7 @@ def _propagate_cp_node(
     incumbent_makespan: int | None,
     base_lag_dist: list[list[float]] | None = None,
     new_edges: tuple[Edge, ...] = (),
-) -> CpNode | None:
+) -> CpNodePropagation:
     local_pairs = set(pairs)
     if new_edges:
         for edge in new_edges:
@@ -214,27 +281,38 @@ def _propagate_cp_node(
         try:
             lower = longest_feasible_starts(instance, release_times=release_times, extra_edges=edges)
         except TemporalInfeasibleError:
-            return None
+            return CpNodePropagation(node=None)
 
         if incumbent_makespan is not None and lower[instance.sink] >= incumbent_makespan:
-            return None
+            return CpNodePropagation(node=None)
 
         if incumbent_makespan is None and lag_dist is not None:
             if _pairwise_infeasibility_reason_from_dist(instance, lag_dist) is not None:
-                return None
+                return CpNodePropagation(node=None)
 
         if latest is None:
             break
 
         latest = _tighten_latest_starts(instance, edges, latest)
         if any(lower[activity] > latest[activity] for activity in range(instance.n_activities)):
-            return None
+            return CpNodePropagation(node=None)
 
         propagated = _propagate_compulsory_parts(instance, lower[:], latest[:])
         if propagated is None:
-            return None
+            return CpNodePropagation(node=None)
 
-        changed, new_lower, new_latest = propagated
+        changed, new_lower, new_latest, overload = propagated
+        if overload is not None:
+            return CpNodePropagation(
+                node=CpNode(
+                    lower=tuple(new_lower),
+                    latest=tuple(new_latest),
+                    edges=tuple(edges),
+                    pairs=frozenset(local_pairs),
+                    lag_dist=lag_dist,
+                ),
+                overload=overload,
+            )
         if not changed:
             lower = new_lower
             latest = new_latest
@@ -243,12 +321,14 @@ def _propagate_cp_node(
         release_times = new_lower
         latest = new_latest
 
-    return CpNode(
-        lower=tuple(lower),
-        latest=tuple(latest) if latest is not None else None,
-        edges=tuple(edges),
-        pairs=frozenset(local_pairs),
-        lag_dist=lag_dist,
+    return CpNodePropagation(
+        node=CpNode(
+            lower=tuple(lower),
+            latest=tuple(latest) if latest is not None else None,
+            edges=tuple(edges),
+            pairs=frozenset(local_pairs),
+            lag_dist=lag_dist,
+        )
     )
 
 
@@ -274,6 +354,66 @@ def _try_cp_incumbent(
     if validate_schedule(instance, schedule):
         return None
     return schedule
+
+
+def _branch_children(
+    instance: Instance,
+    node: CpNode,
+    tail: list[int],
+    intensity: list[float],
+    conflict_set: list[int] | tuple[int, ...],
+    resource: int,
+    overload: list[int],
+    incumbent_makespan: int | None,
+    seen: set[tuple[tuple[int, int], ...]],
+    stats: CpSearchStats,
+) -> list[tuple[int, int, frozenset[tuple[int, int]], CpNode]]:
+    ordered = _branch_order(
+        instance=instance,
+        start_times=list(node.lower),
+        tail=tail,
+        intensity=intensity,
+        conflict=list(conflict_set),
+        overload=overload,
+    )
+    children: list[tuple[int, int, frozenset[tuple[int, int]], CpNode]] = []
+    for order_index, selected in enumerate(ordered):
+        additions: list[Edge] = []
+        child_pairs_set = set(node.pairs)
+        for other in conflict_set:
+            if other == selected or instance.demands[other][resource] == 0:
+                continue
+            pair = (other, selected)
+            if pair in child_pairs_set:
+                continue
+            child_pairs_set.add(pair)
+            additions.append(Edge(source=other, target=selected, lag=instance.durations[other]))
+
+        if not additions:
+            continue
+
+        child_pairs = frozenset(child_pairs_set)
+        if tuple(sorted(child_pairs)) in seen:
+            continue
+        child = _propagate_cp_node(
+            instance=instance,
+            tail=tail,
+            pairs=child_pairs,
+            incumbent_makespan=incumbent_makespan,
+            base_lag_dist=node.lag_dist,
+            new_edges=tuple(additions),
+        )
+        if child.overload is not None:
+            stats.timetable_failures += 1
+            stats.max_timetable_explanation = max(
+                stats.max_timetable_explanation,
+                child.overload.size,
+            )
+        if child.node is None:
+            continue
+        children.append((child.node.lower[instance.sink], order_index, child_pairs, child.node))
+    children.sort(key=lambda item: (item[0], item[1]))
+    return children
 
 
 def solve_cp(
@@ -322,10 +462,25 @@ def solve_cp(
     restarts = 0
     root_lag_dist = _all_pairs_longest_lags(instance)
 
-    # Leave most of the budget to branch-and-propagate; the warm start only needs
-    # enough time to find a usable incumbent.
-    heuristic_budget = min(0.5, max(0.01, time_limit * 0.25))
+    # Leave most of the budget to branch-and-propagate, but use a stronger
+    # heuristic warm start on larger budgets so timetable propagation gets a
+    # meaningful incumbent bound to work with.
+    heuristic_budget = min(0.75, max(0.01, time_limit * 0.25))
     heuristic_deadline = min(final_deadline, started + heuristic_budget)
+    if heuristic_budget >= 0.15 and time.perf_counter() < heuristic_deadline:
+        guided_budget = min(heuristic_budget * 0.8, heuristic_deadline - time.perf_counter())
+        if guided_budget > 0:
+            guided = solve_heuristic(
+                instance=instance,
+                time_limit=guided_budget,
+                seed=seed,
+                config=solver_config,
+            )
+            if guided.status == "feasible" and guided.schedule is not None:
+                incumbent = guided.schedule
+                stats.incumbent_updates += 1
+            restarts += guided.restarts
+
     while time.perf_counter() < heuristic_deadline:
         schedule = construct_schedule(
             instance=instance,
@@ -358,13 +513,21 @@ def solve_cp(
         seen.add(key)
 
         if node is None:
-            node = _propagate_cp_node(
+            propagation = _propagate_cp_node(
                 instance=instance,
                 tail=tail,
                 pairs=pairs,
                 incumbent_makespan=incumbent.makespan if incumbent is not None else None,
                 base_lag_dist=root_lag_dist if not pairs and incumbent is None else None,
             )
+            if propagation.overload is not None:
+                stats.timetable_failures += 1
+                stats.max_timetable_explanation = max(
+                    stats.max_timetable_explanation,
+                    propagation.overload.size,
+                )
+                return
+            node = propagation.node
             if node is None:
                 return
 
@@ -410,43 +573,18 @@ def solve_cp(
         if len(conflict_set) <= 1:
             return
 
-        ordered = _branch_order(
+        children = _branch_children(
             instance=instance,
-            start_times=lower,
+            node=node,
             tail=tail,
             intensity=intensity,
-            conflict=conflict_set,
+            conflict_set=conflict_set,
+            resource=resource,
             overload=overload,
+            incumbent_makespan=incumbent.makespan if incumbent is not None else None,
+            seen=seen,
+            stats=stats,
         )
-        children: list[tuple[int, int, frozenset[tuple[int, int]], CpNode]] = []
-        for order_index, selected in enumerate(ordered):
-            additions: list[Edge] = []
-            child_pairs_set = set(node.pairs)
-            for other in conflict_set:
-                if other == selected or instance.demands[other][resource] == 0:
-                    continue
-                pair = (other, selected)
-                if pair in child_pairs_set:
-                    continue
-                child_pairs_set.add(pair)
-                additions.append(Edge(source=other, target=selected, lag=instance.durations[other]))
-
-            if not additions:
-                continue
-
-            child_pairs = frozenset(child_pairs_set)
-            child = _propagate_cp_node(
-                instance=instance,
-                tail=tail,
-                pairs=child_pairs,
-                incumbent_makespan=incumbent.makespan if incumbent is not None else None,
-                base_lag_dist=node.lag_dist,
-                new_edges=tuple(additions),
-            )
-            if child is None:
-                continue
-            children.append((child.lower[instance.sink], order_index, child_pairs, child))
-        children.sort(key=lambda item: (item[0], item[1]))
 
         for _, _, child_pairs, child in children:
             stats.branches += 1
@@ -475,6 +613,8 @@ def solve_cp(
                 "timed_out": stats.timed_out,
                 "incumbent_updates": stats.incumbent_updates,
                 "branches": stats.branches,
+                "timetable_failures": stats.timetable_failures,
+                "max_timetable_explanation": stats.max_timetable_explanation,
             },
         )
 
@@ -493,5 +633,7 @@ def solve_cp(
             "timed_out": stats.timed_out,
             "incumbent_updates": stats.incumbent_updates,
             "branches": stats.branches,
+            "timetable_failures": stats.timetable_failures,
+            "max_timetable_explanation": stats.max_timetable_explanation,
         },
     )
