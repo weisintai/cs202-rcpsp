@@ -872,3 +872,84 @@ Quick preview on `sm_j10 @ 0.05s`:
 - average ratio to exact reference: `1.0976`
 
 This confirms the backend is alive and can be iterated on, but it is still far behind the accepted hybrid solver.
+
+### CP backend iteration: conflict-set branching and fixed search budget
+
+The first follow-up CP iteration exposed a real architecture bug: the warm-start phase was allowed to consume the entire time budget on very short runs, so the `cp` backend often never reached branch-and-propagate search at all. That made the earlier preview look weaker than it really was.
+
+Implemented in [rcpsp/cp/solver.py](rcpsp/cp/solver.py):
+
+- switched from pair-only branching to conflict-set branching
+  - each child can add several `other -> selected` disjunctive edges at once, similar to the stronger hybrid exact search
+- threaded lag-distance state through the CP node so pairwise lag-based pruning can be reused when no incumbent exists
+- reduced the warm-start budget to a small fixed share of the wall-clock limit so CP search still gets most of the time
+
+Updated preview at `0.05s`:
+
+- `sm_j10`
+  - feasible: `161 -> 185`
+  - infeasible: `77 -> 80`
+  - unknown: `32 -> 5`
+  - exact matches: `59/187 -> 113/187` (`31.6% -> 60.4%`)
+  - average ratio to exact reference: `1.0976 -> 1.0325`
+- `sm_j20`
+  - feasible: `161 -> 169`
+  - infeasible: `67 -> 70`
+  - unknown: `42 -> 31`
+  - exact matches: `51/158 -> 56/158` (`32.3% -> 35.4%`)
+  - average ratio to exact reference: `1.1001 -> 1.0661`
+
+Interpretation:
+
+- the CP backend is still behind the accepted `hybrid` solver by a wide margin
+- but it is no longer just a proof-of-life scaffold
+- `sm_j10` now shows that the separate CP architecture can classify most instances quickly if the budget split is sane
+- the next bottleneck is stronger propagation on harder `j20+` instances, not more warm-start tuning
+
+### CP backend iteration: EST/LST timetable pruning
+
+Added a first real `time-window + compulsory-part` propagator in [rcpsp/cp/solver.py](rcpsp/cp/solver.py).
+
+What changed:
+
+- maintain explicit `EST` and `LST` bounds inside `_propagate_cp_node`
+- tighten `LST` backward through the difference constraints and added disjunctive edges
+- build compulsory-part resource profiles from the current `EST/LST` windows
+- fail on mandatory overloads
+- prune activity `EST/LST` against the resource profile using `profile minus own mandatory part`
+- rerun temporal propagation to a fixpoint after timetable pushes
+
+This is still a lightweight implementation, but it is the first version where the CP backend has genuine timetable-style resource propagation instead of only conflict detection.
+
+Updated preview at `0.05s`:
+
+- `sm_j10`
+  - feasible: `185 -> 186`
+  - infeasible: `80 -> 80`
+  - unknown: `5 -> 4`
+  - exact matches: `113/187 -> 141/187` (`60.4% -> 75.4%`)
+  - average ratio to exact reference: `1.0325 -> 1.0201`
+- `sm_j20`
+  - feasible: `169 -> 169`
+  - infeasible: `70 -> 70`
+  - unknown: `31 -> 31`
+  - exact matches: `56/158 -> 70/158` (`35.4% -> 44.3%`)
+  - average ratio to exact reference: `1.0661 -> 1.0558`
+
+Interpretation:
+
+- this is a clear improvement to the `cp` backend, not just noise
+- `sm_j10/PSP1` now reaches the temporal lower bound (`26`) at `0.05s`, where the earlier CP backend stalled at `28`
+- `sm_j20` quality improved materially even without reducing the overall unknown count yet
+- the next likely gain is stronger explanation / conflict extraction from the timetable overloads, not another warm-start tweak
+
+### Rejected CP follow-ups after timetable propagation
+
+- `forced pair-order extraction from EST/LST windows`
+  - idea: if two activities cannot overlap on some resource and only one relative order is still feasible under the current `EST/LST` windows, add that order edge immediately
+  - result at `0.05s`: `sm_j20` exact matches improved only marginally (`70 -> 71`), but `sm_j10` quality slipped (`141 -> 140` exact matches) and overall `j20` coverage did not improve
+  - verdict: rejected for now; the inference is plausible, but this implementation did not produce a clean net win
+- `branch guidance toward flexible non-mandatory activities at conflict times`
+  - idea: when branching on a resource conflict, prioritize delaying activities that are not compulsory at the hotspot and still have larger `EST/LST` windows
+  - result at `0.05s`: essentially neutral on `sm_j20`, but `sm_j10` regressed from `186 feasible / 4 unknown` to `185 / 5`
+  - verdict: rejected; not strong enough to justify changing the accepted timetable-propagation baseline
