@@ -10,6 +10,7 @@ from rcpsp.cp.search import (
     failure_cache_hit,
     node_signature,
     pair_direction_possible,
+    required_pair_gap,
     record_failed_pairs,
     run_guided_seed,
     solve_cp,
@@ -226,3 +227,65 @@ def test_pair_direction_possible_uses_current_windows() -> None:
 
     assert not pair_direction_possible(instance, node, 1, 2)
     assert pair_direction_possible(instance, node, 2, 1)
+
+
+def test_pair_direction_possible_respects_lag_closure() -> None:
+    instance = Instance(
+        name="lagdist",
+        path=Path("lagdist.sch"),
+        n_jobs=2,
+        n_resources=1,
+        durations=(0, 2, 1, 0),
+        demands=((0,), (0,), (0,), (0,)),
+        capacities=(1,),
+        edges=(),
+        outgoing=((), (), (), ()),
+        incoming=((), (), (), ()),
+    )
+    neg_inf = float("-inf")
+    lag_dist = [
+        [0.0, 0.0, 0.0, 0.0],
+        [neg_inf, 0.0, 5.0, 0.0],
+        [neg_inf, neg_inf, 0.0, 0.0],
+        [neg_inf, neg_inf, neg_inf, 0.0],
+    ]
+    node = CpNode(
+        lower=(0, 1, 0, 0),
+        latest=(0, 10, 5, 0),
+        edges=(),
+        pairs=frozenset(),
+        lag_dist=lag_dist,
+    )
+
+    assert not pair_direction_possible(instance, node, 1, 2)
+
+
+def test_required_pair_gap_uses_lag_closure_when_tighter() -> None:
+    instance = Instance(
+        name="gap",
+        path=Path("gap.sch"),
+        n_jobs=2,
+        n_resources=1,
+        durations=(0, 2, 1, 0),
+        demands=((0,), (0,), (0,), (0,)),
+        capacities=(1,),
+        edges=(),
+        outgoing=((), (), (), ()),
+        incoming=((), (), (), ()),
+    )
+    neg_inf = float("-inf")
+    lag_dist = [
+        [0.0, 0.0, 0.0, 0.0],
+        [neg_inf, 0.0, 5.0, 0.0],
+        [neg_inf, neg_inf, 0.0, 0.0],
+        [neg_inf, neg_inf, neg_inf, 0.0],
+    ]
+    node = CpNode(
+        lower=(0, 0, 0, 0),
+        latest=(0, 10, 10, 0),
+        edges=(),
+        pairs=frozenset(),
+        lag_dist=lag_dist,
+    )
+
+    assert required_pair_gap(instance, node, 1, 2) == 5

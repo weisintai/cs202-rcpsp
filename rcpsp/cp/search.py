@@ -130,6 +130,20 @@ def child_order_key(
     )
 
 
+def required_pair_gap(
+    instance: Instance,
+    node: CpNode,
+    before: int,
+    after: int,
+) -> int:
+    required_gap = instance.durations[before]
+    if node.lag_dist is not None:
+        lag = node.lag_dist[before][after]
+        if lag != float("-inf"):
+            required_gap = max(required_gap, int(lag))
+    return required_gap
+
+
 def pair_direction_possible(
     instance: Instance,
     node: CpNode,
@@ -138,7 +152,7 @@ def pair_direction_possible(
 ) -> bool:
     if node.latest is None:
         return True
-    return node.lower[before] + instance.durations[before] <= node.latest[after]
+    return node.lower[before] + required_pair_gap(instance, node, before, after) <= node.latest[after]
 
 
 def run_guided_seed(
