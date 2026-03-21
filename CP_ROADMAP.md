@@ -177,14 +177,14 @@ Goal: stop drift and benchmark chasing.
 
 Implement:
 
-- this roadmap
-- the `cp_acceptance` guardrail preset
-- use the same public plus held-out matrix before accepting `cp` changes
+- [x] this roadmap
+- [x] the `cp_acceptance` guardrail preset
+- [x] use the same public plus held-out matrix before accepting `cp` changes
 
 Exit criteria:
 
-- `cp` changes are discussed against the same matrix every time
-- `cp` remains self-contained
+- [x] `cp` changes are discussed against the same matrix every time
+- [x] `cp` remains self-contained
 
 ## Phase 1: Solver Kernel Hardening
 
@@ -192,24 +192,25 @@ Goal: make the backend behave more like a real scheduling CP solver before addin
 
 Implement:
 
-- make the propagation contract explicit:
-  - temporal tightening
-  - cumulative tightening
-  - forced-order inference
-  - failure explanation
-- make fixpoint behavior explicit and cheap:
-  - only rerun propagators when their watched state actually changed
-  - keep a small worklist-style structure, even if it stays simple
-- improve child-state reuse:
-  - reuse parent `lag_dist`
-  - avoid rebuilding more node state than necessary
-  - make it obvious which node fields are derived and which are authoritative
-- make the restoration strategy explicit:
-  - current default is `copying / recomputation with incremental reuse`
-  - only pursue heavier restoration machinery if profiling justifies it
-- define propagation modes clearly:
-  - cheap always-on propagation
-  - optional stronger propagation for deeper budgets
+- [x] make the propagation contract more explicit:
+  - [x] temporal tightening
+  - [x] cumulative tightening
+  - [x] forced-order inference
+  - [x] failure explanation
+- [~] make fixpoint behavior explicit and cheap:
+  - [x] expose propagation rounds and propagation call counts
+  - [ ] only rerun propagators when their watched state actually changed
+  - [ ] keep a small worklist-style structure, even if it stays simple
+- [x] improve child-state reuse:
+  - [x] reuse parent `lag_dist`
+  - [x] avoid rebuilding more node state than necessary where already easy to do so
+  - [x] make it obvious which node fields are derived and which are authoritative
+- [x] make the restoration strategy explicit:
+  - [x] current default is `copying / recomputation with incremental reuse`
+  - [x] only pursue heavier restoration machinery if profiling justifies it
+- [~] define propagation modes clearly:
+  - [x] cheap always-on propagation is the current default
+  - [ ] optional stronger propagation for deeper budgets
 
 Do not:
 
@@ -218,8 +219,15 @@ Do not:
 
 Exit criteria:
 
-- cleaner propagation/search boundaries in [rcpsp/cp/propagation.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/propagation.py) and [rcpsp/cp/search.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/search.py)
-- no regression on the `cp_acceptance` matrix
+- [x] cleaner propagation/search boundaries in [rcpsp/cp/propagation.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/propagation.py) and [rcpsp/cp/search.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/search.py)
+- [x] no accepted regression on the `cp_acceptance` matrix
+
+Current accepted outcomes from Phase 1 work:
+
+- propagation round/call instrumentation is live in `cp` metadata
+- conflict counters are live in `cp` metadata
+- conflict selection is materially stronger than the earlier baseline
+- `sm_j20 @ 1.0s` improved to `155/158` exact while keeping `sm_j10 @ 1.0s` perfect
 
 ## Phase 2: Stronger Cheap Propagation
 
@@ -227,10 +235,10 @@ Goal: get more pruning per node without blowing the short budget.
 
 Implement in [rcpsp/cp/propagation.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/propagation.py):
 
-- stronger fixpoint use of `lag_dist` during EST/LST tightening
-- cheap `not-first / not-last` style inference around overload explanation sets
-- smaller overload explanations from compulsory-part failures
-- better pair forcing when overload structure already nearly determines an order
+- [x] stronger fixpoint use of `lag_dist` during EST/LST tightening
+- [ ] cheap `not-first / not-last` style inference around overload explanation sets
+- [ ] smaller overload explanations from compulsory-part failures
+- [~] better pair forcing when overload structure already nearly determines an order
 
 Do not start with:
 
@@ -248,10 +256,10 @@ Goal: branch on the most decisive conflicts and reuse failure information better
 
 Implement in [rcpsp/cp/search.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/search.py):
 
-- rank conflicts by directional slack and incumbent pressure
-- prefer pairs where one direction is already nearly impossible
-- store smaller reusable failure cores derived from overload explanations
-- order children by explanation tightness, not only by generic branch order
+- [~] rank conflicts by explanation tightness and incumbent pressure
+- [ ] prefer pairs where one direction is already nearly impossible
+- [ ] store smaller reusable failure cores derived from overload explanations
+- [ ] order children by explanation tightness, not only by generic branch order
 
 Exit criteria:
 
@@ -264,10 +272,10 @@ Goal: improve anytime behavior, but keep this clearly secondary to the CP kernel
 
 Implement:
 
-- make [rcpsp/cp/guided_seed.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/guided_seed.py) explicitly budget-aware by instance size and time limit
-- spend more seed effort on incumbent quality for `j20+` and less on generic proof when that proof rarely pays off
-- bias improvement around critical-chain and bottleneck-resource activities
-- keep seed metadata rich enough to tell whether the seed helped or just consumed budget
+- [ ] make [rcpsp/cp/guided_seed.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/guided_seed.py) explicitly budget-aware by instance size and time limit
+- [ ] spend more seed effort on incumbent quality for `j20+` and less on generic proof when that proof rarely pays off
+- [~] bias improvement around critical-chain and bottleneck-resource activities
+- [x] keep seed metadata rich enough to tell whether the seed helped or just consumed budget
 
 Do not:
 
@@ -278,6 +286,14 @@ Exit criteria:
 
 - improves `sm_j20 @ 1.0s` exact closure or exact-ratio quality
 - does not clearly damage `sm_j30` or `testset_ubo50 @ 0.1s`
+
+Current accepted diagnostic result:
+
+- seed-phase metadata now shows where the incumbent came from
+- on the remaining `sm_j20 @ 1.0s` residue:
+  - `PSP153` is currently seed-improve limited
+  - `PSP36` and `PSP45` are currently proof/search limited
+- this means future Phase 4 work should be selective, not blanket seed-budget tuning
 
 ## Phase 5: Deep-Budget Mode
 
