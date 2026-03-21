@@ -241,6 +241,118 @@ The follow-up `sm_j20` seed sweep shows that some of this instability is not lim
 6. Focus on `cp` ideas that improve incumbent quality without deepening search too much.
 7. Re-run promising wins at least twice before keeping them, even at `1.0s`, because the medium-budget runs also showed drift.
 
+## Follow-Up Experiment: Targeted Adaptive LNS
+
+I implemented a bounded adaptive-LNS variant in the improvement phase instead of applying more blind weight tuning.
+
+Design:
+
+- keep the existing small-instance improvement path unchanged in spirit
+- add adaptive destroy/repair operator weighting only for larger instances (`n_jobs >= 30`)
+- use bandit-style weighted selection with reward updates based on:
+  - finding any valid repaired candidate
+  - improving the chosen base solution
+  - improving the current global best solution
+- preserve the old fast path for smaller instances because tight `1s` budgets are sensitive to even small inner-loop overheads
+
+Regression tests added:
+
+- reward scoring prefers global improvements over neutral or failed repairs
+- adaptive operator selection shifts toward historically successful operators
+- bottleneck-pair repair plans retain operator identity
+
+Validation:
+
+```bash
+uv run python -m pytest -q tests/test_improve.py tests/test_runtime_limits.py tests/test_lag_tightening.py tests/test_cp_search.py tests/test_sgs_backend.py tests/test_autoresearch_lib.py
+```
+
+- result: `18 passed`
+
+### Measured results against the current recorded baseline
+
+| Dataset / Budget | Recorded Baseline | Adaptive-LNS Variant | Interpretation |
+| --- | --- | --- | --- |
+| `sm_j20 @ 1s` | `125/158`, ratio `1.0193`, unknown `0` | `122/158`, ratio `1.0198`, unknown `0` | worse at tight budget |
+| `sm_j20 @ 5s` | `128/158`, ratio `1.0147`, unknown `0` | `130/158`, ratio `1.0133`, unknown `0` | better practical-budget quality |
+| `sm_j30 @ 1s` | `85/120`, ratio `1.0187`, unknown `9`, over-budget `1` | `88/120`, ratio `1.0187`, unknown `6`, over-budget `0` | better larger-instance anytime behavior |
+| `sm_j30 @ 5s` | `93/120`, ratio `1.0142`, unknown `3` | `93/120`, ratio `1.0147`, unknown `3` | neutral on exact match |
+| `testset_ubo50 @ 1s` | `26/33`, ratio `1.0091`, unknown `5` | `26/33`, ratio `1.0083`, unknown `5` | neutral exact, slightly better ratio |
+| `testset_ubo50 @ 5s` | `27/33`, ratio `1.0141`, unknown `3` | `27/33`, ratio `1.0115`, unknown `2` | same exact, better quality/coverage |
+
+### Decision
+
+This change should be kept, but with a narrow claim:
+
+- it is **not** a clear improvement for the `1s` `sm_j20` speed/accuracy point
+- it **is** a credible improvement for the more practical `5s` budget and for larger-instance behavior
+- it reduces over-budget behavior on `sm_j30 @ 1s`
+- it improves or holds quality on `sm_j30` and `testset_ubo50` without using any external optimization library
+
+So the project recommendation remains:
+
+- keep `1s` as the best pure speed/accuracy operating point from the older recorded sweep
+- use `5s` as the practical report recommendation
+- keep the new targeted adaptive-LNS branch because it is more aligned with the project's larger-instance generalization needs than another round of static parameter tuning
+
+## Rejected Experiment: Elite Path Relinking
+
+I also implemented an elite path-relinking variant inside the large-instance improvement loop. The design used the current elite pool to choose a guide schedule, then removed activities with large order displacement and tried to repair them toward the guide order.
+
+That version was **rejected** and reverted.
+
+Measured results versus the kept adaptive-LNS baseline:
+
+| Dataset / Budget | Kept Adaptive-LNS Baseline | Path-Relinking Variant | Interpretation |
+| --- | --- | --- | --- |
+| `sm_j30 @ 1s` | `88/120`, ratio `1.0187`, unknown `6`, over-budget `0` | `85/120`, ratio `1.0197`, unknown `8`, over-budget `1` | worse |
+| `sm_j30 @ 5s` | `93/120`, ratio `1.0147`, unknown `3` | `93/120`, ratio `1.0150`, unknown `3` | flat exact, slightly worse quality |
+| `testset_ubo50 @ 1s` | `26/33`, ratio `1.0083`, unknown `5` | `26/33`, ratio `1.0109`, unknown `5` | same exact, worse quality |
+| `testset_ubo50 @ 5s` | `27/33`, ratio `1.0115`, unknown `2` | `27/33`, ratio `1.0118`, unknown `2` | same exact, slightly worse quality |
+
+Finding:
+
+- the relinking implementation added complexity but did not improve the practical metrics
+- on `sm_j30 @ 1s` it regressed exact match, unknown count, and deadline compliance
+- on `5s` runs it was mostly neutral on exact match and slightly worse on quality ratio
+
+Conclusion:
+
+- keep the simpler targeted adaptive-LNS version
+- do not include this relinking variant in the main solver story
+- if path relinking is revisited later, it likely needs a stronger activity-list representation rather than the current schedule-repair approximation
+
+## Rejected Experiment: Restricted Exact Neighborhoods
+
+I also implemented a restricted exact-neighborhood phase between improvement and the existing global exact cleanup. The idea was:
+
+- pick a bottleneck-focused neighborhood from the incumbent schedule
+- freeze incumbent resource-order edges outside that neighborhood
+- spend a bounded time slice on branch-and-bound over the reopened local neighborhood
+
+That version was also **rejected** and reverted.
+
+Measured results versus the kept adaptive-LNS baseline:
+
+| Dataset / Budget | Kept Adaptive-LNS Baseline | Exact-Neighborhood Variant | Interpretation |
+| --- | --- | --- | --- |
+| `sm_j20 @ 1s` | `122/158`, ratio `1.0198`, unknown `0`, over-budget `0` | `118/158`, ratio `1.0230`, unknown `1`, over-budget `1` | clearly worse |
+| `sm_j20 @ 5s` | `130/158`, ratio `1.0133`, unknown `0` | `128/158`, ratio `1.0128`, unknown `0` | worse exact match despite slightly better ratio |
+| `sm_j30 @ 5s` | `93/120`, ratio `1.0147`, unknown `3` | `93/120`, ratio `1.0143`, unknown `3` | flat exact, tiny ratio improvement |
+| `testset_ubo50 @ 5s` | `27/33`, ratio `1.0115`, unknown `2` | `27/33`, ratio `1.0106`, unknown `2` | flat exact, tiny ratio improvement |
+
+Finding:
+
+- the local exact-neighborhood idea did not pay off on the main `sm_j20` target
+- it introduced deadline risk at `1s`
+- on larger `5s` runs it only improved the average ratio slightly, without improving exact-match counts
+
+Conclusion:
+
+- do not keep this phase in the production solver
+- the current global exact cleanup is already good enough relative to the extra complexity here
+- if neighborhood exact search is revisited later, it should likely be tied to a stronger activity-list representation or a more selective neighborhood trigger
+
 ## Useful Outputs
 
 Main evaluation files produced during this setup:
@@ -258,6 +370,16 @@ Reference comparison outputs:
 - `tmp/autoresearch-report/sm_j20_1p0_compare.json`
 - `tmp/autoresearch-report/sm_j30_0p1_compare.json`
 - `tmp/autoresearch-report/testset_ubo20_0p1_compare.json`
+- `tmp/adaptive-alns-fastpath-j20/summary.json`
+- `tmp/adaptive-alns-fastpath-j20-5s/summary.json`
+- `tmp/adaptive-alns-fastpath-j30/summary.json`
+- `tmp/adaptive-alns-fastpath-j30-5s/summary.json`
+- `tmp/adaptive-alns-ubo50/summary.json`
+- `tmp/path-relink-sm_j30/summary.json`
+- `tmp/path-relink-ubo50/summary.json`
+- `tmp/exact-neighborhood-sm_j20/summary.json`
+- `tmp/exact-neighborhood-sm_j30/summary.json`
+- `tmp/exact-neighborhood-ubo50/summary.json`
 - `tmp/autoresearch-report/testset_ubo50_0p1_compare.json`
 - `tmp/guardrails/seed-sweep-sm_j20/hybrid-seed1-compare.json`
 - `tmp/guardrails/seed-sweep-sm_j20/cp-seed1-compare.json`
