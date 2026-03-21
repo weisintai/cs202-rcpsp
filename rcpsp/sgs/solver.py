@@ -9,6 +9,7 @@ from ..models import SolveResult
 from ..temporal import TemporalInfeasibleError, longest_feasible_starts
 from .adapter import adapt_instance
 from .restarts import run_restart_batch
+from .warm_start import generate_warm_start, warm_start_budget_seconds
 
 
 def _build_result(
@@ -80,12 +81,24 @@ def solve_sgs(
         )
 
     max_restarts = None if config is None else config.max_restarts
+    warm_start = None
+    warm_budget = warm_start_budget_seconds(time_limit, instance.n_jobs)
+    if warm_budget > 0 and time.perf_counter() < deadline:
+        warm_start_deadline = min(deadline, time.perf_counter() + warm_budget)
+        warm_start = generate_warm_start(
+            instance,
+            rng=rng,
+            deadline=warm_start_deadline,
+            base_config=config,
+        )
+
     best, stats = run_restart_batch(
         sgs_instance,
         temporal_lower,
         deadline=deadline,
         rng=rng,
         max_restarts=max_restarts,
+        initial_schedule=warm_start,
     )
 
     runtime = time.perf_counter() - started
@@ -101,6 +114,8 @@ def solve_sgs(
                 "time_limit": time_limit,
                 "decode_attempts": stats.decode_attempts,
                 "improvement_passes": stats.improvement_passes,
+                "warm_start": warm_start is not None,
+                "warm_start_makespan": None if warm_start is None else warm_start.makespan,
                 "reason": "sgs phase-1 decoder did not find a feasible schedule within the time limit",
             },
         )
@@ -117,5 +132,7 @@ def solve_sgs(
             "time_limit": time_limit,
             "decode_attempts": stats.decode_attempts,
             "improvement_passes": stats.improvement_passes,
+            "warm_start": warm_start is not None,
+            "warm_start_makespan": None if warm_start is None else warm_start.makespan,
         },
     )
