@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from rcpsp import HeuristicConfig, parse_sch, solve, solve_cp
+from rcpsp import HeuristicConfig, parse_sch, solve, solve_cp, solve_sgs
 from rcpsp.models import SolveResult
 from rcpsp.reference import REFERENCE_URLS, fetch_reference_values, normalize_instance_name
 
@@ -25,6 +25,8 @@ def _solve_with_backend(
     config = config or HeuristicConfig(max_restarts=max_restarts)
     if backend == "cp":
         result = solve_cp(instance, time_limit=time_limit, seed=seed, config=config)
+    elif backend == "sgs":
+        result = solve_sgs(instance, time_limit=time_limit, seed=seed, config=config)
     else:
         result = solve(instance, time_limit=time_limit, seed=seed, config=config)
     return _enforce_runtime_limit(result, time_limit=time_limit)
@@ -405,7 +407,7 @@ def build_parser() -> argparse.ArgumentParser:
     solve_parser.add_argument("--time-limit", type=float, default=1.0)
     solve_parser.add_argument("--seed", type=int, default=0)
     solve_parser.add_argument("--max-restarts", type=int, default=None)
-    solve_parser.add_argument("--backend", choices=("hybrid", "cp"), default="hybrid")
+    solve_parser.add_argument("--backend", choices=("hybrid", "cp", "sgs"), default="hybrid")
     solve_parser.add_argument("--slack-weight", type=float, default=HeuristicConfig.slack_weight)
     solve_parser.add_argument("--tail-weight", type=float, default=HeuristicConfig.tail_weight)
     solve_parser.add_argument("--overload-weight", type=float, default=HeuristicConfig.overload_weight)
@@ -420,7 +422,7 @@ def build_parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--time-limit", type=float, default=0.1)
     bench_parser.add_argument("--seed", type=int, default=0)
     bench_parser.add_argument("--max-restarts", type=int, default=None)
-    bench_parser.add_argument("--backend", choices=("hybrid", "cp"), default="hybrid")
+    bench_parser.add_argument("--backend", choices=("hybrid", "cp", "sgs"), default="hybrid")
     bench_parser.add_argument("--slack-weight", type=float, default=HeuristicConfig.slack_weight)
     bench_parser.add_argument("--tail-weight", type=float, default=HeuristicConfig.tail_weight)
     bench_parser.add_argument("--overload-weight", type=float, default=HeuristicConfig.overload_weight)

@@ -13,7 +13,7 @@ from scripts.guardrails_lib import PRESETS, run_guardrail_suite
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the standard benchmark guardrail suite.")
-    parser.add_argument("--backend", choices=("hybrid", "cp"), default="hybrid")
+    parser.add_argument("--backend", choices=("hybrid", "cp", "sgs"), default="hybrid")
     parser.add_argument("--preset", choices=tuple(PRESETS), default="full")
     parser.add_argument("--datasets", nargs="*", help="optional subset of datasets from the selected preset")
     parser.add_argument("--seed", type=int, default=0)

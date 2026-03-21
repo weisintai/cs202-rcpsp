@@ -12,6 +12,10 @@ Raw benchmark datasets now live under `benchmarks/data/` to keep the project roo
   - accepted main backend
 - [rcpsp/cp/README.md](rcpsp/cp/README.md)
   - experimental CP-style backend
+- [rcpsp/sgs/README.md](rcpsp/sgs/README.md)
+  - clean SGS-first backend
+- [SGS_ROADMAP.md](SGS_ROADMAP.md)
+  - phased implementation plan for the SGS backend
 - [references/README.md](references/README.md)
   - external reference repos cloned for study
 
@@ -39,6 +43,7 @@ You can switch solver backends explicitly:
 ```bash
 uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0 --backend hybrid
 uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0 --backend cp
+uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0 --backend sgs
 ```
 
 Benchmark a full folder:
@@ -52,6 +57,7 @@ Run the standard guardrail suite in one command:
 
 ```bash
 uv run python scripts/run_guardrails.py --backend hybrid --preset full
+uv run python scripts/run_guardrails.py --backend sgs --preset full
 ```
 
 Run the research-oriented guardrail suite used by the local autoresearch workflow:
