@@ -5,7 +5,7 @@ import time
 
 from ..config import HeuristicConfig, sample_heuristic_config
 from ..core.branching import branch_order
-from ..core.compress import compress_valid_schedule
+from ..core.compress import compress_valid_schedule_relaxed
 from ..core.conflicts import minimal_conflict_set
 from ..core.lag import (
     all_pairs_longest_lags,
@@ -15,7 +15,7 @@ from ..core.lag import (
 from ..core.metrics import resource_intensity
 from ..models import Edge, Instance, Schedule, SolveResult
 from ..temporal import TemporalInfeasibleError, longest_feasible_starts, longest_tail_to_sink
-from ..validate import validate_schedule
+from ..validate import build_resource_profile, validate_schedule
 from .construct import construct_schedule
 from .guided_seed import solve as solve_guided_seed
 from .propagation import propagate_cp_node
@@ -130,6 +130,71 @@ def child_order_key(
     )
 
 
+def select_branch_conflict(
+    instance: Instance,
+    start_times: list[int],
+    latest: tuple[int, ...] | None,
+) -> tuple[int, int, list[int], list[int]] | None:
+    profile = build_resource_profile(instance, start_times)
+    best: tuple[tuple[int, int, int, int, int], tuple[int, int, list[int], list[int]]] | None = None
+
+    for time_index, usage in enumerate(profile):
+        overloaded = [resource for resource in range(instance.n_resources) if usage[resource] > instance.capacities[resource]]
+        if not overloaded:
+            continue
+
+        overload = [
+            max(0, usage[resource_idx] - instance.capacities[resource_idx])
+            for resource_idx in range(instance.n_resources)
+        ]
+
+        for resource in overloaded:
+            active = [
+                activity
+                for activity in range(1, instance.sink)
+                if start_times[activity] <= time_index < start_times[activity] + instance.durations[activity]
+                and instance.demands[activity][resource] > 0
+            ]
+            total = sum(instance.demands[activity][resource] for activity in active)
+            conflict = active[:]
+            while conflict:
+                smallest = min(
+                    conflict,
+                    key=lambda activity: (
+                        instance.demands[activity][resource],
+                        instance.durations[activity],
+                        activity,
+                    ),
+                )
+                if total - instance.demands[smallest][resource] > instance.capacities[resource]:
+                    total -= instance.demands[smallest][resource]
+                    conflict.remove(smallest)
+                else:
+                    break
+            conflict.sort(key=lambda activity: (start_times[activity], activity))
+            if len(conflict) <= 1:
+                continue
+
+            total_slack = 0
+            if latest is not None:
+                total_slack = sum(max(0, latest[activity] - start_times[activity]) for activity in conflict)
+
+            key = (
+                len(conflict),
+                total_slack,
+                -overload[resource],
+                time_index,
+                -sum(instance.demands[activity][resource] for activity in conflict),
+            )
+            candidate = (time_index, resource, conflict, overload)
+            if best is None or key < best[0]:
+                best = (key, candidate)
+
+    if best is None:
+        return None
+    return best[1]
+
+
 def required_pair_gap(
     instance: Instance,
     node: CpNode,
@@ -239,6 +304,8 @@ def branch_children(
                 base_lag_dist=node.lag_dist,
                 new_edges=(Edge(source=other, target=selected, lag=instance.durations[other]),),
             )
+            stats.propagation_calls += 1
+            stats.propagation_rounds += child.rounds
             if child.overload is not None:
                 stats.timetable_failures += 1
                 stats.max_timetable_explanation = max(
@@ -363,6 +430,8 @@ def solve_cp(
                     "time_limit": time_limit,
                     "search_nodes": 0,
                     "timed_out": False,
+                    "propagation_calls": 0,
+                    "propagation_rounds": 0,
                     "incumbent_updates": stats.incumbent_updates,
                     "branches": 0,
                     "timetable_failures": 0,
@@ -370,6 +439,9 @@ def solve_cp(
                     "failure_cache_hits": 0,
                     "failure_cache_inserts": 0,
                     "failure_cache_size": 0,
+                    "conflict_events": 0,
+                    "avg_conflict_size": 0.0,
+                    "max_conflict_size": 0,
                     "forced_resource_orders": len(forced_edges),
                     **guided_seed_meta,
                 },
@@ -413,6 +485,8 @@ def solve_cp(
                 incumbent_makespan=incumbent.makespan if incumbent is not None else None,
                 base_lag_dist=root_lag_dist if pairs == forced_pairs else None,
             )
+            stats.propagation_calls += 1
+            stats.propagation_rounds += propagation.rounds
             if propagation.overload is not None:
                 stats.timetable_failures += 1
                 stats.max_timetable_explanation = max(
@@ -439,7 +513,7 @@ def solve_cp(
         lower = list(node.lower)
         lower_schedule = Schedule(start_times=tuple(lower), makespan=lower[instance.sink])
         if not validate_schedule(instance, lower_schedule):
-            candidate_starts = compress_valid_schedule(instance, lower)
+            candidate_starts = compress_valid_schedule_relaxed(instance, lower)
             candidate = Schedule(start_times=tuple(candidate_starts), makespan=candidate_starts[instance.sink])
             if not validate_schedule(instance, candidate):
                 if incumbent is None or candidate.makespan < incumbent.makespan:
@@ -470,9 +544,11 @@ def solve_cp(
                     if incumbent.makespan == temporal_lower[instance.sink]:
                         return True
 
-        conflict = minimal_conflict_set(instance, lower)
+        conflict = select_branch_conflict(instance, lower, node.latest)
         if conflict is None:
-            candidate_starts = compress_valid_schedule(instance, lower)
+            conflict = minimal_conflict_set(instance, lower)
+        if conflict is None:
+            candidate_starts = compress_valid_schedule_relaxed(instance, lower)
             candidate = Schedule(start_times=tuple(candidate_starts), makespan=candidate_starts[instance.sink])
             if not validate_schedule(instance, candidate):
                 found_feasible = True
@@ -490,6 +566,10 @@ def solve_cp(
                 if failure_cache_enabled:
                     record_failed_pairs(node.pairs, failed_pair_sets, stats)
             return found_feasible
+
+        stats.conflict_events += 1
+        stats.total_conflict_size += len(conflict_set)
+        stats.max_conflict_size = max(stats.max_conflict_size, len(conflict_set))
 
         children = branch_children(
             instance=instance,
@@ -537,6 +617,8 @@ def solve_cp(
                 "time_limit": time_limit,
                 "search_nodes": stats.nodes,
                 "timed_out": stats.timed_out,
+                "propagation_calls": stats.propagation_calls,
+                "propagation_rounds": stats.propagation_rounds,
                 "incumbent_updates": stats.incumbent_updates,
                 "branches": stats.branches,
                 "timetable_failures": stats.timetable_failures,
@@ -544,6 +626,11 @@ def solve_cp(
                 "failure_cache_hits": stats.failure_cache_hits,
                 "failure_cache_inserts": stats.failure_cache_inserts,
                 "failure_cache_size": stats.failure_cache_size,
+                "conflict_events": stats.conflict_events,
+                "avg_conflict_size": (
+                    stats.total_conflict_size / stats.conflict_events if stats.conflict_events else 0.0
+                ),
+                "max_conflict_size": stats.max_conflict_size,
                 "forced_resource_orders": len(forced_edges),
                 **guided_seed_meta,
             },
@@ -562,6 +649,8 @@ def solve_cp(
             "time_limit": time_limit,
             "search_nodes": stats.nodes,
             "timed_out": stats.timed_out,
+            "propagation_calls": stats.propagation_calls,
+            "propagation_rounds": stats.propagation_rounds,
             "incumbent_updates": stats.incumbent_updates,
             "branches": stats.branches,
             "timetable_failures": stats.timetable_failures,
@@ -569,6 +658,9 @@ def solve_cp(
             "failure_cache_hits": stats.failure_cache_hits,
             "failure_cache_inserts": stats.failure_cache_inserts,
             "failure_cache_size": stats.failure_cache_size,
+            "conflict_events": stats.conflict_events,
+            "avg_conflict_size": stats.total_conflict_size / stats.conflict_events if stats.conflict_events else 0.0,
+            "max_conflict_size": stats.max_conflict_size,
             "forced_resource_orders": len(forced_edges),
             **guided_seed_meta,
         },

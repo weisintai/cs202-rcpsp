@@ -36,7 +36,6 @@ def _chain_instance() -> Instance:
         incoming=tuple(tuple(items) for items in incoming),
     )
 
-
 def test_propagate_cp_node_keeps_lag_dist_with_incumbent() -> None:
     instance = _chain_instance()
     base_lag_dist = all_pairs_longest_lags(instance)
@@ -51,6 +50,7 @@ def test_propagate_cp_node_keeps_lag_dist_with_incumbent() -> None:
 
     assert propagation.node is not None
     assert propagation.node.lag_dist is not None
+    assert propagation.rounds >= 1
 
 
 def test_propagate_cp_node_detects_cycle_with_incumbent_lag_dist() -> None:
@@ -67,6 +67,7 @@ def test_propagate_cp_node_detects_cycle_with_incumbent_lag_dist() -> None:
     )
 
     assert propagation.node is None
+    assert propagation.rounds >= 1
 
 
 def test_tighten_latest_starts_matches_edge_relaxation_with_lag_dist() -> None:

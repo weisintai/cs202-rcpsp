@@ -11,11 +11,16 @@ class CpSearchStats:
     timed_out: bool = False
     incumbent_updates: int = 0
     branches: int = 0
+    propagation_calls: int = 0
+    propagation_rounds: int = 0
     timetable_failures: int = 0
     max_timetable_explanation: int = 0
     failure_cache_hits: int = 0
     failure_cache_inserts: int = 0
     failure_cache_size: int = 0
+    conflict_events: int = 0
+    total_conflict_size: int = 0
+    max_conflict_size: int = 0
 
 
 @dataclass(frozen=True)
@@ -54,3 +59,4 @@ class OverloadExplanation:
 class CpNodePropagation:
     node: CpNode | None
     overload: OverloadExplanation | None = None
+    rounds: int = 0

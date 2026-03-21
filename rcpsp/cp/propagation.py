@@ -322,30 +322,32 @@ def propagate_cp_node(
 
     latest = improving_latest_starts(instance, tail, incumbent_makespan)
     release_bounds = [0] * instance.n_activities if release_times is None else [max(0, int(value)) for value in release_times]
+    rounds = 0
 
     while True:
+        rounds += 1
         try:
             lower = longest_feasible_starts(instance, release_times=release_bounds, extra_edges=edges)
         except TemporalInfeasibleError:
-            return CpNodePropagation(node=None)
+            return CpNodePropagation(node=None, rounds=rounds)
 
         if incumbent_makespan is not None and lower[instance.sink] >= incumbent_makespan:
-            return CpNodePropagation(node=None)
+            return CpNodePropagation(node=None, rounds=rounds)
 
         if lag_dist is not None:
             if pairwise_infeasibility_reason_from_dist(instance, lag_dist) is not None:
-                return CpNodePropagation(node=None)
+                return CpNodePropagation(node=None, rounds=rounds)
 
         if latest is None:
             break
 
         latest = tighten_latest_starts(instance, edges, latest, lag_dist)
         if any(lower[activity] > latest[activity] for activity in range(instance.n_activities)):
-            return CpNodePropagation(node=None)
+            return CpNodePropagation(node=None, rounds=rounds)
 
         propagated = propagate_compulsory_parts(instance, lower[:], latest[:])
         if propagated is None:
-            return CpNodePropagation(node=None)
+            return CpNodePropagation(node=None, rounds=rounds)
 
         changed, new_lower, new_latest, overload = propagated
         if overload is not None:
@@ -358,6 +360,7 @@ def propagate_cp_node(
                     lag_dist=lag_dist,
                 ),
                 overload=overload,
+                rounds=rounds,
             )
         lower = new_lower
         latest = new_latest
@@ -373,6 +376,7 @@ def propagate_cp_node(
                     lag_dist=lag_dist,
                 ),
                 overload=pair_overload,
+                rounds=rounds,
             )
 
         if inferred_pairs:
@@ -397,5 +401,6 @@ def propagate_cp_node(
             edges=tuple(edges),
             pairs=frozenset(local_pairs),
             lag_dist=lag_dist,
-        )
+        ),
+        rounds=rounds,
     )

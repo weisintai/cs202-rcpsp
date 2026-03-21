@@ -13,6 +13,7 @@ from rcpsp.cp.search import (
     required_pair_gap,
     record_failed_pairs,
     run_guided_seed,
+    select_branch_conflict,
     solve_cp,
     use_failure_cache,
 )
@@ -166,6 +167,15 @@ def test_solve_cp_accepts_guided_seed_infeasible_result(monkeypatch) -> None:
     assert result.metadata["guided_seed_infeasible"] is True
 
 
+def test_solve_cp_reports_conflict_counters_on_trivial_instance() -> None:
+    result = solve_cp(_dummy_instance(2), time_limit=0.1, seed=0)
+
+    assert result.status == "feasible"
+    assert result.metadata["conflict_events"] == 0
+    assert result.metadata["avg_conflict_size"] == 0.0
+    assert result.metadata["max_conflict_size"] == 0
+
+
 def test_use_failure_cache_enables_large_short_runs() -> None:
     small = _dummy_instance(10)
     large = _dummy_instance(30)
@@ -258,6 +268,32 @@ def test_pair_direction_possible_respects_lag_closure() -> None:
     )
 
     assert not pair_direction_possible(instance, node, 1, 2)
+
+
+def test_select_branch_conflict_prefers_smaller_tighter_conflict() -> None:
+    instance = Instance(
+        name="conflict-choice",
+        path=Path("conflict-choice.sch"),
+        n_jobs=4,
+        n_resources=1,
+        durations=(0, 2, 2, 2, 2, 0),
+        demands=((0,), (2,), (2,), (2,), (1,), (0,)),
+        capacities=(3,),
+        edges=(),
+        outgoing=((), (), (), (), (), ()),
+        incoming=((), (), (), (), (), ()),
+    )
+    start_times = [0, 0, 0, 0, 1, 0]
+    latest = (0, 5, 1, 4, 5, 0)
+
+    conflict = select_branch_conflict(instance, start_times, latest)
+
+    assert conflict is not None
+    time_index, resource, activities, overload = conflict
+    assert time_index == 1
+    assert resource == 0
+    assert activities == [2, 3]
+    assert overload == [4]
 
 
 def test_required_pair_gap_uses_lag_closure_when_tighter() -> None:
