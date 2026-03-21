@@ -16,8 +16,8 @@ from ..core.metrics import resource_intensity
 from ..models import Edge, Instance, Schedule, SolveResult
 from ..temporal import TemporalInfeasibleError, longest_feasible_starts, longest_tail_to_sink
 from ..validate import validate_schedule
-from ..heuristic.construct import construct_schedule
-from ..heuristic.solver import solve as solve_heuristic
+from .construct import construct_schedule
+from .guided_seed import solve as solve_guided_seed
 from .propagation import propagate_cp_node
 from .state import CpNode, CpSearchStats
 
@@ -76,6 +76,110 @@ def try_cp_incumbent(
     return schedule
 
 
+def update_incumbent(
+    incumbent: Schedule | None,
+    candidate: Schedule | None,
+    stats: CpSearchStats,
+) -> Schedule | None:
+    if candidate is None:
+        return incumbent
+    if incumbent is None or candidate.makespan < incumbent.makespan:
+        stats.incumbent_updates += 1
+        return candidate
+    return incumbent
+
+
+def use_failure_cache(
+    instance: Instance,
+    time_limit: float,
+) -> bool:
+    return time_limit >= 0.5 or (instance.n_jobs >= 20 and time_limit >= 0.1)
+
+
+def allow_node_local_heuristic(
+    instance: Instance,
+    time_limit: float,
+    node: CpNode,
+    incumbent: Schedule | None,
+) -> bool:
+    if incumbent is None:
+        return True
+    if instance.n_jobs < 20 or time_limit < 1.0:
+        return True
+    return False
+
+
+def child_order_key(
+    instance: Instance,
+    node: CpNode,
+    order_index: int,
+) -> tuple[int, int, int, int]:
+    if instance.n_jobs < 30 or node.latest is None:
+        return (node.lower[instance.sink], order_index, 0, 0)
+
+    sink_slack = max(0, node.latest[instance.sink] - node.lower[instance.sink])
+    sampled_window = 0
+    for activity in range(1, min(instance.sink, 7)):
+        sampled_window += max(0, node.latest[activity] - node.lower[activity])
+
+    return (
+        node.lower[instance.sink],
+        sink_slack,
+        sampled_window,
+        order_index,
+    )
+
+
+def pair_direction_possible(
+    instance: Instance,
+    node: CpNode,
+    before: int,
+    after: int,
+) -> bool:
+    if node.latest is None:
+        return True
+    return node.lower[before] + instance.durations[before] <= node.latest[after]
+
+
+def run_guided_seed(
+    *,
+    instance: Instance,
+    seed: int,
+    solver_config: HeuristicConfig,
+    heuristic_deadline: float,
+    stats: CpSearchStats,
+    incumbent: Schedule | None,
+) -> tuple[Schedule | None, int, dict[str, object], bool]:
+    restarts = 0
+    metadata: dict[str, object] = {
+        "guided_seed_used": False,
+        "guided_seed_infeasible": False,
+    }
+
+    remaining = heuristic_deadline - time.perf_counter()
+    if remaining <= 0:
+        return incumbent, restarts, metadata, False
+
+    if remaining > 0 and time.perf_counter() < heuristic_deadline:
+        guided = solve_guided_seed(
+            instance=instance,
+            time_limit=remaining,
+            seed=seed,
+            config=solver_config,
+        )
+        metadata["guided_seed_used"] = True
+        if guided.status == "feasible" and guided.schedule is not None:
+            incumbent = update_incumbent(incumbent, guided.schedule, stats)
+        elif guided.status == "infeasible":
+            metadata["guided_seed_infeasible"] = True
+            reason = guided.metadata.get("reason")
+            if isinstance(reason, str) and reason:
+                metadata["guided_seed_reason"] = reason
+        restarts += guided.restarts
+
+    return incumbent, restarts, metadata, bool(metadata["guided_seed_infeasible"])
+
+
 def branch_children(
     instance: Instance,
     node: CpNode,
@@ -106,6 +210,8 @@ def branch_children(
             pair = (other, selected)
             if pair in node.pairs:
                 continue
+            if not pair_direction_possible(instance, node, other, selected):
+                continue
 
             child_pairs = frozenset((*node.pairs, pair))
             if failure_cache_enabled and failure_cache_hit(child_pairs, failed_pair_sets):
@@ -116,7 +222,7 @@ def branch_children(
                 tail=tail,
                 pairs=child_pairs,
                 incumbent_makespan=incumbent_makespan,
-                base_lag_dist=node.lag_dist if incumbent_makespan is None else None,
+                base_lag_dist=node.lag_dist,
                 new_edges=(Edge(source=other, target=selected, lag=instance.durations[other]),),
             )
             if child.overload is not None:
@@ -139,7 +245,7 @@ def branch_children(
             if child_key in seen:
                 continue
             children.append((child.node.lower[instance.sink], order_index, child.node.pairs, child.node))
-    children.sort(key=lambda item: (item[0], item[1]))
+    children.sort(key=lambda item: child_order_key(instance, item[3], item[1]))
     return children
 
 
@@ -153,7 +259,7 @@ def solve_cp(
     rng = random.Random(seed)
     started = time.perf_counter()
     final_deadline = started + time_limit
-    safety_margin = min(max(0.001, time_limit * 0.005), max(0.001, time_limit * 0.05))
+    safety_margin = min(max(0.005, time_limit * 0.005), max(0.005, time_limit * 0.05))
     soft_deadline = max(started, final_deadline - safety_margin)
 
     try:
@@ -190,26 +296,70 @@ def solve_cp(
     stats = CpSearchStats()
     seen: set[tuple[tuple[tuple[int, int], ...], tuple[int, ...], tuple[int, ...] | None]] = set()
     failed_pair_sets: set[frozenset[tuple[int, int]]] = set()
-    failure_cache_enabled = time_limit >= 0.5
+    failure_cache_enabled = use_failure_cache(instance, time_limit)
     incumbent: Schedule | None = None
     restarts = 0
     forced_pairs = frozenset((edge.source, edge.target) for edge in forced_edges)
+    guided_seed_meta: dict[str, object] = {
+        "guided_seed_used": False,
+        "guided_seed_infeasible": False,
+    }
 
     heuristic_budget = min(0.75, max(0.01, time_limit * 0.25))
     heuristic_deadline = min(soft_deadline, started + heuristic_budget)
     if heuristic_budget >= 0.15 and time.perf_counter() < heuristic_deadline:
-        guided_budget = min(heuristic_budget * 0.8, heuristic_deadline - time.perf_counter())
-        if guided_budget > 0:
-            guided = solve_heuristic(
-                instance=instance,
-                time_limit=guided_budget,
-                seed=seed,
-                config=solver_config,
+        incumbent, guided_restarts, guided_seed_meta, guided_infeasible = run_guided_seed(
+            instance=instance,
+            seed=seed,
+            solver_config=solver_config,
+            heuristic_deadline=heuristic_deadline,
+            stats=stats,
+            incumbent=incumbent,
+        )
+        restarts += guided_restarts
+        if guided_infeasible:
+            runtime = time.perf_counter() - started
+            return SolveResult(
+                instance_name=instance.name,
+                status="infeasible",
+                schedule=None,
+                runtime_seconds=runtime,
+                temporal_lower_bound=temporal_lower[instance.sink],
+                restarts=restarts,
+                metadata={
+                    "backend": "cp",
+                    "seed": seed,
+                    "time_limit": time_limit,
+                    "forced_resource_orders": len(forced_edges),
+                    **guided_seed_meta,
+                },
             )
-            if guided.status == "feasible" and guided.schedule is not None:
-                incumbent = guided.schedule
-                stats.incumbent_updates += 1
-            restarts += guided.restarts
+        if incumbent is not None and incumbent.makespan == temporal_lower[instance.sink]:
+            runtime = time.perf_counter() - started
+            return SolveResult(
+                instance_name=instance.name,
+                status="feasible",
+                schedule=incumbent,
+                runtime_seconds=runtime,
+                temporal_lower_bound=temporal_lower[instance.sink],
+                restarts=restarts,
+                metadata={
+                    "backend": "cp",
+                    "seed": seed,
+                    "time_limit": time_limit,
+                    "search_nodes": 0,
+                    "timed_out": False,
+                    "incumbent_updates": stats.incumbent_updates,
+                    "branches": 0,
+                    "timetable_failures": 0,
+                    "max_timetable_explanation": 0,
+                    "failure_cache_hits": 0,
+                    "failure_cache_inserts": 0,
+                    "failure_cache_size": 0,
+                    "forced_resource_orders": len(forced_edges),
+                    **guided_seed_meta,
+                },
+            )
 
     while time.perf_counter() < heuristic_deadline:
         schedule = construct_schedule(
@@ -225,11 +375,9 @@ def solve_cp(
         if validate_schedule(instance, schedule):
             restarts += 1
             continue
-        if incumbent is None or schedule.makespan < incumbent.makespan:
-            incumbent = schedule
-            stats.incumbent_updates += 1
+        incumbent = update_incumbent(incumbent, schedule, stats)
         restarts += 1
-        if incumbent.makespan == temporal_lower[instance.sink]:
+        if incumbent is not None and incumbent.makespan == temporal_lower[instance.sink]:
             break
 
     def dfs(pairs: frozenset[tuple[int, int]], node: CpNode | None = None) -> bool:
@@ -249,7 +397,7 @@ def solve_cp(
                 tail=tail,
                 pairs=pairs,
                 incumbent_makespan=incumbent.makespan if incumbent is not None else None,
-                base_lag_dist=root_lag_dist if not pairs and incumbent is None else None,
+                base_lag_dist=root_lag_dist if pairs == forced_pairs else None,
             )
             if propagation.overload is not None:
                 stats.timetable_failures += 1
@@ -289,7 +437,7 @@ def solve_cp(
             return False
 
         found_feasible = False
-        if time.perf_counter() < soft_deadline:
+        if allow_node_local_heuristic(instance, time_limit, node, incumbent) and time.perf_counter() < soft_deadline:
             local_budget = min(soft_deadline, time.perf_counter() + min(0.02, max(0.002, time_limit * 0.01)))
             candidate = try_cp_incumbent(
                 instance=instance,
@@ -383,6 +531,7 @@ def solve_cp(
                 "failure_cache_inserts": stats.failure_cache_inserts,
                 "failure_cache_size": stats.failure_cache_size,
                 "forced_resource_orders": len(forced_edges),
+                **guided_seed_meta,
             },
         )
 
@@ -407,5 +556,6 @@ def solve_cp(
             "failure_cache_inserts": stats.failure_cache_inserts,
             "failure_cache_size": stats.failure_cache_size,
             "forced_resource_orders": len(forced_edges),
+            **guided_seed_meta,
         },
     )

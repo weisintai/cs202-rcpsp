@@ -14,7 +14,26 @@ def tighten_latest_starts(
     instance: Instance,
     extra_edges: tuple[Edge, ...] | list[Edge],
     latest: list[int],
+    lag_dist: list[list[float]] | None = None,
 ) -> list[int]:
+    if lag_dist is not None:
+        upper = latest[:]
+        base = latest[:]
+        neg_inf = float("-inf")
+        upper[instance.source] = 0
+        for source in range(instance.n_activities):
+            best = base[source]
+            for target in range(instance.n_activities):
+                lag = lag_dist[source][target]
+                if lag == neg_inf:
+                    continue
+                candidate = base[target] - int(lag)
+                if candidate < best:
+                    best = candidate
+            upper[source] = best
+        upper[instance.source] = 0
+        return upper
+
     upper = latest[:]
     upper[instance.source] = 0
     all_edges = tuple(instance.edges) + tuple(extra_edges)
@@ -115,7 +134,6 @@ def minimum_overlap_in_window(
     before = max(0, window_start - est)
     after = max(0, lst + duration - window_end)
     return max(0, duration - before - after)
-
 
 def propagate_compulsory_parts(
     instance: Instance,
@@ -297,7 +315,9 @@ def propagate_cp_node(
         for edge in new_edges:
             updated = extend_longest_lags(updated, edge)
         lag_dist = updated
-    elif incumbent_makespan is None:
+    elif not new_edges:
+        lag_dist = all_pairs_longest_lags(instance, extra_edges=edges)
+    else:
         lag_dist = all_pairs_longest_lags(instance, extra_edges=edges)
 
     latest = improving_latest_starts(instance, tail, incumbent_makespan)
@@ -312,14 +332,14 @@ def propagate_cp_node(
         if incumbent_makespan is not None and lower[instance.sink] >= incumbent_makespan:
             return CpNodePropagation(node=None)
 
-        if incumbent_makespan is None and lag_dist is not None:
+        if lag_dist is not None:
             if pairwise_infeasibility_reason_from_dist(instance, lag_dist) is not None:
                 return CpNodePropagation(node=None)
 
         if latest is None:
             break
 
-        latest = tighten_latest_starts(instance, edges, latest)
+        latest = tighten_latest_starts(instance, edges, latest, lag_dist)
         if any(lower[activity] > latest[activity] for activity in range(instance.n_activities)):
             return CpNodePropagation(node=None)
 
