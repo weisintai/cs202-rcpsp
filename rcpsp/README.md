@@ -40,6 +40,8 @@ The `rcpsp/` package is split into shared infrastructure, a reusable solver core
 - [cp/README.md](cp/README.md)
   - experimental CP-style backend
   - layered into explicit state, propagation, search, and a thin public wrapper
+- [../CP_ROADMAP.md](../CP_ROADMAP.md)
+  - phased implementation roadmap for turning `cp` into the strongest exact-oriented backend
 - [sgs/README.md](sgs/README.md)
   - clean SGS-first backend
   - layered into instance adaptation, graph utilities, SGS decoding, and light improvement

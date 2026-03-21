@@ -12,6 +12,8 @@ Raw benchmark datasets now live under `benchmarks/data/` to keep the project roo
   - accepted main backend
 - [rcpsp/cp/README.md](rcpsp/cp/README.md)
   - experimental CP-style backend
+- [CP_ROADMAP.md](CP_ROADMAP.md)
+  - phased implementation plan for the CP backend
 - [rcpsp/sgs/README.md](rcpsp/sgs/README.md)
   - clean SGS-first backend
 - [SGS_ROADMAP.md](SGS_ROADMAP.md)
@@ -70,6 +72,12 @@ Run an auxiliary anti-overfitting sweep on broader public RCPSP/max sets from th
 
 ```bash
 uv run python scripts/run_guardrails.py --backend hybrid --preset broad_generalization
+```
+
+Run the dedicated CP acceptance matrix:
+
+```bash
+uv run python scripts/run_guardrails.py --backend cp --preset cp_acceptance
 ```
 
 If `sm_j10` and `sm_j20` reference CSVs are missing locally, cache them first:
@@ -140,6 +148,8 @@ Recommended validation loop:
 3. only keep changes that improve the target set without clearly damaging the broader guardrails
 
 This is the minimum anti-overfitting policy for the repo. A change that helps only `j10/j20` but hurts `sm_j30` or `ubo50` should be treated as suspect.
+
+For the `cp` backend specifically, use the stricter roadmap matrix in [CP_ROADMAP.md](CP_ROADMAP.md) and the `cp_acceptance` preset.
 
 ## Reading the benchmark JSON
 

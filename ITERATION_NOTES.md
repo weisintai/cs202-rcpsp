@@ -1376,3 +1376,46 @@ Verdict:
 - accepted
 - this is the first search-side CP change in a while that improves the main `sm_j20 @ 1.0s` target without clearly damaging the broader guardrails
 - the cache still needs stronger explanations before it becomes real nogood learning, but it is now a useful medium-budget pruning layer
+
+## CP roadmap reset
+
+We now have a dedicated [CP_ROADMAP.md](/Users/weisintai/development/smu/modules/y2s2/cs202/project/CP_ROADMAP.md) instead of continuing to treat `cp` as a pile of small benchmark-driven tweaks.
+
+The main process change is:
+
+- `cp` stays self-contained inside [rcpsp/cp](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp)
+- the acceptance gate for `cp` changes is now the `cp_acceptance` preset in [scripts/guardrails_lib.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/scripts/guardrails_lib.py)
+- `cp` work should target:
+  - better local incumbent quality in [rcpsp/cp/guided_seed.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/guided_seed.py)
+  - stronger cheap propagation in [rcpsp/cp/propagation.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/propagation.py)
+  - explanation-aware branching and failure reuse in [rcpsp/cp/search.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/search.py)
+
+This reset was driven by the benchmark evidence:
+
+- `hybrid` is still the best short-budget practical backend
+- `cp` still has the better deeper-search ceiling on medium public sets
+- both in-repo backends hit a major scaling wall on held-out `ubo100` and `ubo200 @ 0.1s`
+- PyJobShop on OR-Tools is much stronger on large feasible cases, which confirms that the missing pieces are stronger propagation and search guidance, not more backend coupling
+
+### Rejected CP follow-up: narrowest-window branch ranking
+
+Tried making CP branch ranking prefer the tightest propagated activity windows first.
+
+The idea is standard CP style, but this implementation was too disruptive in the current backend:
+
+- on the hard `sm_j20 @ 1.0s` residue it improved some misses
+  - `PSP110: 58 -> 53`
+  - `PSP82: 50 -> 36`
+  - `PSP68: 93 -> 89`
+- but it also regressed previously exact heavy cases
+  - `PSP138: 50 -> 51`
+  - `PSP156: 125 -> 126`
+- and several other hard misses moved sideways or backwards
+
+So the change was reverted.
+
+What this taught us:
+
+- CP does need stronger conflict guidance, but `window width as the dominant branch key` is not the right integration point here
+- the remaining `sm_j20` misses are still mostly `timeout-driven feasible` cases
+- the next better target is explanation quality or conflict selection, not another broad branch-order rewrite
