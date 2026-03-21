@@ -234,11 +234,24 @@ def solve(
     budgets = _seed_budgets(context)
 
     best, restarts = _run_construct_phase(context, budgets, rng)
+    best_source = "construct" if best is not None else "none"
+    construct_makespan = best.makespan if best is not None else None
     best, improvement_iterations = _run_improve_phase(context, budgets, best, rng)
+    improve_makespan = best.makespan if best is not None else None
+    if best is not None and construct_makespan is None:
+        best_source = "improve"
+    elif best is not None and construct_makespan is not None and best.makespan < construct_makespan:
+        best_source = "improve"
     exact_best, exact_stats = _run_proof_phase(context, budgets, best)
+    proof_makespan = exact_best.makespan if exact_best is not None else None
     if exact_best is not None and (best is None or exact_best.makespan < best.makespan):
         best = exact_best
+        best_source = "proof"
     best, polish_iterations = _run_polish_phase(context, budgets, best, rng)
+    polish_makespan = best.makespan if best is not None else None
+    proof_base = proof_makespan if proof_makespan is not None else improve_makespan
+    if best is not None and proof_base is not None and best.makespan < proof_base:
+        best_source = "polish"
     improvement_iterations += polish_iterations
 
     if best is None:
@@ -258,6 +271,11 @@ def solve(
                 "seed_construct_until_seconds": max(0.0, budgets.construct_until - context.started),
                 "seed_improve_budget_seconds": budgets.improve_budget,
                 "seed_proof_budget_seconds": max(0.0, budgets.proof_until - budgets.construct_until),
+                "seed_construct_makespan": construct_makespan,
+                "seed_improve_makespan": improve_makespan,
+                "seed_proof_makespan": proof_makespan,
+                "seed_polish_makespan": polish_makespan,
+                "seed_best_source": best_source,
                 "improvement_iterations": improvement_iterations,
                 "search_nodes": exact_stats.nodes,
                 "search_timed_out": exact_stats.timed_out,
@@ -285,6 +303,11 @@ def solve(
                 "seed_construct_until_seconds": max(0.0, budgets.construct_until - context.started),
                 "seed_improve_budget_seconds": budgets.improve_budget,
                 "seed_proof_budget_seconds": max(0.0, budgets.proof_until - budgets.construct_until),
+                "seed_construct_makespan": construct_makespan,
+                "seed_improve_makespan": improve_makespan,
+                "seed_proof_makespan": proof_makespan,
+                "seed_polish_makespan": polish_makespan,
+                "seed_best_source": best_source,
                 "improvement_iterations": improvement_iterations,
                 "search_nodes": exact_stats.nodes,
                 "search_timed_out": exact_stats.timed_out,
@@ -308,6 +331,11 @@ def solve(
             "seed_construct_until_seconds": max(0.0, budgets.construct_until - context.started),
             "seed_improve_budget_seconds": budgets.improve_budget,
             "seed_proof_budget_seconds": max(0.0, budgets.proof_until - budgets.construct_until),
+            "seed_construct_makespan": construct_makespan,
+            "seed_improve_makespan": improve_makespan,
+            "seed_proof_makespan": proof_makespan,
+            "seed_polish_makespan": polish_makespan,
+            "seed_best_source": best_source,
             "improvement_iterations": improvement_iterations,
             "search_nodes": exact_stats.nodes,
             "search_timed_out": exact_stats.timed_out,

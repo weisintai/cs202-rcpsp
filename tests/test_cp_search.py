@@ -87,7 +87,7 @@ def test_run_guided_seed_updates_incumbent_from_local_seed(monkeypatch) -> None:
             runtime_seconds=0.01,
             temporal_lower_bound=0,
             restarts=3,
-            metadata={},
+            metadata={"seed_construct_makespan": 12, "seed_best_source": "construct"},
         )
 
     monkeypatch.setattr("rcpsp.cp.search.solve_guided_seed", fake_seed)
@@ -106,6 +106,8 @@ def test_run_guided_seed_updates_incumbent_from_local_seed(monkeypatch) -> None:
     assert restarts == 3
     assert stats.incumbent_updates == 1
     assert metadata["guided_seed_used"] is True
+    assert metadata["seed_construct_makespan"] == 12
+    assert metadata["seed_best_source"] == "construct"
     assert guided_infeasible is False
 
 
@@ -174,6 +176,18 @@ def test_solve_cp_reports_conflict_counters_on_trivial_instance() -> None:
     assert result.metadata["conflict_events"] == 0
     assert result.metadata["avg_conflict_size"] == 0.0
     assert result.metadata["max_conflict_size"] == 0
+
+
+def test_guided_seed_reports_seed_phase_metadata() -> None:
+    from rcpsp.cp.guided_seed import solve
+
+    result = solve(_dummy_instance(2), time_limit=0.05, seed=0)
+
+    assert "seed_construct_makespan" in result.metadata
+    assert "seed_improve_makespan" in result.metadata
+    assert "seed_proof_makespan" in result.metadata
+    assert "seed_polish_makespan" in result.metadata
+    assert result.metadata["seed_best_source"] in {"none", "construct", "improve", "proof", "polish"}
 
 
 def test_use_failure_cache_enables_large_short_runs() -> None:

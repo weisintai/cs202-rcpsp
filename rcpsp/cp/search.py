@@ -247,6 +247,9 @@ def run_guided_seed(
             config=solver_config,
         )
         metadata["guided_seed_used"] = True
+        for key, value in guided.metadata.items():
+            if key.startswith("seed_"):
+                metadata[key] = value
         if guided.status == "feasible" and guided.schedule is not None:
             incumbent = update_incumbent(incumbent, guided.schedule, stats)
         elif guided.status == "infeasible":
