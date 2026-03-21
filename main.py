@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from rcpsp import HeuristicConfig, parse_sch, solve, solve_cp
+from rcpsp import HeuristicConfig, parse_sch, solve, solve_cp, solve_sgs
 from rcpsp.reference import REFERENCE_URLS, fetch_reference_values, normalize_instance_name
 
 BENCHMARK_DATA_ROOT = Path("benchmarks/data")
@@ -23,6 +23,8 @@ def _solve_with_backend(
     config = HeuristicConfig(max_restarts=max_restarts)
     if backend == "cp":
         return solve_cp(instance, time_limit=time_limit, seed=seed, config=config)
+    if backend == "sgs":
+        return solve_sgs(instance, time_limit=time_limit, seed=seed, config=config)
     return solve(instance, time_limit=time_limit, seed=seed, config=config)
 
 
@@ -350,7 +352,7 @@ def build_parser() -> argparse.ArgumentParser:
     solve_parser.add_argument("--time-limit", type=float, default=1.0)
     solve_parser.add_argument("--seed", type=int, default=0)
     solve_parser.add_argument("--max-restarts", type=int, default=None)
-    solve_parser.add_argument("--backend", choices=("hybrid", "cp"), default="hybrid")
+    solve_parser.add_argument("--backend", choices=("hybrid", "cp", "sgs"), default="hybrid")
     solve_parser.add_argument("--json", action="store_true")
     solve_parser.set_defaults(func=cmd_solve)
 
@@ -359,7 +361,7 @@ def build_parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--time-limit", type=float, default=0.1)
     bench_parser.add_argument("--seed", type=int, default=0)
     bench_parser.add_argument("--max-restarts", type=int, default=None)
-    bench_parser.add_argument("--backend", choices=("hybrid", "cp"), default="hybrid")
+    bench_parser.add_argument("--backend", choices=("hybrid", "cp", "sgs"), default="hybrid")
     bench_parser.add_argument("--output")
     bench_parser.add_argument("--no-progress", action="store_true")
     bench_parser.set_defaults(func=cmd_benchmark)
