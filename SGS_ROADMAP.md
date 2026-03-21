@@ -38,6 +38,18 @@ Everything else should orbit that decoder:
 
 If a new idea does not strengthen one of those layers, it is probably a distraction.
 
+The main refinement from recent work is:
+
+- `sgs` should first be treated as an `upper-bound engine`
+
+In practice that means:
+
+- find a feasible schedule quickly
+- keep that incumbent alive
+- spend the rest of the budget improving it
+
+It does **not** mean trying to match a CP/OR-Tools RCPSP/max solver in Phase 1.
+
 ## Research Basis
 
 The roadmap below is based on these source families:
@@ -68,6 +80,57 @@ The end goal is:
 - `sgs` eventually absorbs the most useful lower-bound and exact-search ideas
 - `cp` remains a separate research track, not the default implementation path
 
+## What We Learned From Reference Checks
+
+Recent reference checks clarified the boundary much more sharply.
+
+### Plain RCPSP references are useful, but not enough
+
+The strongest reusable no-library heuristic references we found are mostly `plain RCPSP`:
+
+- activity-list SGS examples
+- ALNS RCPSP examples
+- standard GA / random-key RCPSP repos
+
+These are good references for:
+
+- activity-list state design
+- destroy / repair operators
+- operator weighting
+- double justification
+
+But they are not drop-in solvers for this repo's `RCPSP/max` benchmark family.
+
+### Strong RCPSP/max references are usually optimization-backed
+
+The cleanest public references that handle our `.SCH` files well, especially PyJobShop, solve them through OR-Tools / CP.
+
+That makes them useful for:
+
+- parsing
+- RCPSP/max semantics
+- time-window modeling
+- benchmark sanity checks
+
+But not acceptable as the final backend under the project rules.
+
+### Our datasets are overwhelmingly RCPSP/max
+
+For this repo, the public sets mostly contain negative lags. So copying a plain PSPLIB RCPSP SGS directly will underperform unless we add:
+
+- dynamic lower / upper windows
+- max-lag-aware pruning
+- time-window propagation
+
+### First-feasible acquisition mattered more than expected
+
+The best recent improvement came from spending a tiny budget on a valid warm start before SGS/ALNS refinement.
+
+That changed the correct short-term role of `sgs`:
+
+- not “the whole solver”
+- but “the main upper-bound engine”
+
 ## Current State
 
 What already exists in [rcpsp/sgs](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs):
@@ -76,20 +139,28 @@ What already exists in [rcpsp/sgs](/Users/weisintai/development/smu/modules/y2s2
 - build a precedence DAG from nonnegative arcs
 - generate deterministic and sampled activity-list priorities
 - decode an activity list with a serial window-based decoder
+- use a bounded beam-style bootstrap path while no incumbent exists
 - run a light forward/backward re-decoding pass
-- evaluate restart batches through a dedicated Phase 1 restart module
+- run incumbent-centered ALNS-style restart batches through a dedicated Phase 1 search module
+- spend a small budget on a conflict-repair warm start before entering SGS search
 - expose a backend-local guardrail benchmark runner
 
 This is only a `Phase 0 / early Phase 1 scaffold`.
 
 What is still missing:
 
-- a true production-quality serial SGS
+- a true production-quality serial SGS / decoder stack
 - an optional parallel SGS
 - a real benchmark harness dedicated to `sgs`
-- metaheuristics built on the decoder
+- stronger incumbent improvement after warm start
 - lower bounds and propagation inside the `sgs` track
 - exact search over activity lists or time windows
+
+What should **not** be the next focus:
+
+- replacing the warm-start path again
+- copying more plain-RCPSP code and hoping it solves RCPSP/max
+- adding heavy exact search before propagation exists
 
 Before this backend is taken seriously, it must cover the public guardrail sets that matter most for the course:
 
@@ -109,6 +180,8 @@ These rules apply to all `sgs` work:
 3. Do not keep random tweaks unless they clearly fit a phase below.
 4. Do not add heavy exact-search machinery before the Phase 1 decoder is trustworthy.
 5. For `RCPSP/max`, keep `min-lag` and `max-lag` logic explicit in every layer.
+6. Track `first-feasible coverage` and `upper-bound quality` separately.
+7. When a public reference is much stronger, first check whether it is using a forbidden optimization engine or solving plain RCPSP instead of RCPSP/max.
 
 ## Target Structure
 
@@ -224,6 +297,11 @@ This phase is `started but not complete` in:
 
 The immediate next step is to keep improving the serial decoder and priority rules until `sm_j10` and `sm_j20` stop being the main bottleneck.
 
+Recent work changed that slightly:
+
+- first-feasible acquisition is no longer the main bottleneck
+- incumbent quality on `sm_j20`, `sm_j30`, and `testset_ubo50` is now the main bottleneck
+
 ### Exit Criteria
 
 - `sm_j10`: `100%` feasible at short budgets
@@ -232,6 +310,16 @@ The immediate next step is to keep improving the serial decoder and priority rul
 - benchmark output records the best upper bound per instance
 
 `sm_j10` and `sm_j20` are the minimum credibility gate for this backend. `testset_ubo50` matters, but it does not replace those easier public sets.
+
+### Practical interpretation
+
+For this repo, Phase 1 includes:
+
+- a valid warm start
+- a decoder that can refine that start
+- enough search structure that `unknown` does not dominate the short-budget runs
+
+That warm-start path is part of the roadmap now, not an off-plan hack.
 
 ### Practical benchmark target
 
@@ -260,6 +348,7 @@ ALNS is the better first step here because:
 - it is easier to tune incrementally
 - it reuses the activity-list representation cleanly
 - the ALNS RCPSP example already matches the design style we want
+- it improves an incumbent naturally once one exists
 
 ### Deliverables
 
@@ -288,6 +377,17 @@ Copy the architecture idea, not the code, from:
 - `sm_j30`: strong anytime upper bounds at `0.1s`, `1.0s`, and `5.0s`
 - `testset_ubo50`: clear improvement over Phase 1 schedules
 - the metaheuristic improves over plain random priority-list sampling on the same budget
+
+### Revised next step from what we learned
+
+Phase 2 should now focus on `upper-bound quality`, not more bootstrap work.
+
+Concrete next work:
+
+1. improve destroy / repair operators around the current incumbent
+2. target mobility, resource pressure, and repeated bad regions instead of only raw list position
+3. reuse incumbents more effectively instead of re-bootstrapping
+4. keep time-window guidance lightweight until propagation is strong enough to justify it
 
 ## Phase 3: Lower Bounds and Propagation
 
@@ -327,6 +427,25 @@ Use these sources as the model:
 - [PyJobShop project scheduling example](https://pyjobshop.org/stable/examples/project_scheduling.html)
 
 The implementation should stay lightweight and explicit, not solver-framework-like.
+
+### Revised importance
+
+This is now the most important next phase for `sgs`.
+
+Reason:
+
+- no-library public heuristics are weak on RCPSP/max
+- public strong RCPSP/max references rely on propagation
+- our heuristic improved the most once it stopped wasting time on first-feasible search
+
+So the next meaningful gains should come from `cheap propagation`, not more bootstrap tricks.
+
+Concrete next work:
+
+1. keep latest-start and time-window helpers as infrastructure, but do not let them dominate the hot path yet
+2. add fixpoint-style temporal tightening before using windows as a ranking signal
+3. reject candidate placements using tighter propagated windows only when the rejection is clearly safe and cheap
+4. add compulsory-part style resource window checks where cheap
 
 ### Exit Criteria
 

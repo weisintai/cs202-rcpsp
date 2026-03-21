@@ -1,6 +1,51 @@
 # RCPSP/max Iteration Notes
 
-Last updated: 2026-03-17
+Last updated: 2026-03-21
+
+## 2026-03-21 SGS direction update
+
+Recent reference checks clarified the solver boundary more than the code did.
+
+### What we learned from cloned references
+
+- The strongest reusable no-library SGS references we found are mostly `plain RCPSP`, not `RCPSP/max`.
+- The strongest public references that *do* handle our `.SCH` benchmark family cleanly are optimization-backed, especially PyJobShop on OR-Tools / CP.
+- So there is no obvious maintained no-library RCPSP/max solver we can just copy.
+
+### What changed in our plan
+
+- `sgs` should be treated as an `upper-bound engine` first.
+- Its job is to return good feasible schedules quickly and improve them over time.
+- The next major gains should come from cheap RCPSP/max propagation, not from endlessly tuning bootstrap heuristics.
+
+### What actually worked
+
+The best recent improvement was adding a very small warm-start budget before the SGS/ALNS loop:
+
+- get a feasible schedule with the existing conflict-repair constructor
+- feed that incumbent into `sgs`
+- let the activity-list search improve it instead of starting from nothing
+
+This improved short-budget feasibility coverage substantially across `sm_j10`, `sm_j20`, `sm_j30`, and `testset_ubo50`.
+
+### What the next propagation experiment taught us
+
+We also tried the first lightweight `latest-start` window pass inside `sgs`:
+
+- derive latest starts from the current incumbent makespan
+- feed that signal into priority scoring and eligible-activity choice
+
+That experiment was useful, but the result was not strong enough to keep on the hot path.
+
+- the helper itself is valid and is now kept as tested infrastructure in `rcpsp/sgs/time_windows.py`
+- but using it aggressively inside the live ALNS / decoder loop mostly traded solution quality for small coverage gains
+- the current mainline therefore keeps the warm-start improvement, but does **not** let latest-start scoring dominate the decoder yet
+
+So the next SGS step is narrower than before:
+
+- keep latest-start and time-window code as Phase 3 scaffolding
+- do not let it override activity-list order until we also have stronger fixpoint propagation
+- focus next on operator quality and cheap propagated rejections, not blanket latest-start ranking
 
 ## Project goal
 
