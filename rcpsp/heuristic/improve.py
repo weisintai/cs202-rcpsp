@@ -327,9 +327,10 @@ def repair_schedule_subset(
     solver_config: HeuristicConfig,
     rng: random.Random,
     deadline: float,
+    pinned_edges: tuple[Edge, ...] = (),
     preferred_pairs: tuple[tuple[int, int], ...] = (),
 ) -> Schedule | None:
-    base_edges = [
+    base_edges = list(pinned_edges) + [
         edge
         for edge in resource_order_edges(instance, list(schedule.start_times))
         if edge.source not in removed and edge.target not in removed
@@ -395,6 +396,7 @@ def improve_incumbent(
     solver_config: HeuristicConfig,
     rng: random.Random,
     deadline: float,
+    base_extra_edges: tuple[Edge, ...] = (),
 ) -> tuple[Schedule, int]:
     best = incumbent
     elite = [incumbent]
@@ -422,6 +424,7 @@ def improve_incumbent(
                     solver_config=solver_config,
                     rng=rng,
                     deadline=deadline,
+                    pinned_edges=base_extra_edges,
                     preferred_pairs=plan.preferred_pairs,
                 )
                 iterations += 1

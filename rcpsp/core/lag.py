@@ -65,6 +65,55 @@ def pairwise_infeasibility_reason_from_dist(instance: Instance, dist: list[list[
     return None
 
 
+def _upper_bound(dist: list[list[float]], source: int, target: int) -> float:
+    reverse = dist[target][source]
+    if reverse == float("-inf"):
+        return float("inf")
+    return -reverse
+
+
+def forced_resource_order_edges_from_dist(
+    instance: Instance,
+    dist: list[list[float]],
+) -> tuple[list[Edge], list[list[float]]]:
+    inferred: list[Edge] = []
+    updated = dist
+
+    while True:
+        added = False
+        for first in range(1, instance.sink):
+            for second in range(first + 1, instance.sink):
+                if not any(
+                    instance.demands[first][resource] + instance.demands[second][resource] > instance.capacities[resource]
+                    for resource in range(instance.n_resources)
+                ):
+                    continue
+
+                if updated[first][second] >= instance.durations[first] or updated[second][first] >= instance.durations[second]:
+                    continue
+
+                first_before_second_possible = _upper_bound(updated, first, second) >= instance.durations[first]
+                second_before_first_possible = updated[first][second] <= -instance.durations[second]
+
+                if first_before_second_possible == second_before_first_possible:
+                    continue
+
+                if first_before_second_possible:
+                    edge = Edge(source=first, target=second, lag=instance.durations[first])
+                else:
+                    edge = Edge(source=second, target=first, lag=instance.durations[second])
+
+                if updated[edge.source][edge.target] >= edge.lag:
+                    continue
+                inferred.append(edge)
+                updated = extend_longest_lags(updated, edge)
+                added = True
+        if not added:
+            break
+
+    return inferred, updated
+
+
 def pairwise_infeasibility_reason(
     instance: Instance,
     extra_edges: list[Edge] | tuple[Edge, ...] = (),

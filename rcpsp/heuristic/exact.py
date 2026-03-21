@@ -29,12 +29,13 @@ def branch_and_bound_search(
     deadline: float,
     incumbent: Schedule | None = None,
     incremental_pairwise: bool = True,
+    base_extra_edges: list[Edge] | tuple[Edge, ...] = (),
 ) -> tuple[Schedule | None, SearchStats]:
     stats = SearchStats()
     seen: set[tuple[tuple[int, int], ...]] = set()
     best = incumbent
-    global_lower_bound = longest_feasible_starts(instance)[instance.sink]
-    root_lag_dist = all_pairs_longest_lags(instance) if incremental_pairwise and incumbent is None else None
+    global_lower_bound = longest_feasible_starts(instance, extra_edges=base_extra_edges)[instance.sink]
+    root_lag_dist = all_pairs_longest_lags(instance, extra_edges=base_extra_edges) if incremental_pairwise and incumbent is None else None
 
     def dfs(
         extra_edges: list[Edge],
@@ -150,5 +151,8 @@ def branch_and_bound_search(
             if stats.timed_out:
                 return
 
-    dfs([], set(), None, root_lag_dist)
+    base_pairs = {(edge.source, edge.target) for edge in base_extra_edges}
+    base_edges = list(base_extra_edges)
+    root_starts = longest_feasible_starts(instance, extra_edges=base_edges)
+    dfs(base_edges, base_pairs, root_starts, root_lag_dist)
     return best, stats

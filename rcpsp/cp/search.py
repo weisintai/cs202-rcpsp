@@ -7,7 +7,11 @@ from ..config import HeuristicConfig, sample_heuristic_config
 from ..core.branching import branch_order
 from ..core.compress import compress_valid_schedule
 from ..core.conflicts import minimal_conflict_set
-from ..core.lag import all_pairs_longest_lags, pairwise_infeasibility_reason
+from ..core.lag import (
+    all_pairs_longest_lags,
+    forced_resource_order_edges_from_dist,
+    pairwise_infeasibility_reason_from_dist,
+)
 from ..core.metrics import resource_intensity
 from ..models import Edge, Instance, Schedule, SolveResult
 from ..temporal import TemporalInfeasibleError, longest_feasible_starts, longest_tail_to_sink
@@ -149,9 +153,26 @@ def solve_cp(
     rng = random.Random(seed)
     started = time.perf_counter()
     final_deadline = started + time_limit
+    safety_margin = min(max(0.001, time_limit * 0.005), max(0.001, time_limit * 0.05))
+    soft_deadline = max(started, final_deadline - safety_margin)
 
     try:
-        temporal_lower = longest_feasible_starts(instance)
+        root_lag_dist = all_pairs_longest_lags(instance)
+        pairwise_reason = pairwise_infeasibility_reason_from_dist(instance, root_lag_dist)
+        if pairwise_reason is not None:
+            runtime = time.perf_counter() - started
+            temporal_lower = longest_feasible_starts(instance)
+            return SolveResult(
+                instance_name=instance.name,
+                status="infeasible",
+                schedule=None,
+                runtime_seconds=runtime,
+                temporal_lower_bound=temporal_lower[instance.sink],
+                restarts=0,
+                metadata={"backend": "cp", "reason": pairwise_reason, "seed": seed, "time_limit": time_limit},
+            )
+        forced_edges, root_lag_dist = forced_resource_order_edges_from_dist(instance, root_lag_dist)
+        temporal_lower = longest_feasible_starts(instance, extra_edges=forced_edges)
         tail = longest_tail_to_sink(instance)
     except TemporalInfeasibleError as exc:
         runtime = time.perf_counter() - started
@@ -165,19 +186,6 @@ def solve_cp(
             metadata={"backend": "cp", "reason": str(exc), "seed": seed, "time_limit": time_limit},
         )
 
-    pairwise_reason = pairwise_infeasibility_reason(instance)
-    if pairwise_reason is not None:
-        runtime = time.perf_counter() - started
-        return SolveResult(
-            instance_name=instance.name,
-            status="infeasible",
-            schedule=None,
-            runtime_seconds=runtime,
-            temporal_lower_bound=temporal_lower[instance.sink],
-            restarts=0,
-            metadata={"backend": "cp", "reason": pairwise_reason, "seed": seed, "time_limit": time_limit},
-        )
-
     intensity = resource_intensity(instance)
     stats = CpSearchStats()
     seen: set[tuple[tuple[tuple[int, int], ...], tuple[int, ...], tuple[int, ...] | None]] = set()
@@ -185,10 +193,10 @@ def solve_cp(
     failure_cache_enabled = time_limit >= 0.5
     incumbent: Schedule | None = None
     restarts = 0
-    root_lag_dist = all_pairs_longest_lags(instance)
+    forced_pairs = frozenset((edge.source, edge.target) for edge in forced_edges)
 
     heuristic_budget = min(0.75, max(0.01, time_limit * 0.25))
-    heuristic_deadline = min(final_deadline, started + heuristic_budget)
+    heuristic_deadline = min(soft_deadline, started + heuristic_budget)
     if heuristic_budget >= 0.15 and time.perf_counter() < heuristic_deadline:
         guided_budget = min(heuristic_budget * 0.8, heuristic_deadline - time.perf_counter())
         if guided_budget > 0:
@@ -211,6 +219,8 @@ def solve_cp(
             intensity=intensity,
             config=sample_heuristic_config(solver_config, rng),
             deadline=heuristic_deadline,
+            base_extra_edges=forced_edges,
+            initial_starts=temporal_lower,
         )
         if validate_schedule(instance, schedule):
             restarts += 1
@@ -224,7 +234,7 @@ def solve_cp(
 
     def dfs(pairs: frozenset[tuple[int, int]], node: CpNode | None = None) -> bool:
         nonlocal incumbent
-        if time.perf_counter() >= final_deadline:
+        if time.perf_counter() >= soft_deadline:
             stats.timed_out = True
             return False
         stats.nodes += 1
@@ -279,8 +289,8 @@ def solve_cp(
             return False
 
         found_feasible = False
-        if time.perf_counter() < final_deadline:
-            local_budget = min(final_deadline, time.perf_counter() + min(0.02, max(0.002, time_limit * 0.01)))
+        if time.perf_counter() < soft_deadline:
+            local_budget = min(soft_deadline, time.perf_counter() + min(0.02, max(0.002, time_limit * 0.01)))
             candidate = try_cp_incumbent(
                 instance=instance,
                 node=node,
@@ -348,7 +358,7 @@ def solve_cp(
                 record_failed_pairs(node.pairs, failed_pair_sets, stats)
         return found_feasible
 
-    dfs(frozenset())
+    dfs(forced_pairs)
 
     runtime = time.perf_counter() - started
     if incumbent is None:
@@ -372,6 +382,7 @@ def solve_cp(
                 "failure_cache_hits": stats.failure_cache_hits,
                 "failure_cache_inserts": stats.failure_cache_inserts,
                 "failure_cache_size": stats.failure_cache_size,
+                "forced_resource_orders": len(forced_edges),
             },
         )
 
@@ -395,5 +406,6 @@ def solve_cp(
             "failure_cache_hits": stats.failure_cache_hits,
             "failure_cache_inserts": stats.failure_cache_inserts,
             "failure_cache_size": stats.failure_cache_size,
+            "forced_resource_orders": len(forced_edges),
         },
     )

@@ -4,7 +4,11 @@ import random
 import time
 
 from ..config import HeuristicConfig, sample_heuristic_config
-from ..core.lag import pairwise_infeasibility_reason
+from ..core.lag import (
+    all_pairs_longest_lags,
+    forced_resource_order_edges_from_dist,
+    pairwise_infeasibility_reason_from_dist,
+)
 from ..core.metrics import resource_intensity
 from ..models import Instance, Schedule, SolveResult
 from ..temporal import TemporalInfeasibleError, longest_feasible_starts, longest_tail_to_sink
@@ -25,7 +29,22 @@ def solve(
     started = time.perf_counter()
 
     try:
-        temporal_lb_schedule = longest_feasible_starts(instance)
+        lag_dist = all_pairs_longest_lags(instance)
+        pairwise_reason = pairwise_infeasibility_reason_from_dist(instance, lag_dist)
+        if pairwise_reason is not None:
+            runtime = time.perf_counter() - started
+            temporal_lb_schedule = longest_feasible_starts(instance)
+            return SolveResult(
+                instance_name=instance.name,
+                status="infeasible",
+                schedule=None,
+                runtime_seconds=runtime,
+                temporal_lower_bound=temporal_lb_schedule[instance.sink],
+                restarts=0,
+                metadata={"reason": pairwise_reason, "seed": seed, "time_limit": time_limit},
+            )
+        forced_edges, lag_dist = forced_resource_order_edges_from_dist(instance, lag_dist)
+        temporal_lb_schedule = longest_feasible_starts(instance, extra_edges=forced_edges)
         tail = longest_tail_to_sink(instance)
     except TemporalInfeasibleError as exc:
         runtime = time.perf_counter() - started
@@ -40,18 +59,7 @@ def solve(
         )
 
     temporal_lower_bound = temporal_lb_schedule[instance.sink]
-    pairwise_reason = pairwise_infeasibility_reason(instance)
-    if pairwise_reason is not None:
-        runtime = time.perf_counter() - started
-        return SolveResult(
-            instance_name=instance.name,
-            status="infeasible",
-            schedule=None,
-            runtime_seconds=runtime,
-            temporal_lower_bound=temporal_lower_bound,
-            restarts=0,
-            metadata={"reason": pairwise_reason, "seed": seed, "time_limit": time_limit},
-        )
+    forced_edge_count = len(forced_edges)
 
     intensity = resource_intensity(instance)
 
@@ -65,7 +73,9 @@ def solve(
     search_timed_out = False
     improvement_iterations = 0
     final_deadline = started + time_limit
-    heuristic_deadline = min(final_deadline, started + min(1.0, max(0.01, time_limit * 0.2)))
+    safety_margin = min(max(0.001, time_limit * 0.005), max(0.001, time_limit * 0.05))
+    soft_deadline = max(started, final_deadline - safety_margin)
+    heuristic_deadline = min(soft_deadline, started + min(1.0, max(0.01, time_limit * 0.2)))
 
     while True:
         now = time.perf_counter()
@@ -82,6 +92,8 @@ def solve(
             intensity,
             local_config,
             deadline=heuristic_deadline,
+            base_extra_edges=forced_edges,
+            initial_starts=temporal_lb_schedule,
         )
         if validate_schedule(instance, schedule):
             continue
@@ -96,10 +108,10 @@ def solve(
     if (
         best_valid
         and best.makespan > temporal_lower_bound
-        and time.perf_counter() < final_deadline
+        and time.perf_counter() < soft_deadline
     ):
         improvement_budget = min(5.0, max(0.02, time_limit * 0.35))
-        improve_until = min(final_deadline, time.perf_counter() + improvement_budget)
+        improve_until = min(soft_deadline, time.perf_counter() + improvement_budget)
         improved_best, improvement_iterations = improve_incumbent(
             instance=instance,
             incumbent=best,
@@ -108,10 +120,11 @@ def solve(
             solver_config=solver_config,
             rng=rng,
             deadline=improve_until,
+            base_extra_edges=tuple(forced_edges),
         )
         if improved_best.makespan < best.makespan:
             best = improved_best
-        exact_deadline = final_deadline
+        exact_deadline = soft_deadline
 
     exact_best, exact_stats = branch_and_bound_search(
         instance=instance,
@@ -120,6 +133,7 @@ def solve(
         deadline=exact_deadline,
         incumbent=best if best_valid else None,
         incremental_pairwise=time_limit >= 0.5,
+        base_extra_edges=tuple(forced_edges),
     )
     search_nodes = exact_stats.nodes
     search_timed_out = exact_stats.timed_out
@@ -131,7 +145,7 @@ def solve(
         best_valid
         and best.makespan > temporal_lower_bound
         and time_limit >= 0.5
-        and time.perf_counter() < final_deadline
+        and time.perf_counter() < soft_deadline
     ):
         polished_best, extra_iterations = improve_incumbent(
             instance=instance,
@@ -140,7 +154,8 @@ def solve(
             intensity=intensity,
             solver_config=solver_config,
             rng=rng,
-            deadline=final_deadline,
+            deadline=soft_deadline,
+            base_extra_edges=tuple(forced_edges),
         )
         improvement_iterations += extra_iterations
         if polished_best.makespan < best.makespan:
@@ -163,6 +178,7 @@ def solve(
                 "improvement_iterations": improvement_iterations,
                 "search_nodes": search_nodes,
                 "search_timed_out": search_timed_out,
+                "forced_resource_orders": forced_edge_count,
                 "reason": "exact search exhausted without finding a feasible schedule"
                 if not search_timed_out
                 else "time limit reached before exact search could prove feasibility or infeasibility",
@@ -186,6 +202,7 @@ def solve(
                 "improvement_iterations": improvement_iterations,
                 "search_nodes": search_nodes,
                 "search_timed_out": search_timed_out,
+                "forced_resource_orders": forced_edge_count,
             },
         )
 
@@ -205,5 +222,6 @@ def solve(
             "improvement_iterations": improvement_iterations,
             "search_nodes": search_nodes,
             "search_timed_out": search_timed_out,
+            "forced_resource_orders": forced_edge_count,
         },
     )

@@ -4,6 +4,7 @@ from .conflicts import first_conflict, minimal_conflict_set, shared_resource_ove
 from .lag import (
     all_pairs_longest_lags,
     extend_longest_lags,
+    forced_resource_order_edges_from_dist,
     pairwise_infeasibility_reason,
     pairwise_infeasibility_reason_from_dist,
 )
