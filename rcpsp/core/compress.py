@@ -5,6 +5,13 @@ from ..temporal import TemporalInfeasibleError, longest_feasible_starts
 from ..validate import build_resource_profile, validate_schedule
 
 
+def requires_disjunctive_order(instance: Instance, first: int, second: int) -> bool:
+    return any(
+        instance.demands[first][resource] + instance.demands[second][resource] > instance.capacities[resource]
+        for resource in range(instance.n_resources)
+    )
+
+
 def left_shift(instance: Instance, start_times: list[int], extra_edges: list[Edge]) -> list[int]:
     schedule = start_times[:]
     profile = build_resource_profile(instance, schedule)
@@ -97,6 +104,14 @@ def resource_order_edges(instance: Instance, start_times: list[int]) -> list[Edg
     return edges
 
 
+def compression_order_edges(instance: Instance, start_times: list[int]) -> list[Edge]:
+    return [
+        edge
+        for edge in resource_order_edges(instance, start_times)
+        if requires_disjunctive_order(instance, edge.source, edge.target)
+    ]
+
+
 def compress_valid_schedule(instance: Instance, start_times: list[int]) -> list[int]:
     current = start_times[:]
     resource_edges = resource_order_edges(instance, current)
@@ -106,6 +121,32 @@ def compress_valid_schedule(instance: Instance, start_times: list[int]) -> list[
     try:
         compressed = longest_feasible_starts(instance, extra_edges=resource_edges)
     except TemporalInfeasibleError:
+        return current
+
+    candidate = Schedule(start_times=tuple(compressed), makespan=compressed[instance.sink])
+    if validate_schedule(instance, candidate):
+        return current
+    return compressed
+
+
+def compress_valid_schedule_relaxed(instance: Instance, start_times: list[int]) -> list[int]:
+    current = start_times[:]
+    legacy_edges = resource_order_edges(instance, current)
+    if not legacy_edges:
+        return current
+    resource_edges = [
+        edge
+        for edge in legacy_edges
+        if requires_disjunctive_order(instance, edge.source, edge.target)
+    ]
+    if resource_edges == legacy_edges:
+        return compress_valid_schedule(instance, current)
+
+    try:
+        compressed = longest_feasible_starts(instance, extra_edges=resource_edges)
+    except TemporalInfeasibleError:
+        return current
+    if compressed[instance.sink] >= current[instance.sink]:
         return current
 
     candidate = Schedule(start_times=tuple(compressed), makespan=compressed[instance.sink])

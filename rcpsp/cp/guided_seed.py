@@ -140,11 +140,11 @@ def _run_construct_phase(
             base_extra_edges=context.forced_edges,
             initial_starts=context.temporal_lower,
         )
+        restarts += 1
         if validate_schedule(context.instance, schedule):
             continue
         if best is None or schedule.makespan < best.makespan:
             best = schedule
-        restarts += 1
         if best.makespan == context.temporal_lower_bound:
             break
 

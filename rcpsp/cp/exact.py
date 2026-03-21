@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass
 
 from ..core.branching import branch_order
-from ..core.compress import compress_valid_schedule
+from ..core.compress import compress_valid_schedule_relaxed
 from ..core.conflicts import minimal_conflict_set
 from ..core.lag import (
     all_pairs_longest_lags,
@@ -73,7 +73,7 @@ def branch_and_bound_search(
 
         conflict = minimal_conflict_set(instance, start_times)
         if conflict is None:
-            candidate_starts = compress_valid_schedule(instance, start_times)
+            candidate_starts = compress_valid_schedule_relaxed(instance, start_times)
             candidate = Schedule(start_times=tuple(candidate_starts), makespan=candidate_starts[instance.sink])
             if best is None or candidate.makespan < best.makespan:
                 best = candidate

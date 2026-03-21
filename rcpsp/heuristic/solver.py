@@ -95,12 +95,12 @@ def solve(
             base_extra_edges=forced_edges,
             initial_starts=temporal_lb_schedule,
         )
+        restarts += 1
         if validate_schedule(instance, schedule):
             continue
         if schedule.makespan < best.makespan:
             best = schedule
             best_valid = True
-        restarts += 1
         if best.makespan == temporal_lower_bound:
             break
 
