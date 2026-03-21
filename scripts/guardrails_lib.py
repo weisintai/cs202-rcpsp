@@ -16,6 +16,10 @@ DEFAULT_OUTPUT_ROOT = ROOT / "tmp" / "guardrails"
 class GuardrailCase:
     dataset: str
     time_limit: float
+    benchmark_path: str | None = None
+
+
+EXTERNAL_DATA_ROOT = ROOT / "references" / "kobe-scheduling" / "data" / "rcpsp-max"
 
 
 PRESETS: dict[str, tuple[GuardrailCase, ...]] = {
@@ -23,6 +27,13 @@ PRESETS: dict[str, tuple[GuardrailCase, ...]] = {
         GuardrailCase("sm_j10", 0.1),
         GuardrailCase("sm_j20", 0.1),
         GuardrailCase("sm_j30", 0.1),
+        GuardrailCase("testset_ubo50", 0.1),
+    ),
+    "research_quick": (
+        GuardrailCase("sm_j10", 0.1),
+        GuardrailCase("sm_j20", 0.1),
+        GuardrailCase("sm_j30", 0.1),
+        GuardrailCase("testset_ubo20", 0.1),
         GuardrailCase("testset_ubo50", 0.1),
     ),
     "medium": (
@@ -36,6 +47,20 @@ PRESETS: dict[str, tuple[GuardrailCase, ...]] = {
         GuardrailCase("testset_ubo50", 0.1),
         GuardrailCase("sm_j10", 1.0),
         GuardrailCase("sm_j20", 1.0),
+    ),
+    "research": (
+        GuardrailCase("sm_j10", 0.1),
+        GuardrailCase("sm_j20", 0.1),
+        GuardrailCase("sm_j30", 0.1),
+        GuardrailCase("testset_ubo20", 0.1),
+        GuardrailCase("testset_ubo50", 0.1),
+        GuardrailCase("sm_j10", 1.0),
+        GuardrailCase("sm_j20", 1.0),
+    ),
+    "broad_generalization": (
+        GuardrailCase("testset_ubo10", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo10")),
+        GuardrailCase("testset_ubo100", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo100")),
+        GuardrailCase("testset_ubo200", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo200")),
     ),
 }
 
@@ -81,6 +106,7 @@ def run_guardrail_suite(
     datasets: list[str] | None = None,
     seed: int = 0,
     max_restarts: int | None = None,
+    heuristic_args: dict[str, float] | None = None,
     output_dir: Path | None = None,
     dry_run: bool = False,
 ) -> dict:
@@ -102,7 +128,7 @@ def run_guardrail_suite(
             sys.executable,
             "main.py",
             "benchmark",
-            case.dataset,
+            case.benchmark_path or case.dataset,
             "--time-limit",
             str(case.time_limit),
             "--backend",
@@ -114,6 +140,9 @@ def run_guardrail_suite(
         ]
         if max_restarts is not None:
             benchmark_command.extend(["--max-restarts", str(max_restarts)])
+        if heuristic_args:
+            for key, value in heuristic_args.items():
+                benchmark_command.extend([f"--{key.replace('_', '-')}", str(value)])
 
         benchmark_summary = run_json_command(benchmark_command, dry_run=dry_run)
 
@@ -162,6 +191,7 @@ def run_guardrail_suite(
         "preset": preset,
         "seed": seed,
         "max_restarts": max_restarts,
+        "heuristic_args": dict(heuristic_args or {}),
         "runs": aggregate,
     }
     summary_path: Path | None = None
@@ -174,6 +204,7 @@ def run_guardrail_suite(
         "preset": preset,
         "seed": seed,
         "max_restarts": max_restarts,
+        "heuristic_args": dict(heuristic_args or {}),
         "datasets": list(datasets or []),
         "output_dir": str(resolved_output_dir),
         "summary_path": str(summary_path) if summary_path is not None else None,

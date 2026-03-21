@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 from rcpsp import HeuristicConfig, parse_sch, solve, solve_cp
+from rcpsp.models import SolveResult
 from rcpsp.reference import REFERENCE_URLS, fetch_reference_values, normalize_instance_name
 
 BENCHMARK_DATA_ROOT = Path("benchmarks/data")
@@ -19,11 +20,56 @@ def _solve_with_backend(
     time_limit: float,
     seed: int,
     max_restarts: int | None,
+    config: HeuristicConfig | None = None,
 ):
-    config = HeuristicConfig(max_restarts=max_restarts)
+    config = config or HeuristicConfig(max_restarts=max_restarts)
     if backend == "cp":
-        return solve_cp(instance, time_limit=time_limit, seed=seed, config=config)
-    return solve(instance, time_limit=time_limit, seed=seed, config=config)
+        result = solve_cp(instance, time_limit=time_limit, seed=seed, config=config)
+    else:
+        result = solve(instance, time_limit=time_limit, seed=seed, config=config)
+    return _enforce_runtime_limit(result, time_limit=time_limit)
+
+
+def _config_from_args(args: argparse.Namespace) -> HeuristicConfig:
+    return HeuristicConfig(
+        slack_weight=args.slack_weight,
+        tail_weight=args.tail_weight,
+        overload_weight=args.overload_weight,
+        resource_weight=args.resource_weight,
+        late_weight=args.late_weight,
+        noise_weight=args.noise_weight,
+        max_restarts=args.max_restarts,
+    )
+
+
+def _runtime_tolerance_seconds(time_limit: float) -> float:
+    return max(0.01, time_limit * 0.02)
+
+
+def _enforce_runtime_limit(result: SolveResult, *, time_limit: float) -> SolveResult:
+    tolerance = _runtime_tolerance_seconds(time_limit)
+    runtime_limit = time_limit + tolerance
+    if result.runtime_seconds <= runtime_limit:
+        return result
+
+    metadata = dict(result.metadata)
+    metadata["original_status"] = result.status
+    metadata["late_solution"] = 1
+    metadata["runtime_limit_seconds"] = round(runtime_limit, 6)
+    metadata["runtime_tolerance_seconds"] = round(tolerance, 6)
+    metadata["reason"] = (
+        f"runtime {result.runtime_seconds:.6f}s exceeded budget {time_limit:.6f}s "
+        f"with tolerance {tolerance:.6f}s"
+    )
+    return SolveResult(
+        instance_name=result.instance_name,
+        status="unknown",
+        schedule=None,
+        runtime_seconds=result.runtime_seconds,
+        temporal_lower_bound=result.temporal_lower_bound,
+        restarts=result.restarts,
+        metadata=metadata,
+    )
 
 
 def _resolve_dataset_path(path: Path) -> Path:
@@ -96,12 +142,14 @@ def _render_progress(
 
 def cmd_solve(args: argparse.Namespace) -> int:
     instance = parse_sch(_resolve_dataset_path(Path(args.path)))
+    config = _config_from_args(args)
     result = _solve_with_backend(
         instance,
         backend=args.backend,
         time_limit=args.time_limit,
         seed=args.seed,
-        max_restarts=args.max_restarts,
+        max_restarts=config.max_restarts,
+        config=config,
     )
     payload = {
         "instance": result.instance_name,
@@ -134,8 +182,10 @@ def cmd_solve(args: argparse.Namespace) -> int:
 
 def cmd_benchmark(args: argparse.Namespace) -> int:
     paths = _instance_paths(Path(args.path))
+    config = _config_from_args(args)
     rows = []
     counts = {"feasible": 0, "infeasible": 0, "unknown": 0}
+    over_budget = 0
     started = time.perf_counter()
     tty = sys.stderr.isatty()
     for index, path in enumerate(paths, start=1):
@@ -145,7 +195,8 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
             backend=args.backend,
             time_limit=args.time_limit,
             seed=args.seed + index - 1,
-            max_restarts=args.max_restarts,
+            max_restarts=config.max_restarts,
+            config=config,
         )
         rows.append(
             {
@@ -161,9 +212,11 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
                 "runtime_seconds": result.runtime_seconds,
                 "restarts": result.restarts,
                 "backend": args.backend,
+                "over_budget": int(result.runtime_seconds > args.time_limit + _runtime_tolerance_seconds(args.time_limit)),
             }
         )
         counts[result.status] += 1
+        over_budget += rows[-1]["over_budget"]
         if not args.no_progress:
             detail = f"{result.instance_name} {result.status}"
             if result.schedule is not None:
@@ -190,8 +243,10 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
         ),
         "avg_ratio": sum(row["ratio"] for row in feasible) / max(1, len(feasible)),
         "avg_runtime_seconds": sum(row["runtime_seconds"] for row in rows) / max(1, len(rows)),
+        "max_runtime_seconds": max((row["runtime_seconds"] for row in rows), default=0.0),
         "best_ratio": min((row["ratio"] for row in feasible), default=0.0),
         "worst_ratio": max((row["ratio"] for row in feasible), default=0.0),
+        "over_budget": over_budget,
     }
 
     payload = {"summary": summary, "results": rows}
@@ -351,6 +406,12 @@ def build_parser() -> argparse.ArgumentParser:
     solve_parser.add_argument("--seed", type=int, default=0)
     solve_parser.add_argument("--max-restarts", type=int, default=None)
     solve_parser.add_argument("--backend", choices=("hybrid", "cp"), default="hybrid")
+    solve_parser.add_argument("--slack-weight", type=float, default=HeuristicConfig.slack_weight)
+    solve_parser.add_argument("--tail-weight", type=float, default=HeuristicConfig.tail_weight)
+    solve_parser.add_argument("--overload-weight", type=float, default=HeuristicConfig.overload_weight)
+    solve_parser.add_argument("--resource-weight", type=float, default=HeuristicConfig.resource_weight)
+    solve_parser.add_argument("--late-weight", type=float, default=HeuristicConfig.late_weight)
+    solve_parser.add_argument("--noise-weight", type=float, default=HeuristicConfig.noise_weight)
     solve_parser.add_argument("--json", action="store_true")
     solve_parser.set_defaults(func=cmd_solve)
 
@@ -360,6 +421,12 @@ def build_parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--seed", type=int, default=0)
     bench_parser.add_argument("--max-restarts", type=int, default=None)
     bench_parser.add_argument("--backend", choices=("hybrid", "cp"), default="hybrid")
+    bench_parser.add_argument("--slack-weight", type=float, default=HeuristicConfig.slack_weight)
+    bench_parser.add_argument("--tail-weight", type=float, default=HeuristicConfig.tail_weight)
+    bench_parser.add_argument("--overload-weight", type=float, default=HeuristicConfig.overload_weight)
+    bench_parser.add_argument("--resource-weight", type=float, default=HeuristicConfig.resource_weight)
+    bench_parser.add_argument("--late-weight", type=float, default=HeuristicConfig.late_weight)
+    bench_parser.add_argument("--noise-weight", type=float, default=HeuristicConfig.noise_weight)
     bench_parser.add_argument("--output")
     bench_parser.add_argument("--no-progress", action="store_true")
     bench_parser.set_defaults(func=cmd_benchmark)

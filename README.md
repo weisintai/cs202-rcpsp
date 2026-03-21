@@ -54,6 +54,26 @@ Run the standard guardrail suite in one command:
 uv run python scripts/run_guardrails.py --backend hybrid --preset full
 ```
 
+Run the research-oriented guardrail suite used by the local autoresearch workflow:
+
+```bash
+uv run python scripts/run_autoresearch_eval.py --backend hybrid --preset research
+```
+
+Run an auxiliary anti-overfitting sweep on broader public RCPSP/max sets from the Kobe corpus:
+
+```bash
+uv run python scripts/run_guardrails.py --backend hybrid --preset broad_generalization
+```
+
+If `sm_j10` and `sm_j20` reference CSVs are missing locally, cache them first:
+
+```bash
+uv run python scripts/fetch_reference_csvs.py --datasets sm_j10 sm_j20
+```
+
+The root [program.md](program.md) is an RCPSP-specific adaptation of the `karpathy/autoresearch` workflow for this repo.
+
 `benchmark` now prints live progress to `stderr` by default. Use `--no-progress` if you want only the final summary:
 
 ```bash
@@ -74,8 +94,15 @@ Supported datasets for `compare` are:
 - `sm_j10`
 - `sm_j20`
 - `sm_j30`
+- `testset_ubo10`
 - `testset_ubo20`
 - `testset_ubo50`
+- `testset_ubo100`
+- `testset_ubo200`
+- `testset_ubo500`
+- `testset_ubo1000`
+
+`compare` now prefers a local `benchmarks/data/<dataset>/optimum/optimum.csv` when present and falls back to the public URL otherwise.
 
 The benchmark command prints aggregate metrics and optionally writes per-instance results to JSON.
 
@@ -126,13 +153,17 @@ The per-instance rows contain:
   - `1.0` means the schedule matches the temporal lower bound
 - `runtime_seconds`
   - wall-clock runtime for that instance
+  - results that exceed the time limit by more than a small tolerance are coerced to `unknown`
+- `over_budget`
+  - `1` if the recorded wall-clock runtime exceeded the allowed budget plus tolerance, else `0`
 
 For whole-benchmark comparisons, the most useful summary fields are:
 
 1. `feasible`
 2. `unknown`
-3. `avg_ratio`
-4. `avg_runtime_seconds`
+3. `over_budget`
+4. `avg_ratio`
+5. `avg_runtime_seconds`
 
 When two solver versions solve different sets of instances, compare `avg_ratio` on the common feasible set as well, not only on all feasible instances.
 
