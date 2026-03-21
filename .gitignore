@@ -11,4 +11,4 @@ sm_j20_results*.json
 !sm_j20_results_current_clean_0p1.json
 !sm_j20_results_current_clean_1p0.json
 
-tmp/guardrails/
+tmp/
