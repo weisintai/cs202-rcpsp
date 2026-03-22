@@ -96,6 +96,14 @@ def use_failure_cache(
     return time_limit >= 0.5 or (instance.n_jobs >= 20 and time_limit >= 0.1)
 
 
+def cp_budget_mode(time_limit: float) -> str:
+    if time_limit >= 5.0:
+        return "deep"
+    if time_limit >= 1.0:
+        return "medium"
+    return "fast"
+
+
 def allow_node_local_heuristic(
     instance: Instance,
     time_limit: float,
@@ -107,6 +115,39 @@ def allow_node_local_heuristic(
     if instance.n_jobs < 20 or time_limit < 1.0:
         return True
     return False
+
+
+def allow_deep_node_local_heuristic(
+    instance: Instance,
+    time_limit: float,
+    node: CpNode,
+    incumbent: Schedule | None,
+    stats: CpSearchStats,
+) -> bool:
+    if cp_budget_mode(time_limit) != "deep":
+        return False
+    if incumbent is None or instance.n_jobs < 100:
+        return False
+    sink_gap = incumbent.makespan - node.lower[instance.sink]
+    if sink_gap <= 1:
+        return False
+    if stats.nodes <= 32:
+        return True
+    if sink_gap >= max(3, instance.n_jobs // 12):
+        return True
+    return stats.nodes % 32 == 0
+
+
+def node_local_heuristic_deadline(
+    time_limit: float,
+    *,
+    now: float,
+    soft_deadline: float,
+    deep_mode: bool,
+) -> float:
+    if deep_mode:
+        return min(soft_deadline, now + min(0.1, max(0.01, time_limit * 0.005)))
+    return min(soft_deadline, now + min(0.02, max(0.002, time_limit * 0.01)))
 
 
 def child_order_key(
@@ -381,6 +422,7 @@ def solve_cp(
     seen: set[tuple[tuple[tuple[int, int], ...], tuple[int, ...], tuple[int, ...] | None]] = set()
     failed_pair_sets: set[frozenset[tuple[int, int]]] = set()
     failure_cache_enabled = use_failure_cache(instance, time_limit)
+    budget_mode = cp_budget_mode(time_limit)
     incumbent: Schedule | None = None
     restarts = 0
     forced_pairs = frozenset((edge.source, edge.target) for edge in forced_edges)
@@ -436,6 +478,10 @@ def solve_cp(
                     "propagation_calls": 0,
                     "propagation_rounds": 0,
                     "incumbent_updates": stats.incumbent_updates,
+                    "node_local_attempts": 0,
+                    "node_local_improvements": 0,
+                    "deep_node_local_attempts": 0,
+                    "deep_node_local_improvements": 0,
                     "branches": 0,
                     "timetable_failures": 0,
                     "max_timetable_explanation": 0,
@@ -446,6 +492,7 @@ def solve_cp(
                     "avg_conflict_size": 0.0,
                     "max_conflict_size": 0,
                     "forced_resource_orders": len(forced_edges),
+                    "budget_mode": budget_mode,
                     **guided_seed_meta,
                 },
             )
@@ -528,8 +575,28 @@ def solve_cp(
             return False
 
         found_feasible = False
-        if allow_node_local_heuristic(instance, time_limit, node, incumbent) and time.perf_counter() < soft_deadline:
-            local_budget = min(soft_deadline, time.perf_counter() + min(0.02, max(0.002, time_limit * 0.01)))
+        use_local_heuristic = allow_node_local_heuristic(instance, time_limit, node, incumbent)
+        deep_local_heuristic = False
+        if not use_local_heuristic:
+            deep_local_heuristic = allow_deep_node_local_heuristic(
+                instance=instance,
+                time_limit=time_limit,
+                node=node,
+                incumbent=incumbent,
+                stats=stats,
+            )
+            use_local_heuristic = deep_local_heuristic
+
+        if use_local_heuristic and time.perf_counter() < soft_deadline:
+            stats.node_local_attempts += 1
+            if deep_local_heuristic:
+                stats.deep_node_local_attempts += 1
+            local_budget = node_local_heuristic_deadline(
+                time_limit,
+                now=time.perf_counter(),
+                soft_deadline=soft_deadline,
+                deep_mode=deep_local_heuristic,
+            )
             candidate = try_cp_incumbent(
                 instance=instance,
                 node=node,
@@ -544,6 +611,9 @@ def solve_cp(
                 if incumbent is None or candidate.makespan < incumbent.makespan:
                     incumbent = candidate
                     stats.incumbent_updates += 1
+                    stats.node_local_improvements += 1
+                    if deep_local_heuristic:
+                        stats.deep_node_local_improvements += 1
                     if incumbent.makespan == temporal_lower[instance.sink]:
                         return True
 
@@ -623,6 +693,10 @@ def solve_cp(
                 "propagation_calls": stats.propagation_calls,
                 "propagation_rounds": stats.propagation_rounds,
                 "incumbent_updates": stats.incumbent_updates,
+                "node_local_attempts": stats.node_local_attempts,
+                "node_local_improvements": stats.node_local_improvements,
+                "deep_node_local_attempts": stats.deep_node_local_attempts,
+                "deep_node_local_improvements": stats.deep_node_local_improvements,
                 "branches": stats.branches,
                 "timetable_failures": stats.timetable_failures,
                 "max_timetable_explanation": stats.max_timetable_explanation,
@@ -635,6 +709,7 @@ def solve_cp(
                 ),
                 "max_conflict_size": stats.max_conflict_size,
                 "forced_resource_orders": len(forced_edges),
+                "budget_mode": budget_mode,
                 **guided_seed_meta,
             },
         )
@@ -655,6 +730,10 @@ def solve_cp(
             "propagation_calls": stats.propagation_calls,
             "propagation_rounds": stats.propagation_rounds,
             "incumbent_updates": stats.incumbent_updates,
+            "node_local_attempts": stats.node_local_attempts,
+            "node_local_improvements": stats.node_local_improvements,
+            "deep_node_local_attempts": stats.deep_node_local_attempts,
+            "deep_node_local_improvements": stats.deep_node_local_improvements,
             "branches": stats.branches,
             "timetable_failures": stats.timetable_failures,
             "max_timetable_explanation": stats.max_timetable_explanation,
@@ -665,6 +744,7 @@ def solve_cp(
             "avg_conflict_size": stats.total_conflict_size / stats.conflict_events if stats.conflict_events else 0.0,
             "max_conflict_size": stats.max_conflict_size,
             "forced_resource_orders": len(forced_edges),
+            "budget_mode": budget_mode,
             **guided_seed_meta,
         },
     )

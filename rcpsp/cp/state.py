@@ -10,6 +10,10 @@ class CpSearchStats:
     nodes: int = 0
     timed_out: bool = False
     incumbent_updates: int = 0
+    node_local_attempts: int = 0
+    node_local_improvements: int = 0
+    deep_node_local_attempts: int = 0
+    deep_node_local_improvements: int = 0
     branches: int = 0
     propagation_calls: int = 0
     propagation_rounds: int = 0

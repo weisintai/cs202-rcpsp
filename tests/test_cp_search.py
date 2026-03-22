@@ -6,9 +6,12 @@ from pathlib import Path
 from rcpsp.config import HeuristicConfig
 from rcpsp.cp.search import (
     allow_node_local_heuristic,
+    allow_deep_node_local_heuristic,
     child_order_key,
+    cp_budget_mode,
     failure_cache_hit,
     node_signature,
+    node_local_heuristic_deadline,
     pair_direction_possible,
     required_pair_gap,
     record_failed_pairs,
@@ -176,6 +179,10 @@ def test_solve_cp_reports_conflict_counters_on_trivial_instance() -> None:
     assert result.metadata["conflict_events"] == 0
     assert result.metadata["avg_conflict_size"] == 0.0
     assert result.metadata["max_conflict_size"] == 0
+    assert result.metadata["node_local_attempts"] == 0
+    assert result.metadata["node_local_improvements"] == 0
+    assert result.metadata["deep_node_local_attempts"] == 0
+    assert result.metadata["deep_node_local_improvements"] == 0
 
 
 def test_guided_seed_reports_seed_phase_metadata() -> None:
@@ -199,6 +206,12 @@ def test_use_failure_cache_enables_large_short_runs() -> None:
     assert use_failure_cache(small, 0.5)
 
 
+def test_cp_budget_mode_separates_fast_medium_and_deep_runs() -> None:
+    assert cp_budget_mode(0.1) == "fast"
+    assert cp_budget_mode(1.0) == "medium"
+    assert cp_budget_mode(30.0) == "deep"
+
+
 def test_allow_node_local_heuristic_skips_medium_deep_nodes_with_incumbent() -> None:
     instance = _dummy_instance(20)
     root = CpNode(lower=(0,) * instance.n_activities, latest=None, edges=(), pairs=frozenset())
@@ -209,6 +222,34 @@ def test_allow_node_local_heuristic_skips_medium_deep_nodes_with_incumbent() -> 
     assert not allow_node_local_heuristic(instance, 1.0, child, incumbent)
     assert allow_node_local_heuristic(instance, 0.1, child, incumbent)
     assert allow_node_local_heuristic(instance, 1.0, child, None)
+
+
+def test_allow_deep_node_local_heuristic_only_for_deep_promising_nodes() -> None:
+    instance = _dummy_instance(120)
+    node = CpNode(
+        lower=tuple(0 if idx != instance.sink else 5 for idx in range(instance.n_activities)),
+        latest=None,
+        edges=(),
+        pairs=frozenset(),
+    )
+    incumbent = Schedule(start_times=(0,) * instance.n_activities, makespan=12)
+    stats = CpSearchStats(nodes=8)
+
+    assert allow_deep_node_local_heuristic(instance, 30.0, node, incumbent, stats)
+    assert not allow_deep_node_local_heuristic(instance, 1.0, node, incumbent, stats)
+    assert not allow_deep_node_local_heuristic(instance, 30.0, node, None, stats)
+    assert not allow_deep_node_local_heuristic(_dummy_instance(30), 30.0, node, incumbent, stats)
+
+
+def test_node_local_heuristic_deadline_is_larger_in_deep_mode() -> None:
+    now = 10.0
+    soft_deadline = 20.0
+
+    fast_deadline = node_local_heuristic_deadline(1.0, now=now, soft_deadline=soft_deadline, deep_mode=False)
+    deep_deadline = node_local_heuristic_deadline(30.0, now=now, soft_deadline=soft_deadline, deep_mode=True)
+
+    assert deep_deadline > fast_deadline
+    assert deep_deadline <= soft_deadline
 
 
 def test_child_order_key_prefers_tighter_large_instance_nodes() -> None:
