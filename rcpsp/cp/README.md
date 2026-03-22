@@ -44,3 +44,24 @@ This backend is now following a stricter route:
 - use `guided_seed` only as a local incumbent/proof helper
 - improve the backend through stronger propagation, explanations, and branching
 - accept changes only against the `cp_acceptance` matrix from [../../CP_ROADMAP.md](/Users/weisintai/development/smu/modules/y2s2/cs202/project/CP_ROADMAP.md)
+
+## Current 30s Read
+
+The current accepted baseline is strong on public-size instances and the active experimental direction is now `deep-budget-only` improvement rather than more `0.1s` tuning.
+
+Current reference point:
+
+- `sm_j10 @ 1.0s`: perfect
+- `sm_j20 @ 1.0s`: `155/158` exact
+- `sm_j30 @ 1.0s`: `114/120` exact
+
+Recent `30s` CP sampling on held-out large instances showed that the deeper-budget path is the right place to keep experimenting:
+
+- `testset_ubo100` 10-instance sample:
+  - `8 feasible / 1 infeasible / 1 unknown`
+  - solved bounded cases averaged about `1.05x` the best-known upper bound
+- `testset_ubo200` 10-instance sample:
+  - `4 feasible / 2 infeasible / 4 unknown`
+  - exact cases in the sample were solved at `2/2`
+
+This is why the next CP work should target `30s` behavior explicitly, while keeping the short-budget baseline stable.
