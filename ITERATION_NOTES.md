@@ -1419,3 +1419,44 @@ What this taught us:
 - CP does need stronger conflict guidance, but `window width as the dominant branch key` is not the right integration point here
 - the remaining `sm_j20` misses are still mostly `timeout-driven feasible` cases
 - the next better target is explanation quality or conflict selection, not another broad branch-order rewrite
+
+## CP lesson snapshot: current local maximum and rejected directions
+
+After the accepted conflict-selection and guided-seed diagnostics work, several follow-up CP experiments were tried and reverted. The point is now clear enough to write down explicitly.
+
+What still works well:
+
+- `cp` is the right deep-budget backend in-repo.
+- `sm_j10 @ 1.0s` stays perfect.
+- `sm_j20 @ 1.0s` stays strong at `155/158` exact on the accepted baseline.
+- `30s` samples on `ubo50/100/200` show `cp` can improve meaningfully with time, so the backend still has the best submission ceiling for a real `30s` budget.
+
+What repeated failed experiments taught us:
+
+- branch-order tweaks are mostly exhausted for now
+  - incumbent-guided child ordering: reverted
+  - directional-slack pair ranking: reverted
+  - conflict branch-width preference: reverted
+- failure-cache shrinking is too risky in the current search
+  - naive overload-core shrinking: reverted
+  - transitive/base-pair cache reduction: reverted
+- broad or even medium-strength propagation changes still hurt short-budget acceptance too easily
+  - `not-first / not-last` pass: reverted
+  - lag-closure-based forced pair propagation: reverted
+
+The main pattern behind those reversions:
+
+- many changes look fine on one slice such as `sm_j20 @ 1.0s` or a hand-picked `ubo` sample
+- but they regress `sm_j10/sm_j20 @ 0.1s` or held-out `ubo100/200 @ 0.1s`
+- so the real bottleneck is no longer “find a clever local heuristic,” it is “avoid harming the fast-budget baseline while improving deeper search”
+
+Current working conclusion:
+
+- accepted CP progress should keep using the current baseline as the short-budget-safe path
+- new CP experiments should either:
+  - target deeper-budget behavior only, or
+  - pass the full `cp_acceptance` matrix before being kept
+- the next plausible areas are:
+  - deeper-budget-only proof/pruning reuse
+  - better long-budget conflict explanations
+  - explicit separation between short-budget-safe CP and deeper-budget experimental CP

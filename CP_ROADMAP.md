@@ -50,8 +50,32 @@ This means:
 - do not abandon `cp`
 - do not expect micro-tweaks to close the gap
 - do not keep treating `cp` as an imported heuristic wrapper
+- stop expecting one small generic change to improve both `0.1s` and `30s` behavior at once
 
 The route forward is `targeted RCPSP/max-specific CP ideas`, not `full solver-engine cloning`.
+
+## Current Practical Read
+
+The backend is now at a local maximum for broad “cheap generic improvement” experiments.
+
+What the recent accepted and rejected work says:
+
+- accepted:
+  - conflict-selection improvements
+  - lag-closure pruning already in search
+  - guided-seed phase diagnostics
+  - residue analysis tooling
+- rejected:
+  - several branch-order rewrites
+  - failure-cache shrinking
+  - broader pair-forcing propagation
+  - generic stronger propagation that looked fine on one slice and failed the full acceptance matrix
+
+So the roadmap needs to be followed more strictly now:
+
+- preserve the accepted short-budget baseline
+- treat `0.1s` and `30s` as different operating regimes
+- do not keep landing changes that only win on one budget profile
 
 ## What Standard CP References Say
 
@@ -169,6 +193,13 @@ The failure cache in [rcpsp/cp/search.py](/Users/weisintai/development/smu/modul
 
 Some reasoning is good at `1.0s` and harmful at `0.1s`. The backend needs explicit `fast-budget` versus `deep-budget` behavior, instead of one universal propagation profile.
 
+This is now a stronger priority than it looked initially. Recent reverted experiments repeatedly showed:
+
+- some ideas are acceptable or promising at `1.0s` to `30s`
+- the same ideas are harmful at `0.1s`, especially on held-out `ubo100/200`
+
+So future deeper-budget experiments should be written as explicitly gated deep-budget behavior, not as new universal defaults.
+
 ## Phased Plan
 
 ## Phase 0: Lock The Process
@@ -249,6 +280,11 @@ Exit criteria:
 
 - lower node counts or better exact closure on `sm_j20 @ 1.0s`
 - fewer `unknown` or `over_budget` cases on `sm_j30` / `testset_ubo50 @ 0.1s`
+
+Recent lesson:
+
+- several propagation-side attempts were reverted because they damaged the `0.1s` acceptance sets, even when they looked reasonable on `1.0s` or on a small long-budget sample
+- Phase 2 should therefore stay conservative until Phase 6 budget separation is real
 
 ## Phase 3: Explanation-Aware Search
 
