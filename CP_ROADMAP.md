@@ -2,7 +2,7 @@
 
 This document defines the intended architecture and acceptance policy for the custom `CP-style` backend in this repo.
 
-It is the implementation roadmap for [rcpsp/cp](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp), not a benchmark dump. Use [ITERATION_NOTES.md](/Users/weisintai/development/smu/modules/y2s2/cs202/project/ITERATION_NOTES.md) for experiment history and measured runs.
+It is the implementation roadmap for [rcpsp/cp](rcpsp/cp), not a benchmark dump. Use [ITERATION_NOTES.md](ITERATION_NOTES.md) for experiment history and measured runs.
 
 ## Purpose
 
@@ -18,7 +18,7 @@ The goal is **not** to clone all of OR-Tools or build a general-purpose CP-SAT e
 
 ## What This Backend Is
 
-Today, [rcpsp/cp](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp) is a self-contained branch-and-propagate solver with:
+Today, [rcpsp/cp](rcpsp/cp) is a self-contained branch-and-propagate solver with:
 
 - explicit node state over pairwise resource-order decisions
 - lag-closure-based temporal pruning
@@ -105,7 +105,7 @@ For this repo, the relevant interpretation is:
 The `cp` backend should keep these invariants:
 
 1. No imports from `rcpsp.heuristic` or `rcpsp.sgs`.
-2. Shared code may come from backend-neutral modules under [rcpsp/core](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/core) and other shared infra.
+2. Shared code may come from backend-neutral modules under [rcpsp/core](rcpsp/core) and other shared infra.
 3. No dataset-name branching in solver logic.
 4. Solver decisions may depend on structural features such as:
    - `n_jobs`
@@ -152,11 +152,11 @@ What `cp` is missing is now fairly specific:
 
 ### 1. Early incumbent quality on hard cases
 
-The local seed in [rcpsp/cp/guided_seed.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/guided_seed.py) is valid, but still fairly generic. On many hard feasible instances, CP gets only one real incumbent update before time expires.
+The local seed in [rcpsp/cp/guided_seed.py](rcpsp/cp/guided_seed.py) is valid, but still fairly generic. On many hard feasible instances, CP gets only one real incumbent update before time expires.
 
 ### 2. Stronger cumulative inference
 
-Current propagation in [rcpsp/cp/propagation.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/propagation.py) has:
+Current propagation in [rcpsp/cp/propagation.py](rcpsp/cp/propagation.py) has:
 
 - EST/LST tightening
 - compulsory-part overload detection
@@ -183,7 +183,7 @@ It does mean the roadmap should explicitly improve the CP kernel before chasing 
 
 ### 4. Better explanation reuse
 
-The failure cache in [rcpsp/cp/search.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/search.py) is useful, but still too coarse. It stores failed pair sets, not smaller reusable overload cores.
+The failure cache in [rcpsp/cp/search.py](rcpsp/cp/search.py) is useful, but still too coarse. It stores failed pair sets, not smaller reusable overload cores.
 
 ### 5. Better branch selection
 
@@ -250,7 +250,7 @@ Do not:
 
 Exit criteria:
 
-- [x] cleaner propagation/search boundaries in [rcpsp/cp/propagation.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/propagation.py) and [rcpsp/cp/search.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/search.py)
+- [x] cleaner propagation/search boundaries in [rcpsp/cp/propagation.py](rcpsp/cp/propagation.py) and [rcpsp/cp/search.py](rcpsp/cp/search.py)
 - [x] no accepted regression on the `cp_acceptance` matrix
 
 Current accepted outcomes from Phase 1 work:
@@ -264,7 +264,7 @@ Current accepted outcomes from Phase 1 work:
 
 Goal: get more pruning per node without blowing the short budget.
 
-Implement in [rcpsp/cp/propagation.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/propagation.py):
+Implement in [rcpsp/cp/propagation.py](rcpsp/cp/propagation.py):
 
 - [x] stronger fixpoint use of `lag_dist` during EST/LST tightening
 - [ ] cheap `not-first / not-last` style inference around overload explanation sets
@@ -290,7 +290,7 @@ Recent lesson:
 
 Goal: branch on the most decisive conflicts and reuse failure information better.
 
-Implement in [rcpsp/cp/search.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/search.py):
+Implement in [rcpsp/cp/search.py](rcpsp/cp/search.py):
 
 - [~] rank conflicts by explanation tightness and incumbent pressure
 - [ ] prefer pairs where one direction is already nearly impossible
@@ -308,7 +308,7 @@ Goal: improve anytime behavior, but keep this clearly secondary to the CP kernel
 
 Implement:
 
-- [ ] make [rcpsp/cp/guided_seed.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/guided_seed.py) explicitly budget-aware by instance size and time limit
+- [ ] make [rcpsp/cp/guided_seed.py](rcpsp/cp/guided_seed.py) explicitly budget-aware by instance size and time limit
 - [ ] spend more seed effort on incumbent quality for `j20+` and less on generic proof when that proof rarely pays off
 - [~] bias improvement around critical-chain and bottleneck-resource activities
 - [x] keep seed metadata rich enough to tell whether the seed helped or just consumed budget

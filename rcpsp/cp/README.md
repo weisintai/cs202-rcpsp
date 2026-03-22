@@ -2,7 +2,7 @@
 
 This is the experimental CP-style backend.
 
-The implementation roadmap for this backend lives in [../../CP_ROADMAP.md](/Users/weisintai/development/smu/modules/y2s2/cs202/project/CP_ROADMAP.md).
+The implementation roadmap for this backend lives in [../../CP_ROADMAP.md](../../CP_ROADMAP.md).
 
 ## Purpose
 
@@ -43,7 +43,7 @@ This backend is now following a stricter route:
 - stay self-contained inside `rcpsp/cp`
 - use `guided_seed` only as a local incumbent/proof helper
 - improve the backend through stronger propagation, explanations, and branching
-- accept changes only against the `cp_acceptance` matrix from [../../CP_ROADMAP.md](/Users/weisintai/development/smu/modules/y2s2/cs202/project/CP_ROADMAP.md)
+- accept changes only against the `cp_acceptance` matrix from [../../CP_ROADMAP.md](../../CP_ROADMAP.md)
 
 ## Current 30s Read
 

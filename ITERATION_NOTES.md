@@ -1379,16 +1379,16 @@ Verdict:
 
 ## CP roadmap reset
 
-We now have a dedicated [CP_ROADMAP.md](/Users/weisintai/development/smu/modules/y2s2/cs202/project/CP_ROADMAP.md) instead of continuing to treat `cp` as a pile of small benchmark-driven tweaks.
+We now have a dedicated [CP_ROADMAP.md](CP_ROADMAP.md) instead of continuing to treat `cp` as a pile of small benchmark-driven tweaks.
 
 The main process change is:
 
-- `cp` stays self-contained inside [rcpsp/cp](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp)
-- the acceptance gate for `cp` changes is now the `cp_acceptance` preset in [scripts/guardrails_lib.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/scripts/guardrails_lib.py)
+- `cp` stays self-contained inside [rcpsp/cp](rcpsp/cp)
+- the acceptance gate for `cp` changes is now the `cp_acceptance` preset in [scripts/guardrails_lib.py](scripts/guardrails_lib.py)
 - `cp` work should target:
-  - better local incumbent quality in [rcpsp/cp/guided_seed.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/guided_seed.py)
-  - stronger cheap propagation in [rcpsp/cp/propagation.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/propagation.py)
-  - explanation-aware branching and failure reuse in [rcpsp/cp/search.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/search.py)
+  - better local incumbent quality in [rcpsp/cp/guided_seed.py](rcpsp/cp/guided_seed.py)
+  - stronger cheap propagation in [rcpsp/cp/propagation.py](rcpsp/cp/propagation.py)
+  - explanation-aware branching and failure reuse in [rcpsp/cp/search.py](rcpsp/cp/search.py)
 
 This reset was driven by the benchmark evidence:
 

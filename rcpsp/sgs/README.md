@@ -2,7 +2,7 @@
 
 This backend is the clean third solver track for the SGS-first plan.
 
-The implementation contract for this backend lives in [SGS_ROADMAP.md](/Users/weisintai/development/smu/modules/y2s2/cs202/project/SGS_ROADMAP.md).
+The implementation contract for this backend lives in [SGS_ROADMAP.md](../../SGS_ROADMAP.md).
 
 ## Scope today
 

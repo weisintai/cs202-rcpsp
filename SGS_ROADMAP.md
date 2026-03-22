@@ -2,7 +2,7 @@
 
 This document defines the intended `SGS-first` architecture for the custom `RCPSP/RCPSP-max` backend in this repo.
 
-It is the implementation roadmap for [rcpsp/sgs](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs), not a benchmark log. Use [ITERATION_NOTES.md](/Users/weisintai/development/smu/modules/y2s2/cs202/project/ITERATION_NOTES.md) for experiments and measured results.
+It is the implementation roadmap for [rcpsp/sgs](rcpsp/sgs), not a benchmark log. Use [ITERATION_NOTES.md](ITERATION_NOTES.md) for experiments and measured results.
 
 ## Why SGS First
 
@@ -133,7 +133,7 @@ That changed the correct short-term role of `sgs`:
 
 ## Current State
 
-What already exists in [rcpsp/sgs](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs):
+What already exists in [rcpsp/sgs](rcpsp/sgs):
 
 - split positive lags into `min-lag` arcs and negative lags into `max-lag` constraints
 - build a precedence DAG from nonnegative arcs
@@ -229,16 +229,16 @@ Represent the problem correctly and make the `sgs` track self-consistent.
   - max-lag predecessors and successors
 - precedence DAG built from the min-lag arcs that are safe for activity-list generation
 - topological order utilities
-- adapter from [rcpsp/parser.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/parser.py) into the `sgs` model
+- adapter from [rcpsp/parser.py](rcpsp/parser.py) into the `sgs` model
 - benchmark smoke tests that load the public datasets without crashing
 
 ### In this repo
 
 This phase is `partially done` in:
 
-- [rcpsp/sgs/models.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs/models.py)
-- [rcpsp/sgs/adapter.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs/adapter.py)
-- [rcpsp/sgs/graph.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs/graph.py)
+- [rcpsp/sgs/models.py](rcpsp/sgs/models.py)
+- [rcpsp/sgs/adapter.py](rcpsp/sgs/adapter.py)
+- [rcpsp/sgs/graph.py](rcpsp/sgs/graph.py)
 
 ### Exit Criteria
 
@@ -288,12 +288,12 @@ This is the key difference from a plain PSPLIB RCPSP decoder.
 
 This phase is `started but not complete` in:
 
-- [rcpsp/sgs/serial.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs/serial.py)
-- [rcpsp/sgs/priorities.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs/priorities.py)
-- [rcpsp/sgs/fbi.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs/fbi.py)
-- [rcpsp/sgs/restarts.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs/restarts.py)
-- [rcpsp/sgs/solver.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs/solver.py)
-- [rcpsp/sgs/benchmark.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs/benchmark.py)
+- [rcpsp/sgs/serial.py](rcpsp/sgs/serial.py)
+- [rcpsp/sgs/priorities.py](rcpsp/sgs/priorities.py)
+- [rcpsp/sgs/fbi.py](rcpsp/sgs/fbi.py)
+- [rcpsp/sgs/restarts.py](rcpsp/sgs/restarts.py)
+- [rcpsp/sgs/solver.py](rcpsp/sgs/solver.py)
+- [rcpsp/sgs/benchmark.py](rcpsp/sgs/benchmark.py)
 
 The immediate next step is to keep improving the serial decoder and priority rules until `sm_j10` and `sm_j20` stop being the main bottleneck.
 
