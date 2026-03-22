@@ -214,6 +214,7 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
                 "runtime_seconds": result.runtime_seconds,
                 "restarts": result.restarts,
                 "backend": args.backend,
+                "metadata": result.metadata,
                 "over_budget": int(result.runtime_seconds > args.time_limit + _runtime_tolerance_seconds(args.time_limit)),
             }
         )
