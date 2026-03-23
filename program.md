@@ -22,9 +22,9 @@ The real objective is lower makespan on harder unseen instances, with validity a
 - `ITERATION_NOTES.md`
   - what has already helped, failed, or regressed
 - `rcpsp/heuristic/*`
-  - main submission backend
+  - legacy heuristic baseline
 - `rcpsp/cp/*`
-  - experimental backend and exact-search ideas
+  - current submission-candidate backend
 - `rcpsp/core/*`
   - branching, compression, conflict, lag, and metric helpers
 - `scripts/run_autoresearch_eval.py`
@@ -41,7 +41,7 @@ uv run python scripts/fetch_reference_csvs.py --datasets sm_j10 sm_j20
 2. Establish a baseline run:
 
 ```bash
-uv run python scripts/run_autoresearch_eval.py --backend hybrid --preset research --output-dir tmp/guardrails/autoresearch-baseline
+uv run python scripts/run_autoresearch_eval.py --backend cp --preset submission_quick --output-dir tmp/guardrails/autoresearch-baseline
 ```
 
 3. Read:
@@ -58,16 +58,17 @@ uv run python scripts/run_autoresearch_eval.py --backend hybrid --preset researc
 4. Run the fast screen:
 
 ```bash
-uv run python scripts/run_autoresearch_eval.py --backend hybrid --preset research_quick --output-dir tmp/guardrails/autoresearch-quick
+uv run python scripts/run_autoresearch_eval.py --backend cp --preset submission_quick --output-dir tmp/guardrails/autoresearch-quick
 ```
 
-5. Only if the fast screen is clean, run the full research preset:
+5. Only if the fast screen is clean, run the submission-readiness guardrails:
 
 ```bash
-uv run python scripts/run_autoresearch_eval.py --backend hybrid --preset research --output-dir tmp/guardrails/autoresearch-full
+uv run python scripts/run_guardrails.py --backend cp --preset broad_generalization --output-dir tmp/guardrails/autoresearch-broad
+uv run python scripts/run_guardrails.py --backend cp --preset cp_acceptance --output-dir tmp/guardrails/autoresearch-final
 ```
 
-6. Keep the change only if the score improves without violating the guardrails.
+6. Keep the change only if the quick score improves and the broader guardrails stay clean.
 
 ## Acceptance Rules
 
@@ -76,6 +77,7 @@ Never accept a change that:
 - introduces false infeasible classifications
 - breaks `sm_j10 @ 1.0s` exact-match coverage
 - clearly worsens `sm_j20 @ 1.0s` without a stronger offsetting gain
+- introduces `over_budget > 0` on any submission-facing run
 - improves `sm_j10` or `sm_j20` while obviously damaging `sm_j30`, `testset_ubo20`, or `testset_ubo50`
 
 Prefer small, reviewable diffs. Do not touch benchmark data, public reference baselines, or the project PDF unless there is a concrete reason.

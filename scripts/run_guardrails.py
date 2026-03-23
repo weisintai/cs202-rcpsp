@@ -13,8 +13,8 @@ from scripts.guardrails_lib import PRESETS, run_guardrail_suite
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the standard benchmark guardrail suite.")
-    parser.add_argument("--backend", choices=("hybrid", "cp", "sgs"), default="hybrid")
-    parser.add_argument("--preset", choices=tuple(PRESETS), default="full")
+    parser.add_argument("--backend", choices=("hybrid", "cp", "sgs"), default="cp")
+    parser.add_argument("--preset", choices=tuple(PRESETS), default="submission_quick")
     parser.add_argument("--datasets", nargs="*", help="optional subset of datasets from the selected preset")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-restarts", type=int, default=None)
@@ -27,6 +27,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=None)
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
+
+
 def main() -> int:
     args = parse_args()
     heuristic_args = {

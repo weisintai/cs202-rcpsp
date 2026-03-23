@@ -29,7 +29,7 @@ def _solve_with_backend(
         result = solve_sgs(instance, time_limit=time_limit, seed=seed, config=config)
     else:
         result = solve(instance, time_limit=time_limit, seed=seed, config=config)
-    return _enforce_runtime_limit(result, time_limit=time_limit)
+    return result
 
 
 def _config_from_args(args: argparse.Namespace) -> HeuristicConfig:
@@ -48,26 +48,50 @@ def _runtime_tolerance_seconds(time_limit: float) -> float:
     return max(0.01, time_limit * 0.02)
 
 
-def _enforce_runtime_limit(result: SolveResult, *, time_limit: float) -> SolveResult:
+def _enforce_runtime_limit(
+    result: SolveResult,
+    *,
+    time_limit: float,
+    observed_runtime_seconds: float | None = None,
+    runtime_basis: str = "solver",
+) -> SolveResult:
     tolerance = _runtime_tolerance_seconds(time_limit)
     runtime_limit = time_limit + tolerance
-    if result.runtime_seconds <= runtime_limit:
-        return result
-
+    observed_runtime = result.runtime_seconds if observed_runtime_seconds is None else observed_runtime_seconds
     metadata = dict(result.metadata)
+    runtime_changed = abs(observed_runtime - result.runtime_seconds) > 1e-12
+
+    if runtime_basis != "solver":
+        metadata["runtime_basis"] = runtime_basis
+        metadata["solver_runtime_seconds"] = round(result.runtime_seconds, 6)
+        metadata[f"{runtime_basis}_runtime_seconds"] = round(observed_runtime, 6)
+
+    if observed_runtime <= runtime_limit:
+        if not runtime_changed and metadata == result.metadata:
+            return result
+        return SolveResult(
+            instance_name=result.instance_name,
+            status=result.status,
+            schedule=result.schedule,
+            runtime_seconds=observed_runtime,
+            temporal_lower_bound=result.temporal_lower_bound,
+            restarts=result.restarts,
+            metadata=metadata,
+        )
+
     metadata["original_status"] = result.status
     metadata["late_solution"] = 1
     metadata["runtime_limit_seconds"] = round(runtime_limit, 6)
     metadata["runtime_tolerance_seconds"] = round(tolerance, 6)
     metadata["reason"] = (
-        f"runtime {result.runtime_seconds:.6f}s exceeded budget {time_limit:.6f}s "
+        f"{runtime_basis} runtime {observed_runtime:.6f}s exceeded budget {time_limit:.6f}s "
         f"with tolerance {tolerance:.6f}s"
     )
     return SolveResult(
         instance_name=result.instance_name,
         status="unknown",
         schedule=None,
-        runtime_seconds=result.runtime_seconds,
+        runtime_seconds=observed_runtime,
         temporal_lower_bound=result.temporal_lower_bound,
         restarts=result.restarts,
         metadata=metadata,
@@ -143,9 +167,10 @@ def _render_progress(
 
 
 def cmd_solve(args: argparse.Namespace) -> int:
+    started = time.perf_counter()
     instance = parse_sch(_resolve_dataset_path(Path(args.path)))
     config = _config_from_args(args)
-    result = _solve_with_backend(
+    raw_result = _solve_with_backend(
         instance,
         backend=args.backend,
         time_limit=args.time_limit,
@@ -153,12 +178,21 @@ def cmd_solve(args: argparse.Namespace) -> int:
         max_restarts=config.max_restarts,
         config=config,
     )
+    wall_runtime = time.perf_counter() - started
+    result = _enforce_runtime_limit(
+        raw_result,
+        time_limit=args.time_limit,
+        observed_runtime_seconds=wall_runtime,
+        runtime_basis="wall",
+    )
+    solver_runtime = float(result.metadata.get("solver_runtime_seconds", raw_result.runtime_seconds))
     payload = {
         "instance": result.instance_name,
         "status": result.status,
         "makespan": result.schedule.makespan if result.schedule is not None else None,
         "temporal_lower_bound": result.temporal_lower_bound,
         "runtime_seconds": round(result.runtime_seconds, 6),
+        "solver_runtime_seconds": round(solver_runtime, 6),
         "restarts": result.restarts,
         "start_times": list(result.schedule.start_times) if result.schedule is not None else None,
         "metadata": result.metadata,
@@ -171,7 +205,8 @@ def cmd_solve(args: argparse.Namespace) -> int:
         print(f"Status: {payload['status']}")
         print(f"Makespan: {payload['makespan']}")
         print(f"Temporal lower bound: {payload['temporal_lower_bound']}")
-        print(f"Runtime (s): {payload['runtime_seconds']}")
+        print(f"Wall runtime (s): {payload['runtime_seconds']}")
+        print(f"Solver runtime (s): {payload['solver_runtime_seconds']}")
         print(f"Restarts: {payload['restarts']}")
         if payload["start_times"] is not None:
             print("Start times:")
@@ -191,8 +226,9 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     started = time.perf_counter()
     tty = sys.stderr.isatty()
     for index, path in enumerate(paths, start=1):
+        case_started = time.perf_counter()
         instance = parse_sch(path)
-        result = _solve_with_backend(
+        raw_result = _solve_with_backend(
             instance,
             backend=args.backend,
             time_limit=args.time_limit,
@@ -200,6 +236,14 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
             max_restarts=config.max_restarts,
             config=config,
         )
+        wall_runtime = time.perf_counter() - case_started
+        result = _enforce_runtime_limit(
+            raw_result,
+            time_limit=args.time_limit,
+            observed_runtime_seconds=wall_runtime,
+            runtime_basis="wall",
+        )
+        solver_runtime = float(result.metadata.get("solver_runtime_seconds", raw_result.runtime_seconds))
         rows.append(
             {
                 "instance": result.instance_name,
@@ -212,6 +256,7 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
                     else None
                 ),
                 "runtime_seconds": result.runtime_seconds,
+                "solver_runtime_seconds": solver_runtime,
                 "restarts": result.restarts,
                 "backend": args.backend,
                 "metadata": result.metadata,
@@ -247,9 +292,12 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
         "avg_ratio": sum(row["ratio"] for row in feasible) / max(1, len(feasible)),
         "avg_runtime_seconds": sum(row["runtime_seconds"] for row in rows) / max(1, len(rows)),
         "max_runtime_seconds": max((row["runtime_seconds"] for row in rows), default=0.0),
+        "avg_solver_runtime_seconds": sum(row["solver_runtime_seconds"] for row in rows) / max(1, len(rows)),
+        "max_solver_runtime_seconds": max((row["solver_runtime_seconds"] for row in rows), default=0.0),
         "best_ratio": min((row["ratio"] for row in feasible), default=0.0),
         "worst_ratio": max((row["ratio"] for row in feasible), default=0.0),
         "over_budget": over_budget,
+        "runtime_basis": "wall",
     }
 
     payload = {"summary": summary, "results": rows}

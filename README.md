@@ -1,6 +1,6 @@
 # RCPSP/max Solver
 
-Python-first heuristic solver for the project scheduling instances in this folder.
+In-repo RCPSP/max solver and experiment harness for the course project. The current submission-oriented workflow targets the custom `cp` backend; `hybrid` remains a comparison baseline and `sgs` remains a secondary backend track.
 
 Raw benchmark datasets now live under `benchmarks/data/` to keep the project root cleaner. The CLI still accepts the old shorthand dataset names such as `sm_j10` and `testset_ubo50`.
 
@@ -9,9 +9,9 @@ Raw benchmark datasets now live under `benchmarks/data/` to keep the project roo
 - [rcpsp/README.md](rcpsp/README.md)
   - package index and shared module layout
 - [rcpsp/heuristic/README.md](rcpsp/heuristic/README.md)
-  - accepted main backend
+  - legacy heuristic baseline
 - [rcpsp/cp/README.md](rcpsp/cp/README.md)
-  - experimental CP-style backend
+  - current submission-candidate backend
 - [CP_ROADMAP.md](CP_ROADMAP.md)
   - phased implementation plan for the CP backend
 - [rcpsp/sgs/README.md](rcpsp/sgs/README.md)
@@ -25,19 +25,23 @@ Raw benchmark datasets now live under `benchmarks/data/` to keep the project roo
 
 - Parses ProGenMax `.SCH` files across the benchmark folders in this repo, including `sm_j10`, `sm_j20`, `sm_j30`, `testset_ubo20`, and `testset_ubo50`
 - Handles generalized lag constraints of the form `S_j >= S_i + lag`
-- Builds a fast incumbent with a conflict-repair heuristic
-- Improves or proves more cases with conflict-set branch-and-bound
+- Exposes three in-repo backends: `cp`, `hybrid`, and `sgs`
+- Uses the `cp` backend as the current submission-candidate path for branch-and-propagate search under the assignment constraints
+- Keeps `hybrid` available as a practical baseline for comparison runs
 - Benchmarks folders of instances from the command line
 - Compares benchmark outputs against published reference values for `sm_j10`, `sm_j20`, `sm_j30`, `testset_ubo20`, and `testset_ubo50`
 - Reports `feasible`, `infeasible`, or `unknown` per instance
+- Records assignment-faithful wall-clock runtime per instance and also keeps backend-only runtime for diagnosis
 
 ## Usage
+
+Unless you are explicitly comparing backends, assume `cp` is the backend to run for iteration and for final submission checks.
 
 Solve one instance:
 
 ```bash
-uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0
-uv run main.py solve benchmarks/data/sm_j10/PSP1.SCH --time-limit 1.0
+uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0 --backend cp
+uv run main.py solve benchmarks/data/sm_j10/PSP1.SCH --time-limit 1.0 --backend cp
 ```
 
 You can switch solver backends explicitly:
@@ -51,34 +55,40 @@ uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0 --backend sgs
 Benchmark a full folder:
 
 ```bash
-uv run main.py benchmark sm_j10 --time-limit 0.1 --output sm_j10_results.json
-uv run main.py benchmark benchmarks/data/sm_j10 --time-limit 0.1 --output sm_j10_results.json
+uv run main.py benchmark sm_j10 --time-limit 0.1 --backend cp --output sm_j10_results.json --no-progress
+uv run main.py benchmark benchmarks/data/sm_j10 --time-limit 0.1 --backend cp --output sm_j10_results.json --no-progress
 ```
 
-Run the standard guardrail suite in one command:
+Run the default CP iteration suite in one command:
 
 ```bash
-uv run python scripts/run_guardrails.py --backend hybrid --preset full
-uv run python scripts/run_guardrails.py --backend sgs --preset full
+uv run python scripts/run_guardrails.py
+uv run python scripts/run_guardrails.py --preset submission_quick
 ```
 
-Run the research-oriented guardrail suite used by the local autoresearch workflow:
+The default command above currently means `--backend cp --preset submission_quick`.
+
+Run the CP-focused autoresearch evaluation loop:
 
 ```bash
-uv run python scripts/run_autoresearch_eval.py --backend hybrid --preset research
+uv run python scripts/run_autoresearch_eval.py
+uv run python scripts/run_autoresearch_eval.py --backend cp --preset submission_quick
 ```
 
 Run an auxiliary anti-overfitting sweep on broader public RCPSP/max sets from the Kobe corpus:
 
 ```bash
-uv run python scripts/run_guardrails.py --backend hybrid --preset broad_generalization
+uv run python scripts/run_guardrails.py --backend cp --preset broad_generalization
 ```
 
-Run the dedicated CP acceptance matrix:
+Run the dedicated 30-second CP acceptance matrix:
 
 ```bash
 uv run python scripts/run_guardrails.py --backend cp --preset cp_acceptance
+uv run python scripts/run_guardrails.py --backend cp --preset submission
 ```
+
+`cp_acceptance` is the public 30-second matrix. `submission` extends that run with held-out `ubo10/100/200 @ 0.1s` anti-overfitting checks.
 
 If `sm_j10` and `sm_j20` reference CSVs are missing locally, cache them first:
 
@@ -88,7 +98,7 @@ uv run python scripts/fetch_reference_csvs.py --datasets sm_j10 sm_j20
 
 The root [program.md](program.md) is an RCPSP-specific adaptation of the `karpathy/autoresearch` workflow for this repo.
 
-`benchmark` now prints live progress to `stderr` by default. Use `--no-progress` if you want only the final summary:
+`benchmark` now prints live progress to `stderr` by default. The automated harness disables progress to reduce timing noise. Use `--no-progress` for manual runs when you want only the final summary:
 
 ```bash
 uv run main.py benchmark sm_j10 --time-limit 0.1 --output sm_j10_results.json --no-progress
@@ -137,19 +147,17 @@ Every solver change should be screened on:
 
 Recommended validation loop:
 
-1. fast screen on short budgets
-   - `sm_j10 @ 0.1s`
-   - `sm_j20 @ 0.1s`
-   - `sm_j30 @ 0.1s`
-   - `testset_ubo50 @ 0.1s`
-2. if the change survives, run the main medium-budget checks
-   - `sm_j10 @ 1.0s`
-   - `sm_j20 @ 1.0s`
-3. only keep changes that improve the target set without clearly damaging the broader guardrails
+1. fast CP screen aligned with the submission backend
+   - `uv run python scripts/run_guardrails.py --preset submission_quick`
+2. if the change survives, run the held-out anti-overfitting suite
+   - `uv run python scripts/run_guardrails.py --preset broad_generalization`
+3. before calling a change submission-ready, run the 30-second matrix
+   - `uv run python scripts/run_guardrails.py --preset cp_acceptance`
+4. only keep changes that improve the target set without clearly damaging the broader guardrails
 
 This is the minimum anti-overfitting policy for the repo. A change that helps only `j10/j20` but hurts `sm_j30` or `ubo50` should be treated as suspect.
 
-For the `cp` backend specifically, use the stricter roadmap matrix in [CP_ROADMAP.md](CP_ROADMAP.md) and the `cp_acceptance` preset.
+For the final submission backend, use `cp` and the stricter roadmap matrix in [CP_ROADMAP.md](CP_ROADMAP.md).
 
 ## Reading the benchmark JSON
 
@@ -170,6 +178,9 @@ The per-instance rows contain:
 - `runtime_seconds`
   - wall-clock runtime for that instance
   - results that exceed the time limit by more than a small tolerance are coerced to `unknown`
+- `solver_runtime_seconds`
+  - backend-only runtime excluding CLI parse and wrapper overhead
+  - useful for diagnosing solver changes without losing the assignment-faithful wall-clock metric
 - `over_budget`
   - `1` if the recorded wall-clock runtime exceeded the allowed budget plus tolerance, else `0`
 

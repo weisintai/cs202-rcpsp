@@ -17,11 +17,11 @@ from scripts.guardrails_lib import run_guardrail_suite
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a bounded autoresearch-style search over solver configurations.")
-    parser.add_argument("--backend", choices=("hybrid", "cp"), default="hybrid")
+    parser.add_argument("--backend", choices=("hybrid", "cp"), default="cp")
     parser.add_argument("--trials", type=int, default=6)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--main-preset", default="medium")
-    parser.add_argument("--main-datasets", nargs="*", default=["sm_j10", "sm_j20"])
+    parser.add_argument("--main-preset", default="submission_quick")
+    parser.add_argument("--main-datasets", nargs="*", default=None)
     parser.add_argument("--aux-preset", default="broad_generalization")
     parser.add_argument("--aux-datasets", nargs="*", default=["testset_ubo10", "testset_ubo100", "testset_ubo200"])
     parser.add_argument("--output-dir", type=Path, default=ROOT / "tmp" / "autoresearch-search")

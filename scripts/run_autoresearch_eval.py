@@ -15,8 +15,8 @@ from scripts.guardrails_lib import PRESETS, run_guardrail_suite
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the RCPSP autoresearch evaluation loop.")
-    parser.add_argument("--backend", choices=("hybrid", "cp"), default="hybrid")
-    parser.add_argument("--preset", choices=tuple(PRESETS), default="research")
+    parser.add_argument("--backend", choices=("hybrid", "cp"), default="cp")
+    parser.add_argument("--preset", choices=tuple(PRESETS), default="submission_quick")
     parser.add_argument("--datasets", nargs="*", help="optional subset of datasets from the selected preset")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-restarts", type=int, default=None)

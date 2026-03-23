@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import platform
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -57,36 +58,73 @@ PRESETS: dict[str, tuple[GuardrailCase, ...]] = {
         GuardrailCase("sm_j10", 1.0),
         GuardrailCase("sm_j20", 1.0),
     ),
+    "submission_quick": (
+        GuardrailCase("sm_j10", 1.0),
+        GuardrailCase("sm_j20", 1.0),
+        GuardrailCase("sm_j30", 0.1),
+        GuardrailCase("testset_ubo20", 0.1),
+        GuardrailCase("testset_ubo50", 0.1),
+    ),
     "broad_generalization": (
         GuardrailCase("testset_ubo10", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo10")),
         GuardrailCase("testset_ubo100", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo100")),
         GuardrailCase("testset_ubo200", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo200")),
     ),
     "cp_acceptance": (
-        # GuardrailCase("sm_j10", 0.1),
-        # GuardrailCase("sm_j20", 0.1),
-        # GuardrailCase("sm_j30", 0.1),
-        # GuardrailCase("testset_ubo50", 0.1),
-        # GuardrailCase("sm_j10", 1.0),
-        # GuardrailCase("sm_j20", 1.0)
-        #  GuardrailCase("sm_j10", 30),
-        # GuardrailCase("sm_j20", 30),
-        # GuardrailCase("sm_j30", 30),
-        # GuardrailCase("testset_ubo20",30),
-        # GuardrailCase("testset_ubo50", 30),
-         GuardrailCase("testset_ubo100",30),
-        GuardrailCase("testset_ubo200", 30)
-        # GuardrailCase("sm_j10", 10),
-        # GuardrailCase("sm_j20", 10)
-        # GuardrailCase("testset_ubo10", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo10")),
-        # GuardrailCase("testset_ubo100", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo100")),
-        # GuardrailCase("testset_ubo200", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo200")),
+        GuardrailCase("sm_j10", 30),
+        GuardrailCase("sm_j20", 30),
+        GuardrailCase("sm_j30", 30),
+        GuardrailCase("testset_ubo20", 30),
+        GuardrailCase("testset_ubo50", 30),
+    ),
+    "submission": (
+        GuardrailCase("sm_j10", 30),
+        GuardrailCase("sm_j20", 30),
+        GuardrailCase("sm_j30", 30),
+        GuardrailCase("testset_ubo20", 30),
+        GuardrailCase("testset_ubo50", 30),
+        GuardrailCase("testset_ubo10", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo10")),
+        GuardrailCase("testset_ubo100", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo100")),
+        GuardrailCase("testset_ubo200", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo200")),
     ),
 }
 
 
 def format_limit(value: float) -> str:
     return str(value).replace(".", "p")
+
+
+def _optional_command_output(command: list[str]) -> str | None:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+    output = completed.stdout.strip()
+    return output or None
+
+
+def build_run_metadata() -> dict[str, object]:
+    return {
+        "captured_at": datetime.now().isoformat(timespec="seconds"),
+        "root": str(ROOT),
+        "python_executable": sys.executable,
+        "python_version": sys.version.split()[0],
+        "platform": {
+            "system": platform.system(),
+            "release": platform.release(),
+            "machine": platform.machine(),
+            "processor": platform.processor(),
+        },
+        "git_commit": _optional_command_output(["git", "rev-parse", "HEAD"]),
+        "git_branch": _optional_command_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]),
+    }
 
 
 def run_json_command(command: list[str], *, dry_run: bool) -> dict:
@@ -157,6 +195,7 @@ def run_guardrail_suite(
             str(seed),
             "--output",
             str(bench_output),
+            "--no-progress",
         ]
         if max_restarts is not None:
             benchmark_command.extend(["--max-restarts", str(max_restarts)])
@@ -175,6 +214,7 @@ def run_guardrail_suite(
             case.dataset,
             "--output",
             str(compare_output),
+            "--no-progress",
         ]
         compare_payload = run_json_command(compare_command, dry_run=dry_run)
         compare_summary = compare_payload.get("summary", {}) if compare_payload else {}
@@ -188,6 +228,8 @@ def run_guardrail_suite(
                 "compare_summary": compare_summary,
                 "benchmark_output": str(bench_output),
                 "compare_output": str(compare_output),
+                "benchmark_command": benchmark_command,
+                "compare_command": compare_command,
             }
         )
 
@@ -212,6 +254,7 @@ def run_guardrail_suite(
         "seed": seed,
         "max_restarts": max_restarts,
         "heuristic_args": dict(heuristic_args or {}),
+        "metadata": build_run_metadata(),
         "runs": aggregate,
     }
     summary_path: Path | None = None

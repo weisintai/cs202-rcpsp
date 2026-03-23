@@ -13,7 +13,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Sweep a solver configuration across multiple time limits.")
     parser.add_argument("--dataset", default="sm_j20")
     parser.add_argument("--dataset-path", default="sm_j20")
-    parser.add_argument("--backend", choices=("hybrid", "cp"), default="hybrid")
+    parser.add_argument("--backend", choices=("hybrid", "cp"), default="cp")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--output-dir", type=Path, default=ROOT / "tmp" / "time-sweep")
     parser.add_argument("--time-limits", nargs="+", type=float, required=True)
