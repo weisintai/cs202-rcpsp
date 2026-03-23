@@ -3,6 +3,7 @@ from __future__ import annotations
 from ..core.lag import (
     all_pairs_longest_lags,
     extend_longest_lags,
+    extend_longest_lags_inplace,
     pairwise_infeasibility_reason_from_dist,
 )
 from ..models import Edge, Instance
@@ -79,7 +80,6 @@ def build_mandatory_profile(
             mandatory.append((activity, left, right))
             for time_index in range(max(0, left), min(horizon, right)):
                 profiles[resource][time_index] += demand
-
         mandatory_intervals.append((mandatory, horizon))
 
     return profiles, mandatory_intervals
@@ -96,23 +96,16 @@ def minimal_overload_explanation(
         for activity, left, right in mandatory
         if left <= time_index < right
     ]
-    total = sum(instance.demands[activity][resource] for activity in active)
-    conflict = active[:]
-    while conflict:
-        smallest = min(
-            conflict,
-            key=lambda activity: (
-                instance.demands[activity][resource],
-                instance.durations[activity],
-                activity,
-            ),
-        )
-        if total - instance.demands[smallest][resource] > instance.capacities[resource]:
-            total -= instance.demands[smallest][resource]
-            conflict.remove(smallest)
+    active.sort(key=lambda a: (instance.demands[a][resource], instance.durations[a], a))
+    total = sum(instance.demands[a][resource] for a in active)
+    i = 0
+    while i < len(active):
+        if total - instance.demands[active[i]][resource] > instance.capacities[resource]:
+            total -= instance.demands[active[i]][resource]
+            i += 1
         else:
             break
-    conflict.sort()
+    conflict = sorted(active[i:])
     return OverloadExplanation(
         kind="point",
         resource=resource,
@@ -210,6 +203,7 @@ def forced_pair_order_propagation(
     lower: list[int],
     latest: list[int],
     pairs: set[tuple[int, int]],
+    resource_conflict_pairs: frozenset[tuple[int, int]] | None = None,
 ) -> tuple[tuple[tuple[int, int], ...], OverloadExplanation | None]:
     if instance.n_jobs < 20:
         return (), None
@@ -217,18 +211,27 @@ def forced_pair_order_propagation(
     inferred: list[tuple[int, int]] = []
     pending = set(pairs)
 
-    for first in range(1, instance.sink):
-        for second in range(first + 1, instance.sink):
-            if (first, second) in pending or (second, first) in pending:
+    # Use precomputed conflicting pairs if provided, else fall back to all pairs.
+    if resource_conflict_pairs is not None:
+        pairs_to_check: tuple[tuple[int, int], ...] | frozenset[tuple[int, int]] = resource_conflict_pairs
+    else:
+        pairs_to_check = tuple(
+            (first, second)
+            for first in range(1, instance.sink)
+            for second in range(first + 1, instance.sink)
+        )
+
+    for first, second in pairs_to_check:
+        if (first, second) in pending or (second, first) in pending:
+            continue
+
+        forced_pair: tuple[int, int] | None = None
+        blocking_resource: int | None = None
+
+        for resource in range(instance.n_resources):
+            combined_demand = instance.demands[first][resource] + instance.demands[second][resource]
+            if combined_demand <= instance.capacities[resource]:
                 continue
-
-            forced_pair: tuple[int, int] | None = None
-            blocking_resource: int | None = None
-
-            for resource in range(instance.n_resources):
-                combined_demand = instance.demands[first][resource] + instance.demands[second][resource]
-                if combined_demand <= instance.capacities[resource]:
-                    continue
 
                 first_before_second = lower[first] + instance.durations[first] <= latest[second]
                 second_before_first = lower[second] + instance.durations[second] <= latest[first]
@@ -299,6 +302,7 @@ def propagate_cp_node(
     base_lag_dist: list[list[float]] | None = None,
     new_edges: tuple[Edge, ...] = (),
     release_times: tuple[int, ...] | list[int] | None = None,
+    resource_conflict_pairs: frozenset[tuple[int, int]] | None = None,
 ) -> CpNodePropagation:
     local_pairs = set(pairs)
     if new_edges:
@@ -315,14 +319,16 @@ def propagate_cp_node(
         for edge in new_edges:
             updated = extend_longest_lags(updated, edge)
         lag_dist = updated
-    elif not new_edges:
-        lag_dist = all_pairs_longest_lags(instance, extra_edges=edges)
     else:
         lag_dist = all_pairs_longest_lags(instance, extra_edges=edges)
 
     latest = improving_latest_starts(instance, tail, incumbent_makespan)
     release_bounds = [0] * instance.n_activities if release_times is None else [max(0, int(value)) for value in release_times]
     rounds = 0
+    # Only check pairwise infeasibility when lag_dist was just updated — it is
+    # a pure function of the lag graph structure and can't change between rounds
+    # unless new edges are inferred.
+    lag_dist_updated = True
 
     while True:
         rounds += 1
@@ -334,9 +340,10 @@ def propagate_cp_node(
         if incumbent_makespan is not None and lower[instance.sink] >= incumbent_makespan:
             return CpNodePropagation(node=None, rounds=rounds)
 
-        if lag_dist is not None:
+        if lag_dist is not None and lag_dist_updated:
             if pairwise_infeasibility_reason_from_dist(instance, lag_dist) is not None:
                 return CpNodePropagation(node=None, rounds=rounds)
+            lag_dist_updated = False
 
         if latest is None:
             break
@@ -365,7 +372,10 @@ def propagate_cp_node(
         lower = new_lower
         latest = new_latest
 
-        inferred_pairs, pair_overload = forced_pair_order_propagation(instance, lower, latest, local_pairs)
+        inferred_pairs, pair_overload = forced_pair_order_propagation(
+            instance, lower, latest, local_pairs,
+            resource_conflict_pairs=resource_conflict_pairs,
+        )
         if pair_overload is not None:
             return CpNodePropagation(
                 node=CpNode(
@@ -380,12 +390,15 @@ def propagate_cp_node(
             )
 
         if inferred_pairs:
+            if lag_dist is not None and lag_dist is base_lag_dist:
+                lag_dist = [row[:] for row in lag_dist]
             for source, target in inferred_pairs:
                 local_pairs.add((source, target))
                 edge = Edge(source=source, target=target, lag=instance.durations[source])
                 edges.append(edge)
                 if lag_dist is not None:
-                    lag_dist = extend_longest_lags(lag_dist, edge)
+                    extend_longest_lags_inplace(lag_dist, edge)
+            lag_dist_updated = True
             release_bounds = lower
             continue
 

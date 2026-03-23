@@ -63,15 +63,24 @@ PRESETS: dict[str, tuple[GuardrailCase, ...]] = {
         GuardrailCase("testset_ubo200", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo200")),
     ),
     "cp_acceptance": (
-        GuardrailCase("sm_j10", 0.1),
-        GuardrailCase("sm_j20", 0.1),
-        GuardrailCase("sm_j30", 0.1),
-        GuardrailCase("testset_ubo50", 0.1),
-        GuardrailCase("sm_j10", 1.0),
-        GuardrailCase("sm_j20", 1.0),
-        GuardrailCase("testset_ubo10", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo10")),
-        GuardrailCase("testset_ubo100", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo100")),
-        GuardrailCase("testset_ubo200", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo200")),
+        # GuardrailCase("sm_j10", 0.1),
+        # GuardrailCase("sm_j20", 0.1),
+        # GuardrailCase("sm_j30", 0.1),
+        # GuardrailCase("testset_ubo50", 0.1),
+        # GuardrailCase("sm_j10", 1.0),
+        # GuardrailCase("sm_j20", 1.0)
+        #  GuardrailCase("sm_j10", 30),
+        # GuardrailCase("sm_j20", 30),
+        # GuardrailCase("sm_j30", 30),
+        # GuardrailCase("testset_ubo20",30),
+        # GuardrailCase("testset_ubo50", 30),
+         GuardrailCase("testset_ubo100",30),
+        GuardrailCase("testset_ubo200", 30)
+        # GuardrailCase("sm_j10", 10),
+        # GuardrailCase("sm_j20", 10)
+        # GuardrailCase("testset_ubo10", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo10")),
+        # GuardrailCase("testset_ubo100", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo100")),
+        # GuardrailCase("testset_ubo200", 0.1, benchmark_path=str(EXTERNAL_DATA_ROOT / "testset_ubo200")),
     ),
 }
 

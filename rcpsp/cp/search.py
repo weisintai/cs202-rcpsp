@@ -35,6 +35,9 @@ def failure_cache_hit(
     return any(failed.issubset(pairs) for failed in failed_pair_sets)
 
 
+_FAILURE_CACHE_MAX = 400
+
+
 def record_failed_pairs(
     pairs: frozenset[tuple[int, int]],
     failed_pair_sets: set[frozenset[tuple[int, int]]],
@@ -42,11 +45,19 @@ def record_failed_pairs(
 ) -> None:
     if not pairs:
         return
-    if any(failed.issubset(pairs) for failed in failed_pair_sets):
-        return
-    redundant = [failed for failed in failed_pair_sets if pairs.issubset(failed)]
+    redundant = []
+    for failed in failed_pair_sets:
+        if failed.issubset(pairs):
+            return  # Already covered by a more general failure
+        if pairs.issubset(failed):
+            redundant.append(failed)  # pairs is more general; drop this superset
     for failed in redundant:
         failed_pair_sets.remove(failed)
+    # Evict the most specific (largest) entry when cache is full, so the most
+    # general (smallest) failure reasons are preserved for maximum pruning power.
+    if len(failed_pair_sets) >= _FAILURE_CACHE_MAX:
+        to_evict = max(failed_pair_sets, key=len)
+        failed_pair_sets.discard(to_evict)
     failed_pair_sets.add(pairs)
     stats.failure_cache_inserts += 1
     stats.failure_cache_size = len(failed_pair_sets)
@@ -184,35 +195,31 @@ def select_branch_conflict(
         if not overloaded:
             continue
 
+        # Compute all active activities at this time once, then filter per resource.
+        all_active_here = [
+            activity
+            for activity in range(1, instance.sink)
+            if start_times[activity] <= time_index < start_times[activity] + instance.durations[activity]
+        ]
+
         overload = [
             max(0, usage[resource_idx] - instance.capacities[resource_idx])
             for resource_idx in range(instance.n_resources)
         ]
 
         for resource in overloaded:
-            active = [
-                activity
-                for activity in range(1, instance.sink)
-                if start_times[activity] <= time_index < start_times[activity] + instance.durations[activity]
-                and instance.demands[activity][resource] > 0
-            ]
-            total = sum(instance.demands[activity][resource] for activity in active)
-            conflict = active[:]
-            while conflict:
-                smallest = min(
-                    conflict,
-                    key=lambda activity: (
-                        instance.demands[activity][resource],
-                        instance.durations[activity],
-                        activity,
-                    ),
-                )
-                if total - instance.demands[smallest][resource] > instance.capacities[resource]:
-                    total -= instance.demands[smallest][resource]
-                    conflict.remove(smallest)
+            active = [a for a in all_active_here if instance.demands[a][resource] > 0]
+            # Sort once by removal priority, then strip from front greedily.
+            active.sort(key=lambda a: (instance.demands[a][resource], instance.durations[a], a))
+            total = sum(instance.demands[a][resource] for a in active)
+            i = 0
+            while i < len(active):
+                if total - instance.demands[active[i]][resource] > instance.capacities[resource]:
+                    total -= instance.demands[active[i]][resource]
+                    i += 1
                 else:
                     break
-            conflict.sort(key=lambda activity: (start_times[activity], activity))
+            conflict = sorted(active[i:], key=lambda a: (start_times[a], a))
             if len(conflict) <= 1:
                 continue
 
@@ -316,6 +323,7 @@ def branch_children(
     failed_pair_sets: set[frozenset[tuple[int, int]]],
     failure_cache_enabled: bool,
     stats: CpSearchStats,
+    resource_conflict_pairs: frozenset[tuple[int, int]] | None = None,
 ) -> list[tuple[int, int, frozenset[tuple[int, int]], CpNode]]:
     ordered = branch_order(
         instance=instance,
@@ -347,6 +355,7 @@ def branch_children(
                 incumbent_makespan=incumbent_makespan,
                 base_lag_dist=node.lag_dist,
                 new_edges=(Edge(source=other, target=selected, lag=instance.durations[other]),),
+                resource_conflict_pairs=resource_conflict_pairs,
             )
             stats.propagation_calls += 1
             stats.propagation_rounds += child.rounds
@@ -426,6 +435,20 @@ def solve_cp(
     incumbent: Schedule | None = None
     restarts = 0
     forced_pairs = frozenset((edge.source, edge.target) for edge in forced_edges)
+
+    # Precompute pairs that share at least one resource beyond capacity.
+    # Used to skip non-conflicting pairs in forced_pair_order_propagation.
+    resource_conflict_pairs: frozenset[tuple[int, int]] | None = None
+    if instance.n_jobs >= 20:
+        resource_conflict_pairs = frozenset(
+            (first, second)
+            for first in range(1, instance.sink)
+            for second in range(first + 1, instance.sink)
+            if any(
+                instance.demands[first][r] + instance.demands[second][r] > instance.capacities[r]
+                for r in range(instance.n_resources)
+            )
+        )
     guided_seed_meta: dict[str, object] = {
         "guided_seed_used": False,
         "guided_seed_infeasible": False,
@@ -534,6 +557,7 @@ def solve_cp(
                 pairs=pairs,
                 incumbent_makespan=incumbent.makespan if incumbent is not None else None,
                 base_lag_dist=root_lag_dist if pairs == forced_pairs else None,
+                resource_conflict_pairs=resource_conflict_pairs,
             )
             stats.propagation_calls += 1
             stats.propagation_rounds += propagation.rounds
@@ -657,6 +681,7 @@ def solve_cp(
             failed_pair_sets=failed_pair_sets,
             failure_cache_enabled=failure_cache_enabled,
             stats=stats,
+            resource_conflict_pairs=resource_conflict_pairs,
         )
 
         for _, _, child_pairs, child in children:

@@ -24,26 +24,41 @@ def all_pairs_longest_lags(instance: Instance, extra_edges: list[Edge] | tuple[E
     return dist
 
 
+def extend_longest_lags_inplace(dist: list[list[float]], edge: Edge) -> bool:
+    """Update dist in place to incorporate edge. Returns True if any change was made.
+
+    Snapshots the relevant row/column before modifying so reads and writes stay
+    consistent even though we are mutating the same matrix.
+    """
+    if dist[edge.source][edge.target] >= edge.lag:
+        return False
+    neg_inf = float("-inf")
+    n = len(dist)
+    # Snapshot the column and row we read from before any writes.
+    left_vals = [dist[s][edge.source] for s in range(n)]
+    right_vals = [dist[edge.target][t] for t in range(n)]
+    dist[edge.source][edge.target] = edge.lag
+    lag = edge.lag
+    for source in range(n):
+        left = left_vals[source]
+        if left == neg_inf:
+            continue
+        row = dist[source]
+        for target in range(n):
+            right = right_vals[target]
+            if right == neg_inf:
+                continue
+            candidate = left + lag + right
+            if candidate > row[target]:
+                row[target] = candidate
+    return True
+
+
 def extend_longest_lags(dist: list[list[float]], edge: Edge) -> list[list[float]]:
     if dist[edge.source][edge.target] >= edge.lag:
         return dist
-
-    neg_inf = float("-inf")
-    n = len(dist)
     updated = [row[:] for row in dist]
-    updated[edge.source][edge.target] = edge.lag
-
-    for source in range(n):
-        left = dist[source][edge.source]
-        if left == neg_inf:
-            continue
-        for target in range(n):
-            right = dist[edge.target][target]
-            if right == neg_inf:
-                continue
-            candidate = left + edge.lag + right
-            if candidate > updated[source][target]:
-                updated[source][target] = candidate
+    extend_longest_lags_inplace(updated, edge)
     return updated
 
 
@@ -78,6 +93,7 @@ def forced_resource_order_edges_from_dist(
 ) -> tuple[list[Edge], list[list[float]]]:
     inferred: list[Edge] = []
     updated = dist
+    owns_copy = False
 
     while True:
         added = False
@@ -106,7 +122,10 @@ def forced_resource_order_edges_from_dist(
                 if updated[edge.source][edge.target] >= edge.lag:
                     continue
                 inferred.append(edge)
-                updated = extend_longest_lags(updated, edge)
+                if not owns_copy:
+                    updated = [row[:] for row in updated]
+                    owns_copy = True
+                extend_longest_lags_inplace(updated, edge)
                 added = True
         if not added:
             break
