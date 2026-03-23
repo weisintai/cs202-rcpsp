@@ -122,6 +122,8 @@ def allow_node_local_heuristic(
     incumbent: Schedule | None,
 ) -> bool:
     if incumbent is None:
+        if instance.n_jobs >= 50 and cp_budget_mode(time_limit) == "deep":
+            return False
         return True
     if instance.n_jobs < 20 or time_limit < 1.0:
         return True
