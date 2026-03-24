@@ -120,11 +120,31 @@ def allow_node_local_heuristic(
     time_limit: float,
     node: CpNode,
     incumbent: Schedule | None,
+    stats: CpSearchStats | None = None,
 ) -> bool:
     if incumbent is None:
-        if instance.n_jobs >= 50 and cp_budget_mode(time_limit) == "deep":
+        budget_mode = cp_budget_mode(time_limit)
+        if instance.n_jobs < 20:
+            return True
+        if stats is None:
             return False
-        return True
+        large_instance = instance.n_jobs >= 50
+        very_large_instance = instance.n_jobs >= 100
+        if budget_mode == "fast":
+            if very_large_instance:
+                return False
+            if not large_instance:
+                return True
+            if stats.nodes <= 2:
+                return True
+            return stats.nodes % 8 == 0
+        if large_instance and budget_mode == "deep":
+            return False
+        if stats.nodes <= 4:
+            return True
+        if budget_mode == "medium":
+            return stats.nodes % (32 if large_instance else 16) == 0
+        return stats.nodes % (64 if large_instance else 32) == 0
     if instance.n_jobs < 20 or time_limit < 1.0:
         return True
     return False
@@ -601,7 +621,13 @@ def solve_cp(
             return False
 
         found_feasible = False
-        use_local_heuristic = allow_node_local_heuristic(instance, time_limit, node, incumbent)
+        use_local_heuristic = allow_node_local_heuristic(
+            instance,
+            time_limit,
+            node,
+            incumbent,
+            stats,
+        )
         deep_local_heuristic = False
         if not use_local_heuristic:
             deep_local_heuristic = allow_deep_node_local_heuristic(

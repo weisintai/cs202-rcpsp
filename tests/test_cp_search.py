@@ -217,19 +217,35 @@ def test_allow_node_local_heuristic_skips_medium_deep_nodes_with_incumbent() -> 
     root = CpNode(lower=(0,) * instance.n_activities, latest=None, edges=(), pairs=frozenset())
     child = CpNode(lower=(0,) * instance.n_activities, latest=None, edges=(), pairs=frozenset({(1, 2)}))
     incumbent = Schedule(start_times=(0,) * instance.n_activities, makespan=10)
+    stats = CpSearchStats(nodes=16)
 
-    assert not allow_node_local_heuristic(instance, 1.0, root, incumbent)
-    assert not allow_node_local_heuristic(instance, 1.0, child, incumbent)
-    assert allow_node_local_heuristic(instance, 0.1, child, incumbent)
-    assert allow_node_local_heuristic(instance, 1.0, child, None)
+    assert not allow_node_local_heuristic(instance, 1.0, root, incumbent, stats)
+    assert not allow_node_local_heuristic(instance, 1.0, child, incumbent, stats)
+    assert allow_node_local_heuristic(instance, 0.1, child, incumbent, stats)
+    assert allow_node_local_heuristic(instance, 1.0, child, None, CpSearchStats(nodes=4))
+    assert allow_node_local_heuristic(instance, 1.0, child, None, stats)
+    assert not allow_node_local_heuristic(instance, 1.0, child, None, CpSearchStats(nodes=17))
 
 
-def test_allow_node_local_heuristic_skips_large_deep_nodes_without_incumbent() -> None:
+def test_allow_node_local_heuristic_throttles_more_for_large_no_incumbent_nodes() -> None:
     instance = _dummy_instance(50)
     node = CpNode(lower=(0,) * instance.n_activities, latest=None, edges=(), pairs=frozenset())
 
-    assert allow_node_local_heuristic(instance, 1.0, node, None)
-    assert not allow_node_local_heuristic(instance, 30.0, node, None)
+    assert allow_node_local_heuristic(instance, 0.1, node, None, CpSearchStats(nodes=1))
+    assert allow_node_local_heuristic(instance, 0.1, node, None, CpSearchStats(nodes=2))
+    assert not allow_node_local_heuristic(instance, 0.1, node, None, CpSearchStats(nodes=4))
+    assert allow_node_local_heuristic(instance, 0.1, node, None, CpSearchStats(nodes=8))
+    assert allow_node_local_heuristic(instance, 1.0, node, None, CpSearchStats(nodes=32))
+    assert not allow_node_local_heuristic(instance, 1.0, node, None, CpSearchStats(nodes=16))
+    assert not allow_node_local_heuristic(instance, 30.0, node, None, CpSearchStats(nodes=4))
+    assert not allow_node_local_heuristic(instance, 30.0, node, None, CpSearchStats(nodes=64))
+
+
+def test_allow_node_local_heuristic_skips_very_large_fast_nodes_without_incumbent() -> None:
+    instance = _dummy_instance(100)
+    node = CpNode(lower=(0,) * instance.n_activities, latest=None, edges=(), pairs=frozenset())
+
+    assert not allow_node_local_heuristic(instance, 0.1, node, None, CpSearchStats(nodes=1))
 
 
 def test_allow_deep_node_local_heuristic_only_for_deep_promising_nodes() -> None:
