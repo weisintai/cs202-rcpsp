@@ -111,6 +111,8 @@ def test_run_guided_seed_updates_incumbent_from_local_seed(monkeypatch) -> None:
     assert restarts == 3
     assert stats.incumbent_updates == 1
     assert metadata["guided_seed_used"] is True
+    assert metadata["guided_seed_found_incumbent"] is True
+    assert metadata["guided_seed_failed"] is False
     assert metadata["seed_construct_makespan"] == 12
     assert metadata["seed_best_source"] == "construct"
     assert guided_infeasible is False
@@ -147,8 +149,47 @@ def test_run_guided_seed_marks_infeasible_from_local_seed(monkeypatch) -> None:
     assert restarts == 2
     assert metadata["guided_seed_used"] is True
     assert metadata["guided_seed_infeasible"] is True
+    assert metadata["guided_seed_found_incumbent"] is False
+    assert metadata["guided_seed_failed"] is False
     assert metadata["guided_seed_reason"] == "seed proved infeasible"
     assert guided_infeasible is True
+
+
+def test_run_guided_seed_marks_unknown_seed_as_failed(monkeypatch) -> None:
+    instance = _dummy_instance(30)
+    stats = CpSearchStats()
+    config = HeuristicConfig()
+
+    def fake_seed(**kwargs) -> SolveResult:
+        return SolveResult(
+            instance_name=instance.name,
+            status="unknown",
+            schedule=None,
+            runtime_seconds=0.01,
+            temporal_lower_bound=0,
+            restarts=2,
+            metadata={"reason": "seed could not build an incumbent"},
+        )
+
+    monkeypatch.setattr("rcpsp.cp.search.solve_guided_seed", fake_seed)
+
+    incumbent, restarts, metadata, guided_infeasible = run_guided_seed(
+        instance=instance,
+        seed=0,
+        solver_config=config,
+        heuristic_deadline=time.perf_counter() + 1.0,
+        stats=stats,
+        incumbent=None,
+    )
+
+    assert incumbent is None
+    assert restarts == 2
+    assert metadata["guided_seed_used"] is True
+    assert metadata["guided_seed_infeasible"] is False
+    assert metadata["guided_seed_found_incumbent"] is False
+    assert metadata["guided_seed_failed"] is True
+    assert metadata["guided_seed_reason"] == "seed could not build an incumbent"
+    assert guided_infeasible is False
 
 
 def test_solve_cp_accepts_guided_seed_infeasible_result(monkeypatch) -> None:
@@ -181,10 +222,14 @@ def test_solve_cp_reports_conflict_counters_on_trivial_instance() -> None:
     assert result.metadata["conflict_events"] == 0
     assert result.metadata["avg_conflict_size"] == 0.0
     assert result.metadata["max_conflict_size"] == 0
+    assert result.metadata["heuristic_construct_failures"] == 0
     assert result.metadata["node_local_attempts"] == 0
     assert result.metadata["node_local_improvements"] == 0
+    assert result.metadata["node_local_construct_failures"] == 0
     assert result.metadata["deep_node_local_attempts"] == 0
     assert result.metadata["deep_node_local_improvements"] == 0
+    assert result.metadata["propagation_pruned_nodes"] >= 0
+    assert "no_incumbent_before_dfs" in result.metadata
 
 
 def test_guided_seed_reports_seed_phase_metadata() -> None:
@@ -248,6 +293,7 @@ def test_allow_node_local_heuristic_skips_very_large_fast_nodes_without_incumben
 def test_try_cp_incumbent_returns_none_when_construct_fails(monkeypatch) -> None:
     instance = _dummy_instance(4)
     node = CpNode(lower=(0,) * instance.n_activities, latest=None, edges=(), pairs=frozenset())
+    stats = CpSearchStats()
 
     monkeypatch.setattr("rcpsp.cp.search.construct_schedule", lambda *args, **kwargs: None)
 
@@ -259,9 +305,11 @@ def test_try_cp_incumbent_returns_none_when_construct_fails(monkeypatch) -> None
         solver_config=HeuristicConfig(),
         rng=random.Random(0),
         deadline=time.perf_counter() + 0.01,
+        search_stats=stats,
     )
 
     assert candidate is None
+    assert stats.node_local_construct_failures == 1
 
 
 def test_allow_deep_node_local_heuristic_only_for_deep_promising_nodes() -> None:

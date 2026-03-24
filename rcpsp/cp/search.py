@@ -71,6 +71,7 @@ def try_cp_incumbent(
     solver_config: HeuristicConfig,
     rng: random.Random,
     deadline: float,
+    search_stats: CpSearchStats | None = None,
 ) -> Schedule | None:
     schedule = construct_schedule(
         instance=instance,
@@ -83,6 +84,8 @@ def try_cp_incumbent(
         initial_starts=list(node.lower),
     )
     if schedule is None:
+        if search_stats is not None:
+            search_stats.node_local_construct_failures += 1
         return None
     return schedule
 
@@ -168,6 +171,51 @@ def allow_deep_node_local_heuristic(
     if sink_gap >= max(3, instance.n_jobs // 12):
         return True
     return stats.nodes % 32 == 0
+
+
+def _search_metadata(
+    *,
+    seed: int,
+    time_limit: float,
+    forced_resource_orders: int,
+    budget_mode: str,
+    stats: CpSearchStats,
+    guided_seed_meta: dict[str, object],
+    no_incumbent_before_dfs: bool,
+) -> dict[str, object]:
+    return {
+        "backend": "cp",
+        "seed": seed,
+        "time_limit": time_limit,
+        "search_nodes": stats.nodes,
+        "timed_out": stats.timed_out,
+        "propagation_calls": stats.propagation_calls,
+        "propagation_rounds": stats.propagation_rounds,
+        "propagation_pruned_nodes": stats.propagation_pruned_nodes,
+        "incumbent_updates": stats.incumbent_updates,
+        "heuristic_construct_failures": stats.heuristic_construct_failures,
+        "node_local_attempts": stats.node_local_attempts,
+        "node_local_improvements": stats.node_local_improvements,
+        "node_local_construct_failures": stats.node_local_construct_failures,
+        "construct_failures": stats.heuristic_construct_failures + stats.node_local_construct_failures,
+        "deep_node_local_attempts": stats.deep_node_local_attempts,
+        "deep_node_local_improvements": stats.deep_node_local_improvements,
+        "branches": stats.branches,
+        "timetable_failures": stats.timetable_failures,
+        "max_timetable_explanation": stats.max_timetable_explanation,
+        "failure_cache_hits": stats.failure_cache_hits,
+        "failure_cache_inserts": stats.failure_cache_inserts,
+        "failure_cache_size": stats.failure_cache_size,
+        "conflict_events": stats.conflict_events,
+        "avg_conflict_size": (
+            stats.total_conflict_size / stats.conflict_events if stats.conflict_events else 0.0
+        ),
+        "max_conflict_size": stats.max_conflict_size,
+        "forced_resource_orders": forced_resource_orders,
+        "budget_mode": budget_mode,
+        "no_incumbent_before_dfs": no_incumbent_before_dfs,
+        **guided_seed_meta,
+    }
 
 
 def node_local_heuristic_deadline(
@@ -302,6 +350,8 @@ def run_guided_seed(
     metadata: dict[str, object] = {
         "guided_seed_used": False,
         "guided_seed_infeasible": False,
+        "guided_seed_found_incumbent": False,
+        "guided_seed_failed": False,
     }
 
     remaining = heuristic_deadline - time.perf_counter()
@@ -320,13 +370,24 @@ def run_guided_seed(
             if key.startswith("seed_"):
                 metadata[key] = value
         if guided.status == "feasible" and guided.schedule is not None:
+            metadata["guided_seed_found_incumbent"] = True
             incumbent = update_incumbent(incumbent, guided.schedule, stats)
         elif guided.status == "infeasible":
             metadata["guided_seed_infeasible"] = True
             reason = guided.metadata.get("reason")
             if isinstance(reason, str) and reason:
                 metadata["guided_seed_reason"] = reason
+        else:
+            reason = guided.metadata.get("reason")
+            if isinstance(reason, str) and reason:
+                metadata["guided_seed_reason"] = reason
         restarts += guided.restarts
+
+    metadata["guided_seed_failed"] = bool(
+        metadata["guided_seed_used"]
+        and not metadata["guided_seed_infeasible"]
+        and not metadata["guided_seed_found_incumbent"]
+    )
 
     return incumbent, restarts, metadata, bool(metadata["guided_seed_infeasible"])
 
@@ -381,6 +442,7 @@ def branch_children(
             stats.propagation_calls += 1
             stats.propagation_rounds += child.rounds
             if child.overload is not None:
+                stats.propagation_pruned_nodes += 1
                 stats.timetable_failures += 1
                 stats.max_timetable_explanation = max(
                     stats.max_timetable_explanation,
@@ -390,6 +452,7 @@ def branch_children(
                     record_failed_pairs(child_pairs, failed_pair_sets, stats)
                 continue
             if child.node is None:
+                stats.propagation_pruned_nodes += 1
                 if failure_cache_enabled:
                     record_failed_pairs(child_pairs, failed_pair_sets, stats)
                 continue
@@ -473,6 +536,8 @@ def solve_cp(
     guided_seed_meta: dict[str, object] = {
         "guided_seed_used": False,
         "guided_seed_infeasible": False,
+        "guided_seed_found_incumbent": False,
+        "guided_seed_failed": False,
     }
 
     heuristic_budget = min(0.75, max(0.01, time_limit * 0.25))
@@ -496,13 +561,15 @@ def solve_cp(
                 runtime_seconds=runtime,
                 temporal_lower_bound=temporal_lower[instance.sink],
                 restarts=restarts,
-                metadata={
-                    "backend": "cp",
-                    "seed": seed,
-                    "time_limit": time_limit,
-                    "forced_resource_orders": len(forced_edges),
-                    **guided_seed_meta,
-                },
+                metadata=_search_metadata(
+                    seed=seed,
+                    time_limit=time_limit,
+                    forced_resource_orders=len(forced_edges),
+                    budget_mode=budget_mode,
+                    stats=stats,
+                    guided_seed_meta=guided_seed_meta,
+                    no_incumbent_before_dfs=True,
+                ),
             )
         if incumbent is not None and incumbent.makespan == temporal_lower[instance.sink]:
             runtime = time.perf_counter() - started
@@ -513,32 +580,15 @@ def solve_cp(
                 runtime_seconds=runtime,
                 temporal_lower_bound=temporal_lower[instance.sink],
                 restarts=restarts,
-                metadata={
-                    "backend": "cp",
-                    "seed": seed,
-                    "time_limit": time_limit,
-                    "search_nodes": 0,
-                    "timed_out": False,
-                    "propagation_calls": 0,
-                    "propagation_rounds": 0,
-                    "incumbent_updates": stats.incumbent_updates,
-                    "node_local_attempts": 0,
-                    "node_local_improvements": 0,
-                    "deep_node_local_attempts": 0,
-                    "deep_node_local_improvements": 0,
-                    "branches": 0,
-                    "timetable_failures": 0,
-                    "max_timetable_explanation": 0,
-                    "failure_cache_hits": 0,
-                    "failure_cache_inserts": 0,
-                    "failure_cache_size": 0,
-                    "conflict_events": 0,
-                    "avg_conflict_size": 0.0,
-                    "max_conflict_size": 0,
-                    "forced_resource_orders": len(forced_edges),
-                    "budget_mode": budget_mode,
-                    **guided_seed_meta,
-                },
+                metadata=_search_metadata(
+                    seed=seed,
+                    time_limit=time_limit,
+                    forced_resource_orders=len(forced_edges),
+                    budget_mode=budget_mode,
+                    stats=stats,
+                    guided_seed_meta=guided_seed_meta,
+                    no_incumbent_before_dfs=False,
+                ),
             )
 
     while time.perf_counter() < heuristic_deadline:
@@ -553,6 +603,7 @@ def solve_cp(
             initial_starts=temporal_lower,
         )
         if schedule is None:
+            stats.heuristic_construct_failures += 1
             restarts += 1
             continue
         incumbent = update_incumbent(incumbent, schedule, stats)
@@ -583,6 +634,7 @@ def solve_cp(
             stats.propagation_calls += 1
             stats.propagation_rounds += propagation.rounds
             if propagation.overload is not None:
+                stats.propagation_pruned_nodes += 1
                 stats.timetable_failures += 1
                 stats.max_timetable_explanation = max(
                     stats.max_timetable_explanation,
@@ -593,6 +645,7 @@ def solve_cp(
                 return False
             node = propagation.node
             if node is None:
+                stats.propagation_pruned_nodes += 1
                 if failure_cache_enabled:
                     record_failed_pairs(pairs, failed_pair_sets, stats)
                 return False
@@ -655,6 +708,7 @@ def solve_cp(
                 solver_config=solver_config,
                 rng=rng,
                 deadline=local_budget,
+                search_stats=stats,
             )
             if candidate is not None:
                 found_feasible = True
@@ -724,6 +778,7 @@ def solve_cp(
                 record_failed_pairs(node.pairs, failed_pair_sets, stats)
         return found_feasible
 
+    no_incumbent_before_dfs = incumbent is None
     dfs(forced_pairs)
 
     runtime = time.perf_counter() - started
@@ -735,34 +790,15 @@ def solve_cp(
             runtime_seconds=runtime,
             temporal_lower_bound=temporal_lower[instance.sink],
             restarts=restarts,
-            metadata={
-                "backend": "cp",
-                "seed": seed,
-                "time_limit": time_limit,
-                "search_nodes": stats.nodes,
-                "timed_out": stats.timed_out,
-                "propagation_calls": stats.propagation_calls,
-                "propagation_rounds": stats.propagation_rounds,
-                "incumbent_updates": stats.incumbent_updates,
-                "node_local_attempts": stats.node_local_attempts,
-                "node_local_improvements": stats.node_local_improvements,
-                "deep_node_local_attempts": stats.deep_node_local_attempts,
-                "deep_node_local_improvements": stats.deep_node_local_improvements,
-                "branches": stats.branches,
-                "timetable_failures": stats.timetable_failures,
-                "max_timetable_explanation": stats.max_timetable_explanation,
-                "failure_cache_hits": stats.failure_cache_hits,
-                "failure_cache_inserts": stats.failure_cache_inserts,
-                "failure_cache_size": stats.failure_cache_size,
-                "conflict_events": stats.conflict_events,
-                "avg_conflict_size": (
-                    stats.total_conflict_size / stats.conflict_events if stats.conflict_events else 0.0
-                ),
-                "max_conflict_size": stats.max_conflict_size,
-                "forced_resource_orders": len(forced_edges),
-                "budget_mode": budget_mode,
-                **guided_seed_meta,
-            },
+            metadata=_search_metadata(
+                seed=seed,
+                time_limit=time_limit,
+                forced_resource_orders=len(forced_edges),
+                budget_mode=budget_mode,
+                stats=stats,
+                guided_seed_meta=guided_seed_meta,
+                no_incumbent_before_dfs=no_incumbent_before_dfs,
+            ),
         )
 
     return SolveResult(
@@ -772,30 +808,13 @@ def solve_cp(
         runtime_seconds=runtime,
         temporal_lower_bound=temporal_lower[instance.sink],
         restarts=restarts,
-        metadata={
-            "backend": "cp",
-            "seed": seed,
-            "time_limit": time_limit,
-            "search_nodes": stats.nodes,
-            "timed_out": stats.timed_out,
-            "propagation_calls": stats.propagation_calls,
-            "propagation_rounds": stats.propagation_rounds,
-            "incumbent_updates": stats.incumbent_updates,
-            "node_local_attempts": stats.node_local_attempts,
-            "node_local_improvements": stats.node_local_improvements,
-            "deep_node_local_attempts": stats.deep_node_local_attempts,
-            "deep_node_local_improvements": stats.deep_node_local_improvements,
-            "branches": stats.branches,
-            "timetable_failures": stats.timetable_failures,
-            "max_timetable_explanation": stats.max_timetable_explanation,
-            "failure_cache_hits": stats.failure_cache_hits,
-            "failure_cache_inserts": stats.failure_cache_inserts,
-            "failure_cache_size": stats.failure_cache_size,
-            "conflict_events": stats.conflict_events,
-            "avg_conflict_size": stats.total_conflict_size / stats.conflict_events if stats.conflict_events else 0.0,
-            "max_conflict_size": stats.max_conflict_size,
-            "forced_resource_orders": len(forced_edges),
-            "budget_mode": budget_mode,
-            **guided_seed_meta,
-        },
+        metadata=_search_metadata(
+            seed=seed,
+            time_limit=time_limit,
+            forced_resource_orders=len(forced_edges),
+            budget_mode=budget_mode,
+            stats=stats,
+            guided_seed_meta=guided_seed_meta,
+            no_incumbent_before_dfs=no_incumbent_before_dfs,
+        ),
     )
