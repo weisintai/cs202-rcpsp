@@ -223,9 +223,11 @@ def test_solve_cp_reports_conflict_counters_on_trivial_instance() -> None:
     assert result.metadata["avg_conflict_size"] == 0.0
     assert result.metadata["max_conflict_size"] == 0
     assert result.metadata["heuristic_construct_failures"] == 0
+    assert result.metadata["heuristic_construct_top_failure_reason"] == "none"
     assert result.metadata["node_local_attempts"] == 0
     assert result.metadata["node_local_improvements"] == 0
     assert result.metadata["node_local_construct_failures"] == 0
+    assert result.metadata["node_local_construct_top_failure_reason"] == "none"
     assert result.metadata["deep_node_local_attempts"] == 0
     assert result.metadata["deep_node_local_improvements"] == 0
     assert result.metadata["propagation_pruned_nodes"] >= 0
@@ -237,6 +239,8 @@ def test_guided_seed_reports_seed_phase_metadata() -> None:
 
     result = solve(_dummy_instance(2), time_limit=0.05, seed=0)
 
+    assert "seed_construct_failures" in result.metadata
+    assert "seed_construct_top_failure_reason" in result.metadata
     assert "seed_construct_makespan" in result.metadata
     assert "seed_improve_makespan" in result.metadata
     assert "seed_proof_makespan" in result.metadata
@@ -310,6 +314,35 @@ def test_try_cp_incumbent_returns_none_when_construct_fails(monkeypatch) -> None
 
     assert candidate is None
     assert stats.node_local_construct_failures == 1
+
+
+def test_try_cp_incumbent_records_construct_failure_reason(monkeypatch) -> None:
+    instance = _dummy_instance(4)
+    node = CpNode(lower=(0,) * instance.n_activities, latest=None, edges=(), pairs=frozenset())
+    stats = CpSearchStats()
+
+    def fake_construct(*args, **kwargs):
+        diagnostics = kwargs.get("diagnostics")
+        if isinstance(diagnostics, dict):
+            diagnostics["failure_reason"] = "deadline"
+        return None
+
+    monkeypatch.setattr("rcpsp.cp.search.construct_schedule", fake_construct)
+
+    candidate = try_cp_incumbent(
+        instance=instance,
+        node=node,
+        tail=[0] * instance.n_activities,
+        intensity=[0.0] * instance.n_activities,
+        solver_config=HeuristicConfig(),
+        rng=random.Random(0),
+        deadline=time.perf_counter() + 0.01,
+        search_stats=stats,
+    )
+
+    assert candidate is None
+    assert stats.node_local_construct_failures == 1
+    assert stats.node_local_construct_deadline_failures == 1
 
 
 def test_allow_deep_node_local_heuristic_only_for_deep_promising_nodes() -> None:

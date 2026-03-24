@@ -11,6 +11,63 @@ from ..models import Edge, Instance, Schedule
 from ..temporal import TemporalInfeasibleError, longest_feasible_starts
 from ..validate import validate_schedule
 
+CONSTRUCT_FAILURE_REASONS = (
+    "deadline",
+    "step_limit",
+    "projection_infeasible",
+    "validation",
+    "unknown",
+)
+
+
+def construct_failure_reason(diagnostics: dict[str, object] | None) -> str:
+    if diagnostics is None:
+        return "unknown"
+    reason = diagnostics.get("failure_reason")
+    if isinstance(reason, str) and reason in CONSTRUCT_FAILURE_REASONS:
+        return reason
+    return "unknown"
+
+
+def _construct_failure(
+    diagnostics: dict[str, object] | None,
+    *,
+    reason: str,
+    steps: int,
+    focused_repair: bool,
+    used_release_fallback: bool,
+    termination_reason: str | None = None,
+) -> None:
+    if diagnostics is None:
+        return
+    diagnostics["status"] = "failed"
+    diagnostics["failure_reason"] = reason
+    diagnostics["steps"] = steps
+    diagnostics["focused_repair"] = focused_repair
+    diagnostics["used_release_fallback"] = used_release_fallback
+    if termination_reason is not None:
+        diagnostics["termination_reason"] = termination_reason
+
+
+def _construct_success(
+    diagnostics: dict[str, object] | None,
+    *,
+    schedule: Schedule,
+    steps: int,
+    focused_repair: bool,
+    used_release_fallback: bool,
+    termination_reason: str,
+) -> None:
+    if diagnostics is None:
+        return
+    diagnostics["status"] = "success"
+    diagnostics["failure_reason"] = None
+    diagnostics["steps"] = steps
+    diagnostics["focused_repair"] = focused_repair
+    diagnostics["used_release_fallback"] = used_release_fallback
+    diagnostics["termination_reason"] = termination_reason
+    diagnostics["makespan"] = schedule.makespan
+
 
 def _schedule_from_starts(
     instance: Instance,
@@ -61,24 +118,39 @@ def construct_schedule(
     deadline: float | None = None,
     base_extra_edges: list[Edge] | tuple[Edge, ...] = (),
     initial_starts: list[int] | None = None,
+    diagnostics: dict[str, object] | None = None,
 ) -> Schedule | None:
     """Build a valid CP warm-start schedule or return None if construction fails."""
     use_focused_repair = instance.n_jobs >= 20
     release = [0] * instance.n_activities
     extra_edges = list(base_extra_edges)
-    current = (
-        initial_starts[:]
-        if initial_starts is not None
-        else longest_feasible_starts(instance, release, extra_edges=extra_edges)
-    )
+    if initial_starts is not None:
+        current = initial_starts[:]
+    else:
+        try:
+            current = longest_feasible_starts(instance, release, extra_edges=extra_edges)
+        except TemporalInfeasibleError:
+            _construct_failure(
+                diagnostics,
+                reason="projection_infeasible",
+                steps=0,
+                focused_repair=use_focused_repair,
+                used_release_fallback=False,
+                termination_reason="initial_projection",
+            )
+            return None
     extra_pairs: set[tuple[int, int]] = {(edge.source, edge.target) for edge in extra_edges}
     max_steps = max(200, instance.n_activities * instance.n_activities * 6)
     steps = 0
+    termination_reason = "resolved"
+    used_release_fallback = False
 
     while True:
         if deadline is not None and time.perf_counter() >= deadline:
+            termination_reason = "deadline"
             break
         if steps >= max_steps:
+            termination_reason = "step_limit"
             break
         if use_focused_repair:
             focused_conflict = minimal_conflict_set(instance, current)
@@ -191,10 +263,33 @@ def construct_schedule(
                 default=conflict_time + 1,
             )
             release[selected] = max(release[selected], fallback_target)
-            current = longest_feasible_starts(instance, release_times=release, extra_edges=extra_edges)
+            used_release_fallback = True
+            try:
+                current = longest_feasible_starts(instance, release_times=release, extra_edges=extra_edges)
+            except TemporalInfeasibleError:
+                _construct_failure(
+                    diagnostics,
+                    reason="projection_infeasible",
+                    steps=steps,
+                    focused_repair=use_focused_repair,
+                    used_release_fallback=used_release_fallback,
+                    termination_reason=termination_reason,
+                )
+                return None
         steps += 1
 
-    current = longest_feasible_starts(instance, release_times=release, extra_edges=extra_edges)
+    try:
+        current = longest_feasible_starts(instance, release_times=release, extra_edges=extra_edges)
+    except TemporalInfeasibleError:
+        _construct_failure(
+            diagnostics,
+            reason="projection_infeasible",
+            steps=steps,
+            focused_repair=use_focused_repair,
+            used_release_fallback=used_release_fallback,
+            termination_reason=termination_reason,
+        )
+        return None
     if any(value > 0 for value in release):
         try:
             release_free = longest_feasible_starts(instance, extra_edges=extra_edges)
@@ -213,6 +308,24 @@ def construct_schedule(
             current = repaired
             current_schedule = repaired_schedule
     if current_schedule is None:
+        failure_reason = termination_reason if termination_reason in {"deadline", "step_limit"} else "validation"
+        _construct_failure(
+            diagnostics,
+            reason=failure_reason,
+            steps=steps,
+            focused_repair=use_focused_repair,
+            used_release_fallback=used_release_fallback,
+            termination_reason=termination_reason,
+        )
         return None
     current = compress_valid_schedule(instance, list(current_schedule.start_times))
-    return _schedule_from_starts(instance, current)
+    final_schedule = _schedule_from_starts(instance, current)
+    _construct_success(
+        diagnostics,
+        schedule=final_schedule,
+        steps=steps,
+        focused_repair=use_focused_repair,
+        used_release_fallback=used_release_fallback,
+        termination_reason=termination_reason,
+    )
+    return final_schedule

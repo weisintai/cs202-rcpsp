@@ -16,7 +16,7 @@ from ..core.metrics import resource_intensity
 from ..models import Edge, Instance, Schedule, SolveResult
 from ..temporal import TemporalInfeasibleError, longest_feasible_starts, longest_tail_to_sink
 from ..validate import build_resource_profile, validate_schedule
-from .construct import construct_schedule
+from .construct import CONSTRUCT_FAILURE_REASONS, construct_failure_reason, construct_schedule
 from .guided_seed import solve as solve_guided_seed
 from .propagation import propagate_cp_node
 from .state import CpNode, CpSearchStats
@@ -73,6 +73,7 @@ def try_cp_incumbent(
     deadline: float,
     search_stats: CpSearchStats | None = None,
 ) -> Schedule | None:
+    diagnostics: dict[str, object] = {}
     schedule = construct_schedule(
         instance=instance,
         rng=rng,
@@ -82,10 +83,11 @@ def try_cp_incumbent(
         deadline=deadline,
         base_extra_edges=node.edges,
         initial_starts=list(node.lower),
+        diagnostics=diagnostics,
     )
     if schedule is None:
         if search_stats is not None:
-            search_stats.node_local_construct_failures += 1
+            _record_construct_failure(search_stats, "node_local", diagnostics)
         return None
     return schedule
 
@@ -116,6 +118,38 @@ def cp_budget_mode(time_limit: float) -> str:
     if time_limit >= 1.0:
         return "medium"
     return "fast"
+
+
+def _record_construct_failure(
+    stats: CpSearchStats,
+    phase: str,
+    diagnostics: dict[str, object] | None,
+) -> str:
+    reason = construct_failure_reason(diagnostics)
+    prefix = f"{phase}_construct"
+    setattr(stats, f"{prefix}_failures", getattr(stats, f"{prefix}_failures") + 1)
+    field = f"{prefix}_{reason}_failures"
+    if hasattr(stats, field):
+        setattr(stats, field, getattr(stats, field) + 1)
+    else:
+        setattr(stats, f"{prefix}_unknown_failures", getattr(stats, f"{prefix}_unknown_failures") + 1)
+        reason = "unknown"
+    return reason
+
+
+def _top_construct_failure_reason(
+    stats: CpSearchStats,
+    phase: str,
+) -> str:
+    prefix = f"{phase}_construct"
+    best_reason = "none"
+    best_count = 0
+    for reason in CONSTRUCT_FAILURE_REASONS:
+        count = int(getattr(stats, f"{prefix}_{reason}_failures", 0))
+        if count > best_count:
+            best_reason = reason
+            best_count = count
+    return best_reason if best_count > 0 else "none"
 
 
 def allow_node_local_heuristic(
@@ -194,9 +228,21 @@ def _search_metadata(
         "propagation_pruned_nodes": stats.propagation_pruned_nodes,
         "incumbent_updates": stats.incumbent_updates,
         "heuristic_construct_failures": stats.heuristic_construct_failures,
+        "heuristic_construct_deadline_failures": stats.heuristic_construct_deadline_failures,
+        "heuristic_construct_step_limit_failures": stats.heuristic_construct_step_limit_failures,
+        "heuristic_construct_projection_infeasible_failures": stats.heuristic_construct_projection_infeasible_failures,
+        "heuristic_construct_validation_failures": stats.heuristic_construct_validation_failures,
+        "heuristic_construct_unknown_failures": stats.heuristic_construct_unknown_failures,
+        "heuristic_construct_top_failure_reason": _top_construct_failure_reason(stats, "heuristic"),
         "node_local_attempts": stats.node_local_attempts,
         "node_local_improvements": stats.node_local_improvements,
         "node_local_construct_failures": stats.node_local_construct_failures,
+        "node_local_construct_deadline_failures": stats.node_local_construct_deadline_failures,
+        "node_local_construct_step_limit_failures": stats.node_local_construct_step_limit_failures,
+        "node_local_construct_projection_infeasible_failures": stats.node_local_construct_projection_infeasible_failures,
+        "node_local_construct_validation_failures": stats.node_local_construct_validation_failures,
+        "node_local_construct_unknown_failures": stats.node_local_construct_unknown_failures,
+        "node_local_construct_top_failure_reason": _top_construct_failure_reason(stats, "node_local"),
         "construct_failures": stats.heuristic_construct_failures + stats.node_local_construct_failures,
         "deep_node_local_attempts": stats.deep_node_local_attempts,
         "deep_node_local_improvements": stats.deep_node_local_improvements,
@@ -592,6 +638,7 @@ def solve_cp(
             )
 
     while time.perf_counter() < heuristic_deadline:
+        diagnostics: dict[str, object] = {}
         schedule = construct_schedule(
             instance=instance,
             rng=rng,
@@ -601,9 +648,10 @@ def solve_cp(
             deadline=heuristic_deadline,
             base_extra_edges=forced_edges,
             initial_starts=temporal_lower,
+            diagnostics=diagnostics,
         )
         if schedule is None:
-            stats.heuristic_construct_failures += 1
+            _record_construct_failure(stats, "heuristic", diagnostics)
             restarts += 1
             continue
         incumbent = update_incumbent(incumbent, schedule, stats)
