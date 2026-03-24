@@ -27,6 +27,7 @@ Raw benchmark datasets now live under `benchmarks/data/` to keep the project roo
 - Handles generalized lag constraints of the form `S_j >= S_i + lag`
 - Exposes three in-repo backends: `cp`, `hybrid`, and `sgs`
 - Uses the `cp` backend as the current submission-candidate path for branch-and-propagate search under the assignment constraints
+- Implements the current `cp` backend around lag-closure propagation, compulsory-part / timetable pruning, pair-order branching, and a local guided-seed warm start
 - Keeps `hybrid` available as a practical baseline for comparison runs
 - Benchmarks folders of instances from the command line
 - Compares benchmark outputs against published reference values for `sm_j10`, `sm_j20`, `sm_j30`, `testset_ubo20`, and `testset_ubo50`
@@ -159,6 +160,28 @@ This is the minimum anti-overfitting policy for the repo. A change that helps on
 
 For the final submission backend, use `cp` and the stricter roadmap matrix in [CP_ROADMAP.md](CP_ROADMAP.md).
 
+## CP Backend Read
+
+The current `cp` solver is following a standard `RCPSP/max` CP shape:
+
+- temporal closure over generalized precedence / lag constraints
+- cumulative-capacity reasoning through compulsory-part / timetable propagation
+- search over additional pair-order resource decisions
+- branch-and-bound with an incumbent makespan
+- a local `guided_seed` phase to try to find an early incumbent before DFS
+
+That is the right model family for `RCPSP/max`. What it is not yet is a full-strength scheduling CP engine.
+
+Missing pieces compared with stronger scheduling CP solvers:
+
+- timetable-edge-finding or similarly strong cumulative propagation
+- richer `not-first / not-last` inference
+- smaller reusable overload explanations / failure cores
+- more incremental propagation scheduling instead of mostly recompute-to-fixpoint
+- stronger incumbent generation on hard feasible large instances
+
+This is why the current CP iteration policy treats `0.1s` and `30s` as different operating regimes. Some deeper reasoning is promising, but it must stay gated so the short-budget acceptance path stays stable.
+
 ## Reading the benchmark JSON
 
 The per-instance rows contain:
@@ -196,18 +219,18 @@ When two solver versions solve different sets of instances, compare `avg_ratio` 
 
 ## Research-Inspired Next Steps
 
-These are the smaller CP-style ideas that still fit the current project scope and codebase:
+These are the stronger-CP ideas that still fit the current project scope and codebase:
 
-- stronger `mandatory-overlap clique` pruning instead of only pairwise overlap checks
-- light `energetic / window-based` resource pruning for obvious overload windows
-- better exact-search branching using conflict history or activity failure counts
-- stronger incumbent improvement around critical-chain and bottleneck-resource activities
-- richer local moves such as pair reinsertion / swap near hard conflicts
+- stronger cumulative propagation such as `TTEF-lite`, energetic-window checks, and better overload-core shrinking
+- richer `not-first / not-last` and conflict-derived pair forcing
+- better exact-search branching using explanation tightness, conflict history, or activity failure counts
+- stronger incumbent generation and repair on hard feasible cases before DFS burns the full budget
+- more explicit separation between cheap always-on propagation and deeper-budget propagation
 
 What we are deliberately not trying to build from scratch right now:
 
 - a full `lazy clause generation` engine
-- a full `global cumulative` propagator
+- a full external-solver-grade cumulative propagator stack
 - a full external-solver-grade CP / MIP engine
 
 Those are valid research directions, but they are much larger engineering projects than this assignment needs.

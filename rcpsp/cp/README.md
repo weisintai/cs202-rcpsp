@@ -1,13 +1,13 @@
 # CP Backend
 
-This is the experimental CP-style backend.
+This is the current submission-oriented `CP-style` backend.
 
 The implementation roadmap for this backend lives in [../../CP_ROADMAP.md](../../CP_ROADMAP.md).
 
 ## Purpose
 
 - provide a separate branch-and-propagate architecture
-- make CP-style changes without destabilizing the accepted heuristic backend
+- make stronger scheduling-CP changes without destabilizing the comparison backends
 
 ## Layout
 
@@ -34,7 +34,19 @@ This backend currently owns:
 - pairwise conflict branching from resource explanations
 - a local guided-seed warm-start phase that gives CP search a stronger incumbent bound
 
-It is currently a scaffold, not the accepted main solver. Changes here should target `stronger propagation and branching`, not heuristic polishing.
+The core modeling direction is standard for `RCPSP/max`: temporal lag closure, cumulative-capacity pruning, search over resource-order decisions, and branch-and-bound against an incumbent makespan. Changes here should target `stronger propagation and branching`, not generic heuristic polishing.
+
+## What Stronger CP Still Means Here
+
+This backend is still lighter than a strong external scheduling CP solver. The main missing pieces are:
+
+- timetable-edge-finding or similarly strong cumulative propagation
+- richer `not-first / not-last` inference
+- smaller reusable overload explanations and failure cores
+- more incremental propagation scheduling instead of mostly recompute-to-fixpoint
+- stronger incumbent generation on hard feasible cases
+
+Those are the gaps that still separate this backend from stronger scheduling CP implementations in the literature and in industrial solvers.
 
 ## Current Direction
 
@@ -43,25 +55,15 @@ This backend is now following a stricter route:
 - stay self-contained inside `rcpsp/cp`
 - use `guided_seed` only as a local incumbent/proof helper
 - improve the backend through stronger propagation, explanations, and branching
-- accept changes only against the `cp_acceptance` matrix from [../../CP_ROADMAP.md](../../CP_ROADMAP.md)
+- screen changes first on `submission_quick` and `broad_generalization`
+- only call a change submission-ready after the `cp_acceptance` and `submission` presets from [../../CP_ROADMAP.md](../../CP_ROADMAP.md)
 
-## Current 30s Read
+## Practical Read
 
-The current accepted baseline is strong on public-size instances and the active experimental direction is now `deep-budget-only` improvement rather than more `0.1s` tuning.
+The important operational split is now:
 
-Current reference point:
+- `0.1s` and `1.0s` guardrails protect the short-budget submission path
+- `30s` runs are where deeper-budget CP ideas should be tested
+- any heavier propagation or search policy should be explicitly budget-gated
 
-- `sm_j10 @ 1.0s`: perfect
-- `sm_j20 @ 1.0s`: `155/158` exact
-- `sm_j30 @ 1.0s`: `114/120` exact
-
-Recent `30s` CP sampling on held-out large instances showed that the deeper-budget path is the right place to keep experimenting:
-
-- `testset_ubo100` 10-instance sample:
-  - `8 feasible / 1 infeasible / 1 unknown`
-  - solved bounded cases averaged about `1.05x` the best-known upper bound
-- `testset_ubo200` 10-instance sample:
-  - `4 feasible / 2 infeasible / 4 unknown`
-  - exact cases in the sample were solved at `2/2`
-
-This is why the next CP work should target `30s` behavior explicitly, while keeping the short-budget baseline stable.
+This backend is not trying to clone CP-SAT or CP Optimizer. The goal is a strong scheduling-specific CP backend that stays small enough for this repo and this assignment.

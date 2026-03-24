@@ -117,9 +117,9 @@ The `cp` backend should keep these invariants:
 
 ## Acceptance Matrix
 
-Every meaningful `cp` change should be screened against the same matrix.
+Every meaningful `cp` change should be screened against the same stack.
 
-### Tier 1: Main Acceptance Cases
+### Tier 1: Main Short-Budget Screen
 
 - `sm_j10 @ 0.1s`
 - `sm_j20 @ 0.1s`
@@ -128,11 +128,32 @@ Every meaningful `cp` change should be screened against the same matrix.
 - `sm_j10 @ 1.0s`
 - `sm_j20 @ 1.0s`
 
+The harness preset for this screen is `submission_quick`.
+
 ### Tier 2: Anti-Overfitting Cases
 
 - `testset_ubo10 @ 0.1s`
 - `testset_ubo100 @ 0.1s`
 - `testset_ubo200 @ 0.1s`
+
+The harness preset for this screen is `broad_generalization`.
+
+### Tier 3: Public 30s Matrix
+
+- `sm_j10 @ 30s`
+- `sm_j20 @ 30s`
+- `sm_j30 @ 30s`
+- `testset_ubo20 @ 30s`
+- `testset_ubo50 @ 30s`
+
+The harness preset for this matrix is `cp_acceptance`.
+
+### Tier 4: Submission Gate
+
+- `cp_acceptance`
+- plus held-out `ubo10/100/200 @ 0.1s`
+
+The harness preset for this final gate is `submission`.
 
 ### Current Main Targets
 
@@ -142,9 +163,8 @@ The `cp` roadmap is currently optimizing for:
 2. improve `sm_j20 @ 1.0s` exact closure
 3. reduce `unknown` and `over_budget` on `sm_j30 @ 0.1s`
 4. reduce `unknown` and `over_budget` on `testset_ubo50 @ 0.1s`
-5. avoid fake gains that collapse on `ubo10/100/200`
-
-The guardrail preset for this matrix is `cp_acceptance`.
+5. improve `30s` residue behavior without damaging the short-budget path
+6. avoid fake gains that collapse on `ubo10/100/200`
 
 ## Current Gaps
 
@@ -209,8 +229,8 @@ Goal: stop drift and benchmark chasing.
 Implement:
 
 - [x] this roadmap
-- [x] the `cp_acceptance` guardrail preset
-- [x] use the same public plus held-out matrix before accepting `cp` changes
+- [x] the guardrail presets in the harness
+- [x] use the same short-budget, held-out, and `30s` screens before accepting `cp` changes
 
 Exit criteria:
 
@@ -251,7 +271,7 @@ Do not:
 Exit criteria:
 
 - [x] cleaner propagation/search boundaries in [rcpsp/cp/propagation.py](rcpsp/cp/propagation.py) and [rcpsp/cp/search.py](rcpsp/cp/search.py)
-- [x] no accepted regression on the `cp_acceptance` matrix
+- [x] no accepted regression on the required guardrail stack
 
 Current accepted outcomes from Phase 1 work:
 
@@ -388,9 +408,10 @@ This roadmap is for a `strong scheduling-specific CP backend`, not a full CP pla
 The next actual code work after this roadmap reset should be:
 
 1. keep using `cp_acceptance` as the required gate
-2. harden the solver kernel and make propagation modes more explicit
-3. implement a cheap `not-first / not-last` pass driven by overload explanations
-4. improve explanation-aware branching and failure reuse
-5. only then spend more effort on `guided_seed`
+2. keep `submission_quick` and `broad_generalization` green before trusting a `30s` win
+3. harden the solver kernel and make propagation modes more explicit
+4. implement a cheap `not-first / not-last` pass driven by overload explanations
+5. improve explanation-aware branching and failure reuse
+6. only then spend more effort on `guided_seed`
 
 This is the route to follow unless new benchmark evidence clearly contradicts it.
