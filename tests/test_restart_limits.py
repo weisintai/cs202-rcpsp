@@ -54,9 +54,9 @@ def test_cp_guided_seed_counts_invalid_attempts_toward_max_restarts(monkeypatch)
     instance = _probe_instance()
     calls = {"count": 0}
 
-    def fake_construct(*args, **kwargs) -> Schedule:
+    def fake_construct(*args, **kwargs) -> None:
         calls["count"] += 1
-        return Schedule(start_times=(1, 0, 0), makespan=0)
+        return None
 
     def fake_exact(*args, **kwargs):
         return None, SearchStats()

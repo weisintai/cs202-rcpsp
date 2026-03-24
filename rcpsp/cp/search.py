@@ -82,7 +82,7 @@ def try_cp_incumbent(
         base_extra_edges=node.edges,
         initial_starts=list(node.lower),
     )
-    if validate_schedule(instance, schedule):
+    if schedule is None:
         return None
     return schedule
 
@@ -118,7 +118,6 @@ def cp_budget_mode(time_limit: float) -> str:
 def allow_node_local_heuristic(
     instance: Instance,
     time_limit: float,
-    node: CpNode,
     incumbent: Schedule | None,
     stats: CpSearchStats | None = None,
 ) -> bool:
@@ -553,7 +552,7 @@ def solve_cp(
             base_extra_edges=forced_edges,
             initial_starts=temporal_lower,
         )
-        if validate_schedule(instance, schedule):
+        if schedule is None:
             restarts += 1
             continue
         incumbent = update_incumbent(incumbent, schedule, stats)
@@ -624,7 +623,6 @@ def solve_cp(
         use_local_heuristic = allow_node_local_heuristic(
             instance,
             time_limit,
-            node,
             incumbent,
             stats,
         )

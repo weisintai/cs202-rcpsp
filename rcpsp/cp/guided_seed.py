@@ -141,7 +141,7 @@ def _run_construct_phase(
             initial_starts=context.temporal_lower,
         )
         restarts += 1
-        if validate_schedule(context.instance, schedule):
+        if schedule is None:
             continue
         if best is None or schedule.makespan < best.makespan:
             best = schedule
@@ -149,6 +149,63 @@ def _run_construct_phase(
             break
 
     return best, restarts
+
+
+def _seed_metadata(
+    context: SeedContext,
+    budgets: SeedBudgets,
+    *,
+    construct_makespan: int | None,
+    improve_makespan: int | None,
+    proof_makespan: int | None,
+    polish_makespan: int | None,
+    best_source: str,
+    improvement_iterations: int,
+    exact_stats: SearchStats,
+    reason: str | None = None,
+) -> dict[str, object]:
+    metadata: dict[str, object] = {
+        "time_limit": context.time_limit,
+        "seed": context.seed,
+        "activities": context.instance.n_activities,
+        "resources": context.instance.n_resources,
+        "seed_construct_until_seconds": max(0.0, budgets.construct_until - context.started),
+        "seed_improve_budget_seconds": budgets.improve_budget,
+        "seed_proof_budget_seconds": max(0.0, budgets.proof_until - budgets.construct_until),
+        "seed_construct_makespan": construct_makespan,
+        "seed_improve_makespan": improve_makespan,
+        "seed_proof_makespan": proof_makespan,
+        "seed_polish_makespan": polish_makespan,
+        "seed_best_source": best_source,
+        "improvement_iterations": improvement_iterations,
+        "search_nodes": exact_stats.nodes,
+        "search_timed_out": exact_stats.timed_out,
+        "forced_resource_orders": len(context.forced_edges),
+    }
+    if reason is not None:
+        metadata["reason"] = reason
+    return metadata
+
+
+def _seed_result(
+    context: SeedContext,
+    *,
+    status: str,
+    schedule: Schedule | None,
+    restarts: int,
+    temporal_lower_bound: int,
+    metadata: dict[str, object],
+) -> SolveResult:
+    runtime = time.perf_counter() - context.started
+    return SolveResult(
+        instance_name=context.instance.name,
+        status=status,
+        schedule=schedule,
+        runtime_seconds=runtime,
+        temporal_lower_bound=temporal_lower_bound,
+        restarts=restarts,
+        metadata=metadata,
+    )
 
 
 def _run_improve_phase(
@@ -255,90 +312,67 @@ def solve(
     improvement_iterations += polish_iterations
 
     if best is None:
-        runtime = time.perf_counter() - context.started
-        return SolveResult(
-            instance_name=instance.name,
+        return _seed_result(
+            context,
             status="unknown" if exact_stats.timed_out else "infeasible",
             schedule=None,
-            runtime_seconds=runtime,
             temporal_lower_bound=context.temporal_lower_bound,
             restarts=restarts,
-            metadata={
-                "time_limit": time_limit,
-                "seed": seed,
-                "activities": instance.n_activities,
-                "resources": instance.n_resources,
-                "seed_construct_until_seconds": max(0.0, budgets.construct_until - context.started),
-                "seed_improve_budget_seconds": budgets.improve_budget,
-                "seed_proof_budget_seconds": max(0.0, budgets.proof_until - budgets.construct_until),
-                "seed_construct_makespan": construct_makespan,
-                "seed_improve_makespan": improve_makespan,
-                "seed_proof_makespan": proof_makespan,
-                "seed_polish_makespan": polish_makespan,
-                "seed_best_source": best_source,
-                "improvement_iterations": improvement_iterations,
-                "search_nodes": exact_stats.nodes,
-                "search_timed_out": exact_stats.timed_out,
-                "forced_resource_orders": len(context.forced_edges),
-                "reason": "exact search exhausted without finding a feasible schedule"
-                if not exact_stats.timed_out
-                else "time limit reached before exact search could prove feasibility or infeasibility",
-            },
+            metadata=_seed_metadata(
+                context,
+                budgets,
+                construct_makespan=construct_makespan,
+                improve_makespan=improve_makespan,
+                proof_makespan=proof_makespan,
+                polish_makespan=polish_makespan,
+                best_source=best_source,
+                improvement_iterations=improvement_iterations,
+                exact_stats=exact_stats,
+                reason=(
+                    "exact search exhausted without finding a feasible schedule"
+                    if not exact_stats.timed_out
+                    else "time limit reached before exact search could prove feasibility or infeasibility"
+                ),
+            ),
         )
 
     errors = validate_schedule(context.instance, best)
     if errors:
-        runtime = time.perf_counter() - context.started
-        return SolveResult(
-            instance_name=instance.name,
+        return _seed_result(
+            context,
             status="unknown",
             schedule=None,
-            runtime_seconds=runtime,
             temporal_lower_bound=context.temporal_lower_bound,
             restarts=restarts,
-            metadata={
-                "reason": errors[0],
-                "seed": seed,
-                "time_limit": time_limit,
-                "seed_construct_until_seconds": max(0.0, budgets.construct_until - context.started),
-                "seed_improve_budget_seconds": budgets.improve_budget,
-                "seed_proof_budget_seconds": max(0.0, budgets.proof_until - budgets.construct_until),
-                "seed_construct_makespan": construct_makespan,
-                "seed_improve_makespan": improve_makespan,
-                "seed_proof_makespan": proof_makespan,
-                "seed_polish_makespan": polish_makespan,
-                "seed_best_source": best_source,
-                "improvement_iterations": improvement_iterations,
-                "search_nodes": exact_stats.nodes,
-                "search_timed_out": exact_stats.timed_out,
-                "forced_resource_orders": len(context.forced_edges),
-            },
+            metadata=_seed_metadata(
+                context,
+                budgets,
+                construct_makespan=construct_makespan,
+                improve_makespan=improve_makespan,
+                proof_makespan=proof_makespan,
+                polish_makespan=polish_makespan,
+                best_source=best_source,
+                improvement_iterations=improvement_iterations,
+                exact_stats=exact_stats,
+                reason=errors[0],
+            ),
         )
 
-    runtime = time.perf_counter() - context.started
-    return SolveResult(
-        instance_name=instance.name,
+    return _seed_result(
+        context,
         status="feasible",
         schedule=best,
-        runtime_seconds=runtime,
         temporal_lower_bound=context.temporal_lower_bound,
         restarts=restarts,
-        metadata={
-            "time_limit": time_limit,
-            "seed": seed,
-            "activities": instance.n_activities,
-            "resources": instance.n_resources,
-            "seed_construct_until_seconds": max(0.0, budgets.construct_until - context.started),
-            "seed_improve_budget_seconds": budgets.improve_budget,
-            "seed_proof_budget_seconds": max(0.0, budgets.proof_until - budgets.construct_until),
-            "seed_construct_makespan": construct_makespan,
-            "seed_improve_makespan": improve_makespan,
-            "seed_proof_makespan": proof_makespan,
-            "seed_polish_makespan": polish_makespan,
-            "seed_best_source": best_source,
-            "improvement_iterations": improvement_iterations,
-            "search_nodes": exact_stats.nodes,
-            "search_timed_out": exact_stats.timed_out,
-            "forced_resource_orders": len(context.forced_edges),
-        },
+        metadata=_seed_metadata(
+            context,
+            budgets,
+            construct_makespan=construct_makespan,
+            improve_makespan=improve_makespan,
+            proof_makespan=proof_makespan,
+            polish_makespan=polish_makespan,
+            best_source=best_source,
+            improvement_iterations=improvement_iterations,
+            exact_stats=exact_stats,
+        ),
     )

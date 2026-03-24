@@ -12,6 +12,46 @@ from ..temporal import TemporalInfeasibleError, longest_feasible_starts
 from ..validate import validate_schedule
 
 
+def _schedule_from_starts(
+    instance: Instance,
+    start_times: list[int],
+) -> Schedule:
+    return Schedule(start_times=tuple(start_times), makespan=start_times[instance.sink])
+
+
+def _validated_schedule(
+    instance: Instance,
+    start_times: list[int],
+) -> Schedule | None:
+    schedule = _schedule_from_starts(instance, start_times)
+    if validate_schedule(instance, schedule):
+        return None
+    return schedule
+
+
+def _candidate_from_edges(
+    instance: Instance,
+    release_times: list[int],
+    candidate_edges: list[Edge],
+    candidate_pairs: set[tuple[int, int]],
+) -> tuple[int, int, list[Edge], set[tuple[int, int]], list[int]] | None:
+    try:
+        candidate_schedule = longest_feasible_starts(
+            instance,
+            release_times=release_times,
+            extra_edges=candidate_edges,
+        )
+    except TemporalInfeasibleError:
+        return None
+    return (
+        candidate_schedule[instance.sink],
+        len(candidate_edges),
+        candidate_edges,
+        candidate_pairs,
+        candidate_schedule,
+    )
+
+
 def construct_schedule(
     instance: Instance,
     rng: random.Random,
@@ -21,7 +61,8 @@ def construct_schedule(
     deadline: float | None = None,
     base_extra_edges: list[Edge] | tuple[Edge, ...] = (),
     initial_starts: list[int] | None = None,
-) -> Schedule:
+) -> Schedule | None:
+    """Build a valid CP warm-start schedule or return None if construction fails."""
     use_focused_repair = instance.n_jobs >= 20
     release = [0] * instance.n_activities
     extra_edges = list(base_extra_edges)
@@ -87,23 +128,14 @@ def construct_schedule(
                         candidate_edges = extra_edges + [edge]
                         candidate_pairs = set(extra_pairs)
                         candidate_pairs.add(pair)
-                        try:
-                            candidate_schedule = longest_feasible_starts(
-                                instance,
-                                release_times=release,
-                                extra_edges=candidate_edges,
-                            )
-                        except TemporalInfeasibleError:
-                            continue
-                        candidate_options.append(
-                            (
-                                candidate_schedule[instance.sink],
-                                len(candidate_edges),
-                                candidate_edges,
-                                candidate_pairs,
-                                candidate_schedule,
-                            )
+                        candidate = _candidate_from_edges(
+                            instance=instance,
+                            release_times=release,
+                            candidate_edges=candidate_edges,
+                            candidate_pairs=candidate_pairs,
                         )
+                        if candidate is not None:
+                            candidate_options.append(candidate)
                 if candidate_options:
                     _, _, extra_edges, extra_pairs, current = min(
                         candidate_options,
@@ -131,23 +163,14 @@ def construct_schedule(
                         changed = True
                     if not changed:
                         continue
-                    try:
-                        candidate_schedule = longest_feasible_starts(
-                            instance,
-                            release_times=release,
-                            extra_edges=candidate_edges,
-                        )
-                    except TemporalInfeasibleError:
-                        continue
-                    candidate_options.append(
-                        (
-                            candidate_schedule[instance.sink],
-                            len(candidate_edges),
-                            candidate_edges,
-                            candidate_pairs,
-                            candidate_schedule,
-                        )
+                    candidate = _candidate_from_edges(
+                        instance=instance,
+                        release_times=release,
+                        candidate_edges=candidate_edges,
+                        candidate_pairs=candidate_pairs,
                     )
+                    if candidate is not None:
+                        candidate_options.append(candidate)
                 if candidate_options:
                     _, _, extra_edges, extra_pairs, current = min(
                         candidate_options,
@@ -178,20 +201,18 @@ def construct_schedule(
         except TemporalInfeasibleError:
             release_free = None
         if release_free is not None:
-            release_free_schedule = Schedule(
-                start_times=tuple(release_free),
-                makespan=release_free[instance.sink],
-            )
-            if not validate_schedule(instance, release_free_schedule):
+            release_free_schedule = _validated_schedule(instance, release_free)
+            if release_free_schedule is not None:
                 current = release_free
     current = left_shift(instance, current, extra_edges)
-    current_schedule = Schedule(start_times=tuple(current), makespan=current[instance.sink])
-    if validate_schedule(instance, current_schedule):
+    current_schedule = _validated_schedule(instance, current)
+    if current_schedule is None:
         repaired = left_shift(instance, current, [])
-        repaired_schedule = Schedule(start_times=tuple(repaired), makespan=repaired[instance.sink])
-        if not validate_schedule(instance, repaired_schedule):
+        repaired_schedule = _validated_schedule(instance, repaired)
+        if repaired_schedule is not None:
             current = repaired
             current_schedule = repaired_schedule
-    if not validate_schedule(instance, current_schedule):
-        current = compress_valid_schedule(instance, current)
-    return Schedule(start_times=tuple(current), makespan=current[instance.sink])
+    if current_schedule is None:
+        return None
+    current = compress_valid_schedule(instance, list(current_schedule.start_times))
+    return _schedule_from_starts(instance, current)

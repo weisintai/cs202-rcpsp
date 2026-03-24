@@ -8,7 +8,7 @@ from ..config import HeuristicConfig, sample_heuristic_config
 from ..core.compress import normalized_time_loads, resource_order_edges
 from ..models import Edge, Instance, Schedule
 from ..temporal import TemporalInfeasibleError, longest_feasible_starts
-from ..validate import build_resource_profile, validate_schedule
+from ..validate import build_resource_profile
 from .construct import construct_schedule
 
 
@@ -356,7 +356,7 @@ def repair_schedule_subset(
         base_extra_edges=base_edges,
         initial_starts=initial_starts,
     )
-    if validate_schedule(instance, candidate):
+    if candidate is None:
         return None
     return candidate
 
