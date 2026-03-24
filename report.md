@@ -1,5 +1,13 @@
 # Autoresearch Setup Report
 
+## Positioning The CP Backend
+
+For this project, our final solver is best described as a scheduling-specific branch-and-propagate backend for `RCPSP/max`, designed to produce good feasible schedules reliably under a strict `30s` wall-clock budget without relying on external optimization libraries. Rather than attempting to build a full general-purpose constraint-programming engine, we implemented a focused solver around temporal lag closure, cumulative resource pruning, pair-order branching, and a lightweight warm-start phase for early incumbents. This keeps the design aligned with the project brief: the aim is not guaranteed optimality on every instance, but a well-analysed algorithm that makes strong scheduling decisions under time pressure and within the assignment's tool restrictions.
+
+The main limitation is that this backend is still a lightweight scheduling CP solver, not an industrial-strength CP system. It does not implement full lazy clause generation, full timetable-edge-finding, or the richer explanation and propagation machinery used by stronger external solvers. That is acceptable for the scope of the assignment, because the brief emphasizes thoughtful algorithm design and solution quality under a hard deadline rather than complete optimality. We also evaluated beyond the public benchmark sets to reduce overfitting risk, since the grading instances are expected to be harder than the released ones.
+
+Historical note: older `hybrid` and `sgs` experiment sections below are archival. The current iteration and submission workflow is CP-first. Teammates should read [rcpsp/cp/README.md](rcpsp/cp/README.md) and use the `submission_quick`, `broad_generalization`, `cp_acceptance`, and `run_cp_residue.py` loops as the live workflow.
+
 ## Summary
 
 I set up an RCPSP-specific adaptation of Karpathy's `autoresearch` workflow in this repo instead of trying to use the upstream code unchanged.

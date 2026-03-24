@@ -1,6 +1,6 @@
 # RCPSP Package Layout
 
-The `rcpsp/` package is split into shared infrastructure, a reusable solver core, and backend-specific orchestration.
+The `rcpsp/` package is split into shared infrastructure, a reusable solver core, and backend-specific orchestration. In the current project phase, `cp` is the active solver path; the other backends are kept for baseline comparison and historical reference.
 
 ## Shared infrastructure
 
@@ -35,23 +35,23 @@ The `rcpsp/` package is split into shared infrastructure, a reusable solver core
 ## Solver backends
 
 - [heuristic/README.md](heuristic/README.md)
-  - legacy heuristic-style baseline
+  - archived heuristic-style baseline
   - layered into construction, improvement, exact search, and a thin public wrapper
 - [cp/README.md](cp/README.md)
-  - current submission-oriented CP backend
+  - active submission-oriented CP backend
   - layered into explicit state, propagation, search, and a thin public wrapper
 - [../CP_ROADMAP.md](../CP_ROADMAP.md)
   - phased implementation roadmap for turning `cp` into the strongest exact-oriented backend
 - [sgs/README.md](sgs/README.md)
-  - SGS-first research backend
+  - archived SGS-style comparison backend
   - layered into instance adaptation, graph utilities, SGS decoding, and light improvement
 - [../SGS_ROADMAP.md](../SGS_ROADMAP.md)
-  - phased implementation roadmap for turning `sgs` into the main constructive solver track
+  - historical SGS roadmap
 
 ## Entry points
 
 - package exports are re-exported from `rcpsp/__init__.py`
 - CLI dispatch lives in `main.py`
-- backend entrypoints live in `heuristic/solver.py` and `cp/solver.py`
+- backend entrypoints live in `heuristic/solver.py`, `cp/solver.py`, and `sgs/solver.py`
 
-The goal of this layout is to isolate backend-specific work while keeping shared scheduling primitives in one place.
+The goal of this layout is to isolate backend-specific work while keeping shared scheduling primitives in one place. For active solver work, teammates should start in [cp/README.md](cp/README.md) and ignore the archived backends unless they are explicitly doing a comparison run.

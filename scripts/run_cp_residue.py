@@ -25,7 +25,6 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run a small CP residue set for fast solver iteration."
     )
-    parser.add_argument("--backend", choices=("cp", "hybrid", "sgs"), default="cp")
     parser.add_argument("--time-limit", type=float, default=30.0)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--case-set", choices=tuple(CASE_SETS), default="public_30_residue")
@@ -39,7 +38,6 @@ def parse_args() -> argparse.Namespace:
 def _run_solve_command(
     *,
     path: str,
-    backend: str,
     time_limit: float,
     seed: int,
     max_restarts: int | None,
@@ -51,7 +49,7 @@ def _run_solve_command(
         "solve",
         path,
         "--backend",
-        backend,
+        "cp",
         "--time-limit",
         str(time_limit),
         "--seed",
@@ -87,7 +85,10 @@ def _print_row(row: dict[str, object]) -> None:
         f"gs_fail={row['guided_seed_failed']}",
         f"no_inc={row['no_incumbent_before_dfs']}",
         f"h_fail={row['heuristic_construct_failures']}",
+        f"h_top={row['heuristic_construct_top_failure_reason']}",
         f"nl_fail={row['node_local_construct_failures']}",
+        f"nl_top={row['node_local_construct_top_failure_reason']}",
+        f"seed_top={row['seed_construct_top_failure_reason']}",
         f"prop_prune={row['propagation_pruned_nodes']}",
     ]
     print(" ".join(parts), flush=True)
@@ -107,7 +108,6 @@ def main() -> int:
     for index, path in enumerate(paths):
         payload = _run_solve_command(
             path=path,
-            backend=args.backend,
             time_limit=args.time_limit,
             seed=args.seed + index,
             max_restarts=args.max_restarts,
@@ -130,8 +130,17 @@ def main() -> int:
             "heuristic_construct_failures": int(
                 metadata.get("heuristic_construct_failures") or 0
             ),
+            "heuristic_construct_top_failure_reason": str(
+                metadata.get("heuristic_construct_top_failure_reason") or "none"
+            ),
             "node_local_construct_failures": int(
                 metadata.get("node_local_construct_failures") or 0
+            ),
+            "node_local_construct_top_failure_reason": str(
+                metadata.get("node_local_construct_top_failure_reason") or "none"
+            ),
+            "seed_construct_top_failure_reason": str(
+                metadata.get("seed_construct_top_failure_reason") or "none"
             ),
             "propagation_pruned_nodes": int(
                 metadata.get("propagation_pruned_nodes") or 0
@@ -150,7 +159,7 @@ def main() -> int:
         return 0
 
     summary = {
-        "backend": args.backend,
+        "backend": "cp",
         "time_limit": args.time_limit,
         "seed": args.seed,
         "cases": len(rows),

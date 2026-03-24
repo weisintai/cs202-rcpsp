@@ -1,6 +1,6 @@
 # RCPSP/max Solver
 
-In-repo RCPSP/max solver and experiment harness for the course project. The current submission-oriented workflow targets the custom `cp` backend; `hybrid` remains a comparison baseline and `sgs` remains a secondary backend track.
+In-repo RCPSP/max solver and experiment harness for the course project. The active submission-oriented workflow now targets the custom `cp` backend. `hybrid` and `sgs` are kept in the repo as historical comparison baselines and idea sources, not as the main iteration path.
 
 Raw benchmark datasets now live under `benchmarks/data/` to keep the project root cleaner. The CLI still accepts the old shorthand dataset names such as `sm_j10` and `testset_ubo50`.
 
@@ -8,16 +8,18 @@ Raw benchmark datasets now live under `benchmarks/data/` to keep the project roo
 
 - [rcpsp/README.md](rcpsp/README.md)
   - package index and shared module layout
-- [rcpsp/heuristic/README.md](rcpsp/heuristic/README.md)
-  - legacy heuristic baseline
 - [rcpsp/cp/README.md](rcpsp/cp/README.md)
   - current submission-candidate backend
 - [CP_ROADMAP.md](CP_ROADMAP.md)
   - phased implementation plan for the CP backend
+- [report.md](report.md)
+  - project report notes and submission positioning
+- [rcpsp/heuristic/README.md](rcpsp/heuristic/README.md)
+  - archived heuristic baseline
 - [rcpsp/sgs/README.md](rcpsp/sgs/README.md)
-  - clean SGS-first backend
+  - archived SGS-style comparison backend
 - [SGS_ROADMAP.md](SGS_ROADMAP.md)
-  - phased implementation plan for the SGS backend
+  - historical SGS roadmap
 - [references/README.md](references/README.md)
   - external reference repos cloned for study
 
@@ -25,10 +27,9 @@ Raw benchmark datasets now live under `benchmarks/data/` to keep the project roo
 
 - Parses ProGenMax `.SCH` files across the benchmark folders in this repo, including `sm_j10`, `sm_j20`, `sm_j30`, `testset_ubo20`, and `testset_ubo50`
 - Handles generalized lag constraints of the form `S_j >= S_i + lag`
-- Exposes three in-repo backends: `cp`, `hybrid`, and `sgs`
-- Uses the `cp` backend as the current submission-candidate path for branch-and-propagate search under the assignment constraints
+- Uses the `cp` backend as the active submission-candidate path for branch-and-propagate search under the assignment constraints
 - Implements the current `cp` backend around lag-closure propagation, compulsory-part / timetable pruning, pair-order branching, and a local guided-seed warm start
-- Keeps `hybrid` available as a practical baseline for comparison runs
+- Keeps `hybrid` and `sgs` only as comparison baselines for side-by-side checks
 - Benchmarks folders of instances from the command line
 - Compares benchmark outputs against published reference values for `sm_j10`, `sm_j20`, `sm_j30`, `testset_ubo20`, and `testset_ubo50`
 - Reports `feasible`, `infeasible`, or `unknown` per instance
@@ -45,13 +46,7 @@ uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0 --backend cp
 uv run main.py solve benchmarks/data/sm_j10/PSP1.SCH --time-limit 1.0 --backend cp
 ```
 
-You can switch solver backends explicitly:
-
-```bash
-uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0 --backend hybrid
-uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0 --backend cp
-uv run main.py solve sm_j10/PSP1.SCH --time-limit 1.0 --backend sgs
-```
+For a teammate handoff on how the active solver works, start with [rcpsp/cp/README.md](rcpsp/cp/README.md). It gives the CP mental model, solve flow, key files, and the recommended iteration loop.
 
 Benchmark a full folder:
 
@@ -68,6 +63,12 @@ uv run python scripts/run_guardrails.py --preset submission_quick
 ```
 
 The default command above currently means `--backend cp --preset submission_quick`.
+
+Run the small CP residue set when you want a fast signal on the hard public `30s` misses:
+
+```bash
+uv run python scripts/run_cp_residue.py
+```
 
 Run the CP-focused autoresearch evaluation loop:
 
@@ -158,7 +159,7 @@ Recommended validation loop:
 
 This is the minimum anti-overfitting policy for the repo. A change that helps only `j10/j20` but hurts `sm_j30` or `ubo50` should be treated as suspect.
 
-For the final submission backend, use `cp` and the stricter roadmap matrix in [CP_ROADMAP.md](CP_ROADMAP.md).
+For the final submission backend, use `cp` and the stricter roadmap matrix in [CP_ROADMAP.md](CP_ROADMAP.md). Treat `hybrid` and `sgs` as archived comparison paths unless a change specifically needs a baseline comparison.
 
 ## CP Backend Read
 
