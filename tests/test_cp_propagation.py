@@ -3,7 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from rcpsp.core.lag import all_pairs_longest_lags
-from rcpsp.cp.propagation import propagate_cp_node, tighten_latest_starts
+from rcpsp.cp.propagation import (
+    forced_pair_order_propagation,
+    propagate_cp_node,
+    tighten_latest_starts,
+)
 from rcpsp.models import Edge, Instance
 
 
@@ -32,6 +36,43 @@ def _chain_instance() -> Instance:
         demands=((0,), (0,), (0,), (0,)),
         capacities=(1,),
         edges=edges,
+        outgoing=tuple(tuple(items) for items in outgoing),
+        incoming=tuple(tuple(items) for items in incoming),
+    )
+
+
+def _pair_conflict_instance() -> Instance:
+    n_jobs = 20
+    n_activities = n_jobs + 2
+    sink = n_jobs + 1
+    durations = [0] + [1] * n_jobs + [0]
+    durations[1] = 3
+    durations[2] = 3
+    demands = [(0,)] + [(0,)] * n_jobs + [(0,)]
+    demands[1] = (1,)
+    demands[2] = (1,)
+    edges: list[Edge] = []
+    outgoing = [[] for _ in range(n_activities)]
+    incoming = [[] for _ in range(n_activities)]
+
+    for activity in range(1, sink):
+        for edge in (
+            Edge(source=0, target=activity, lag=0),
+            Edge(source=activity, target=sink, lag=durations[activity]),
+        ):
+            edges.append(edge)
+            outgoing[edge.source].append(edge)
+            incoming[edge.target].append(edge)
+
+    return Instance(
+        name="pair-conflict",
+        path=Path("pair-conflict.sch"),
+        n_jobs=n_jobs,
+        n_resources=1,
+        durations=tuple(durations),
+        demands=tuple(demands),
+        capacities=(1,),
+        edges=tuple(edges),
         outgoing=tuple(tuple(items) for items in outgoing),
         incoming=tuple(tuple(items) for items in incoming),
     )
@@ -79,3 +120,40 @@ def test_tighten_latest_starts_matches_edge_relaxation_with_lag_dist() -> None:
     via_dist = tighten_latest_starts(instance, (), latest, lag_dist)
 
     assert via_dist == via_edges
+
+
+def test_forced_pair_order_propagation_infers_order() -> None:
+    instance = _pair_conflict_instance()
+    lower = [0] * instance.n_activities
+    latest = [0] * instance.n_activities
+    latest[2] = 5
+
+    inferred, overload = forced_pair_order_propagation(
+        instance,
+        lower,
+        latest,
+        set(),
+        resource_conflict_pairs=frozenset({(1, 2)}),
+    )
+
+    assert inferred == ((1, 2),)
+    assert overload is None
+
+
+def test_forced_pair_order_propagation_reports_pair_overload() -> None:
+    instance = _pair_conflict_instance()
+    lower = [0] * instance.n_activities
+    latest = [0] * instance.n_activities
+
+    inferred, overload = forced_pair_order_propagation(
+        instance,
+        lower,
+        latest,
+        set(),
+        resource_conflict_pairs=frozenset({(1, 2)}),
+    )
+
+    assert inferred == ()
+    assert overload is not None
+    assert overload.kind == "pair"
+    assert overload.activities == (1, 2)

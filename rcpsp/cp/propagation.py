@@ -226,58 +226,55 @@ def forced_pair_order_propagation(
             continue
 
         forced_pair: tuple[int, int] | None = None
-        blocking_resource: int | None = None
 
         for resource in range(instance.n_resources):
             combined_demand = instance.demands[first][resource] + instance.demands[second][resource]
             if combined_demand <= instance.capacities[resource]:
                 continue
 
-                first_before_second = lower[first] + instance.durations[first] <= latest[second]
-                second_before_first = lower[second] + instance.durations[second] <= latest[first]
+            first_before_second = lower[first] + instance.durations[first] <= latest[second]
+            second_before_first = lower[second] + instance.durations[second] <= latest[first]
 
-                if not first_before_second and not second_before_first:
-                    window_start = max(lower[first], lower[second])
-                    window_end = min(
-                        latest[first] + instance.durations[first],
-                        latest[second] + instance.durations[second],
-                    )
-                    return (), OverloadExplanation(
-                        kind="pair",
-                        resource=resource,
-                        window_start=window_start,
-                        window_end=max(window_start + 1, window_end),
-                        activities=(first, second),
-                        required=combined_demand,
-                        limit=instance.capacities[resource],
-                    )
+            if not first_before_second and not second_before_first:
+                window_start = max(lower[first], lower[second])
+                window_end = min(
+                    latest[first] + instance.durations[first],
+                    latest[second] + instance.durations[second],
+                )
+                return (), OverloadExplanation(
+                    kind="pair",
+                    resource=resource,
+                    window_start=window_start,
+                    window_end=max(window_start + 1, window_end),
+                    activities=(first, second),
+                    required=combined_demand,
+                    limit=instance.capacities[resource],
+                )
 
-                if first_before_second == second_before_first:
-                    continue
+            if first_before_second == second_before_first:
+                continue
 
-                candidate = (first, second) if first_before_second else (second, first)
-                if forced_pair is not None and forced_pair != candidate:
-                    window_start = max(lower[first], lower[second])
-                    window_end = min(
-                        latest[first] + instance.durations[first],
-                        latest[second] + instance.durations[second],
-                    )
-                    resource = blocking_resource if blocking_resource is not None else resource
-                    return (), OverloadExplanation(
-                        kind="pair",
-                        resource=resource,
-                        window_start=window_start,
-                        window_end=max(window_start + 1, window_end),
-                        activities=(first, second),
-                        required=combined_demand,
-                        limit=instance.capacities[resource],
-                    )
-                forced_pair = candidate
-                blocking_resource = resource
+            candidate = (first, second) if first_before_second else (second, first)
+            if forced_pair is not None and forced_pair != candidate:
+                window_start = max(lower[first], lower[second])
+                window_end = min(
+                    latest[first] + instance.durations[first],
+                    latest[second] + instance.durations[second],
+                )
+                return (), OverloadExplanation(
+                    kind="pair",
+                    resource=resource,
+                    window_start=window_start,
+                    window_end=max(window_start + 1, window_end),
+                    activities=(first, second),
+                    required=combined_demand,
+                    limit=instance.capacities[resource],
+                )
+            forced_pair = candidate
 
-            if forced_pair is not None and forced_pair not in pending:
-                pending.add(forced_pair)
-                inferred.append(forced_pair)
+        if forced_pair is not None and forced_pair not in pending:
+            pending.add(forced_pair)
+            inferred.append(forced_pair)
 
     return tuple(inferred), None
 
