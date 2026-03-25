@@ -18,6 +18,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--backend", choices=("hybrid", "cp"), default="cp")
     parser.add_argument("--preset", choices=tuple(PRESETS), default="submission_quick")
     parser.add_argument("--datasets", nargs="*", help="optional subset of datasets from the selected preset")
+    parser.add_argument("--jobs", type=int, default=1, help="number of datasets to run concurrently; use 0 to run all selected datasets in parallel")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-restarts", type=int, default=None)
     parser.add_argument("--slack-weight", type=float, default=None)
@@ -51,6 +52,7 @@ def main() -> int:
         backend=args.backend,
         preset=args.preset,
         datasets=args.datasets,
+        jobs=args.jobs,
         seed=args.seed,
         max_restarts=args.max_restarts,
         heuristic_args=heuristic_args,

@@ -24,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--main-datasets", nargs="*", default=None)
     parser.add_argument("--aux-preset", default="broad_generalization")
     parser.add_argument("--aux-datasets", nargs="*", default=["testset_ubo10", "testset_ubo100", "testset_ubo200"])
+    parser.add_argument("--jobs", type=int, default=1, help="number of datasets to run concurrently inside each suite; use 0 to run all selected datasets in parallel")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "tmp" / "autoresearch-search")
     return parser.parse_args()
 
@@ -52,6 +53,7 @@ def evaluate_trial(
     main_datasets: list[str],
     aux_preset: str,
     aux_datasets: list[str],
+    jobs: int,
     output_dir: Path,
 ) -> dict:
     trial_dir = output_dir / f"trial_{trial_index:02d}"
@@ -63,6 +65,7 @@ def evaluate_trial(
         backend=backend,
         preset=main_preset,
         datasets=main_datasets,
+        jobs=jobs,
         seed=base_seed + trial_index * 97,
         max_restarts=max_restarts if isinstance(max_restarts, int) else None,
         heuristic_args=heuristic_args,
@@ -74,6 +77,7 @@ def evaluate_trial(
         backend=backend,
         preset=aux_preset,
         datasets=aux_datasets,
+        jobs=jobs,
         seed=base_seed + trial_index * 97,
         max_restarts=max_restarts if isinstance(max_restarts, int) else None,
         heuristic_args=heuristic_args,
@@ -158,6 +162,7 @@ def main() -> int:
             main_datasets=args.main_datasets,
             aux_preset=args.aux_preset,
             aux_datasets=args.aux_datasets,
+            jobs=args.jobs,
             output_dir=args.output_dir,
         )
         results.append(result)
