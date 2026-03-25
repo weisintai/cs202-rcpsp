@@ -1,372 +1,644 @@
-# CP Backend — Algorithm Deep Dive
+# CP Backend Algorithm Report
 
-This report walks through every section of the CP backend (`rcpsp/cp/`) in plain language. The goal is to give a clear mental model of what each piece does and why it exists.
-
----
-
-## 1. The Problem Being Solved
-
-The solver tackles **RCPSP/max**: a project scheduling problem where:
-
-- There are **activities** (jobs), each with a fixed duration and resource demands.
-- Activities are connected by **lag constraints** — "activity B cannot start until at least `lag` time units after activity A starts" — covering both minimum and maximum gaps.
-- There are **shared resources** with limited capacity. At any point in time, the total demand of running activities cannot exceed a resource's capacity.
-- The goal is to find a **start time** for each activity that satisfies all constraints while **minimising the project makespan** (the finish time of the last activity).
-
-The CP backend has a strict **30-second wall-clock budget** and must never claim a feasible instance is infeasible.
+A detailed walkthrough of the Constraint Programming backend for the RCPSP/max solver, written so that someone with no prior exposure to the codebase can follow the logic from start to finish.
 
 ---
 
-## 1.5 Current Empirical Read
+## 1. What Problem Are We Solving?
 
-This document is mainly an architecture walkthrough, not a benchmark log, but the current checkout has a clear practical split between the in-repo backends:
+**RCPSP/max** stands for *Resource-Constrained Project Scheduling Problem with generalised (min/max) lag constraints*. You have a project made up of activities, and you need to decide when each one starts. Three things make this hard:
 
-- On short-budget public cases such as `sm_j30 @ 0.1s`, the archived `hybrid` backend is still the stronger comparison baseline.
-  - Fresh rerun: `hybrid` reached `172 feasible / 85 infeasible / 13 unknown`
-  - Fresh rerun: `cp` reached `165 feasible / 85 infeasible / 20 unknown`
-  - Reference comparison: `hybrid` matched `83/120` exact cases, while `cp` matched `75/120`
-- On medium-budget public cases such as `sm_j20 @ 1.0s`, `cp` is the clearly stronger submission-oriented backend.
-  - Fresh rerun: both `hybrid` and `cp` classified all `270` instances with `184 feasible / 86 infeasible / 0 unknown`
-  - Reference comparison: `hybrid` matched `125/158` exact cases, while `cp` matched `155/158`
+1. **Durations and precedence.** Every activity takes a fixed number of time units. Some activities depend on others through *lag constraints*: "Activity B cannot start until at least 5 time units after Activity A starts" (minimum lag), or "Activity B must start no more than 10 time units after Activity A starts" (maximum lag, encoded as a negative lag in the reverse direction).
 
-One important caveat behind these numbers: the old `hybrid` benchmark path was stale because its repair loop could abort on an infeasible local repair projection. That comparison bug has now been hardened, so the figures above are from a clean rerun rather than from the older notes.
+2. **Shared resources.** There are a handful of resource types (machines, workers, etc.), each with a limited capacity. Every activity uses some amount of each resource while it runs. At any moment in time, the total demand of all running activities must not exceed the capacity of any resource.
+
+3. **Objective.** Minimise the *makespan* — the time at which the very last activity finishes. There is a dummy "source" activity (index 0) that starts at time 0, and a dummy "sink" activity (index `n_jobs + 1`) whose start time equals the makespan.
+
+The solver has a strict wall-clock time budget (up to 30 seconds). Within that budget, it must find a valid schedule or determine the instance is infeasible — while never misclassifying a feasible instance as infeasible.
 
 ---
 
-## 2. Big Picture: How a Solve Runs
+## 2. The Core Idea: Searching Over Ordering Decisions
 
-The solver does **not** enumerate complete schedules directly. Instead, it searches over **pairwise resource-ordering decisions**: "should activity A finish before activity B starts?" Each decision is represented as an extra precedence edge. The solver incrementally adds edges, propagates their consequences, and prunes search branches that cannot beat the best schedule found so far.
+The key insight of the CP backend is that resource conflicts can be resolved by deciding the *order* in which activities use a resource. If activities A and B both need more of resource R than is available simultaneously, then either A must finish before B starts, or B must finish before A starts. Each such decision is encoded as a new precedence edge in the constraint graph.
+
+The solver explores a tree of these ordering decisions:
+- At each node, it holds a set of committed orderings plus the tightest time windows those orderings imply.
+- It uses *constraint propagation* to shrink time windows and detect dead ends early.
+- It uses the best schedule found so far (the *incumbent*) to prune branches that cannot possibly improve on it.
 
 ```
-Instance
-  │
-  ▼
-Temporal preprocessing (lag closure, forced orders)
-  │
-  ▼
-Guided Seed Phase — try to get a good schedule quickly
-  │
-  ▼
-DFS over pair-order decisions
-  │  ├─ Propagate constraints (tighten time windows)
-  │  ├─ Prune if infeasible or worse than incumbent
-  │  ├─ At a leaf with no conflicts: compress and record schedule
-  │  └─ Otherwise: find a resource conflict → branch → recurse
-  │
-  ▼
-Return best schedule found
+                         Root: only original precedences
+                        /              |              \
+              A before B          B before A         A before C
+             /     \                 |                   |
+        C before D  D before C     ...                  ...
 ```
 
----
-
-## 3. File-by-File Walkthrough
-
-### 3.1 `state.py` — Data Structures
-
-**What it contains:** The dataclasses (structs) that carry information through the search.
-
-**Key types:**
-
-| Type | Role |
-|---|---|
-| `CpNode` | A single node in the search tree. Holds the current time windows (`lower`, `latest`), all ordering edges committed so far (`edges`, `pairs`), the full lag-distance matrix (`lag_dist`), and the next conflict to branch on (`branch_conflict`). |
-| `CpNodePropagation` | The result returned after propagating a node. Either contains a valid `CpNode`, or `None` if the node was proved infeasible, along with an optional `OverloadExplanation`. |
-| `OverloadExplanation` | Explains *why* a resource overload happened: which resource, which time window, which activities are involved, and by how much the capacity was exceeded. Used for pruning and caching. |
-| `CpSearchStats` | A bag of counters (nodes visited, propagation calls, incumbents found, cache hits, etc.) used for logging and diagnostics. |
-
-**Key concept — time windows:**
-Each activity has an **earliest start** (`lower[i]`) and a **latest start** (`latest[i]`). As the solver commits to more ordering decisions, these windows shrink. If `lower[i] > latest[i]` for any activity, the node is infeasible.
+Each path from root to leaf represents a complete set of ordering decisions. If the resulting time windows contain no resource overload, a feasible schedule exists for that path.
 
 ---
 
-### 3.2 `propagation.py` — Constraint Propagation Kernel
+## 3. Data Structures (`state.py`)
 
-**What it does:** Given a set of committed ordering edges (pairs), compute the tightest possible time windows for each activity, and detect infeasibility early.
+Before diving into the algorithms, it helps to know the four data structures that flow through the entire backend.
 
-This is the heart of the CP approach. It runs in a loop until no more tightening is possible ("propagation to fixpoint").
+### CpNode — A Single Search Tree Node
 
-#### Step 1 — Compute the All-Pairs Lag Closure (`all_pairs_longest_lags`)
-
-Before any search begins, the solver computes the **longest-path distance** between every pair of activities in the lag graph. This is like running Floyd-Warshall on the temporal constraint network. The result is a matrix `lag_dist[i][j]` = "the minimum time that must pass between the start of activity `i` and the start of activity `j`".
-
-If `lag_dist[i][i] > 0` for any activity (a positive cycle), the instance is temporally infeasible.
-
-#### Step 2 — Tighten Earliest Starts (`tighten_earliest_starts`)
-
-Given the lag distances and a set of release times (lower bounds), compute a tight earliest start for every activity by propagating forward through the constraint graph. For each pair `(source, target)`, if `lower[source] + lag >= lower[target]`, then `lower[target]` must be raised.
-
-This is equivalent to a forward pass of the longest-path algorithm.
-
-#### Step 3 — Tighten Latest Starts (`tighten_latest_starts`)
-
-Using the incumbent makespan as an upper bound: if we know the best schedule so far finishes in `T` time units, then activity `i` must start no later than `T - 1 - tail[i]`, where `tail[i]` is the longest path from the *end* of activity `i` to the sink.
-
-The backward pass propagates this: if activity A must precede B (with lag `d`), and B must start by time `LST_B`, then A must start by `LST_B - d`.
-
-#### Step 4 — Build the Mandatory (Compulsory) Resource Profile (`build_mandatory_profile`)
-
-Some activities have a **compulsory part** — a time interval during which they *must* be running regardless of exactly when they start. An activity with earliest start `EST` and latest start `LST` has a compulsory part `[LST, EST + duration)` if `LST < EST + duration`.
-
-The solver builds a resource profile by summing up all compulsory parts for each resource over time. If at any time slot the compulsory load exceeds the resource capacity, the node is infeasible.
-
-```
-  Compulsory part of activity A: ████
-  Compulsory part of activity B:        ████
-  Compulsory part of activity C:    ████████
-
-  If the overlap exceeds capacity → infeasible
+```python
+@dataclass(frozen=True)
+class CpNode:
+    lower: tuple[int, ...]         # EST (Earliest Start Time) for each activity
+    latest: tuple[int, ...] | None # LST (Latest Start Time), or None if no incumbent yet
+    edges: tuple[Edge, ...]        # all committed ordering edges
+    pairs: frozenset[tuple[int, int]]  # the set of (before, after) ordering decisions
+    lag_dist: list[list[float]] | None  # full shortest-path distance matrix
+    branch_conflict: BranchConflict | None  # the next resource overload to branch on
 ```
 
-#### Step 5 — Propagate Compulsory Parts / Timetable Pruning (`propagate_compulsory_parts`)
+**Time windows** are the most important part. Every activity `i` has a window `[lower[i], latest[i]]` in which it is allowed to start. As the solver commits more ordering decisions, these windows shrink. When `lower[i] > latest[i]` for any activity, the node is impossible — we prune it.
 
-Using the mandatory profile, the solver tightens time windows further:
+When `branch_conflict` is `None`, there are no remaining resource overloads and the schedule at the earliest start times is feasible (after compression). When it is not `None`, it tells the solver exactly which activities on which resource to branch on next.
 
-- **EST tightening:** If placing an activity at its current earliest start would push a resource over capacity (because other activities must also be running then), the activity's EST is pushed forward past that overloaded interval.
-- **LST tightening:** The same check in reverse — if starting too late would create an overload, the LST is pulled back.
+### OverloadExplanation — Why Propagation Failed
 
-If an activity's EST is pushed past its LST, the node is infeasible.
-
-#### Step 6 — Forced Pair-Order Propagation (`forced_pair_order_propagation`)
-
-For pairs of activities that share a resource and whose combined demand exceeds the capacity, the solver checks whether only *one* ordering is still feasible given the current time windows. If `A` cannot possibly finish before `B` starts in any remaining order, but `B` finishing before `A` starts is also impossible, then the node is infeasible (detected as an `OverloadExplanation`). If exactly one order remains possible, that ordering is added as a new constraint and propagation continues.
-
-This step is skipped on small instances (fewer than 20 jobs) where it would be more expensive than helpful.
-
-#### The Propagation Loop
-
-Steps 2–6 run in a loop. Any time new edges are inferred or time windows change, the loop repeats. It exits when nothing changes (fixpoint reached) or infeasibility is detected.
-
-The final result is either:
-- A `CpNode` with tightened windows and a `branch_conflict` identifying the next resource overload to branch on, or
-- `None` (the node is proved infeasible).
-
----
-
-### 3.3 `search.py` — DFS Orchestration
-
-**What it does:** Implements the full Depth-First Search over pair-order decisions, manages the incumbent (best schedule found so far), and decides when to branch.
-
-#### Initialisation (inside `solve_cp`)
-
-1. **Temporal preprocessing:** Compute the all-pairs lag closure. Check for pairwise infeasibility (e.g., activity A must start after itself — cycle detected). Extract any **forced resource orders**: pairs of activities where one *must* come before the other on every feasible schedule, because their combined demand always exceeds capacity regardless of timing. Add these as free constraints.
-
-2. **Compute tail values:** For each activity, `tail[i]` = the longest path from the *end of activity i* to the project sink. This is used as a lower bound: any schedule must take at least `start[i] + duration[i] + tail[i]` time.
-
-3. **Resource intensity:** Precompute a per-activity measure of how heavily it uses resources relative to capacity. Used to guide branching.
-
-4. **Budget allocation:** Depending on the time limit, select a "budget mode" (`fast` / `medium` / `deep`) that controls how aggressively the search spends time on local heuristics versus pure tree search.
-
-#### Guided Seed Phase
-
-Before starting DFS, the solver runs `guided_seed` (see §3.5) to try to find a good first schedule quickly. If a schedule at the temporal lower bound (optimal) is found immediately, the solver returns without DFS.
-
-#### Short Constructive Warm Start
-
-If guided seed did not find an incumbent, the solver runs `construct_schedule` in a tight loop until the heuristic budget is exhausted, keeping the best schedule found. This gives DFS a useful upper bound to prune with.
-
-#### The DFS (`dfs` inner function)
-
-```
-dfs(pairs, node):
-  1. Check time limit → stop if exceeded
-  2. Check failure cache → skip if this pair-set is known to fail
-  3. Propagate constraints for this node (if not already done)
-     → prune if infeasible
-  4. If no resource conflict remains:
-     → the schedule is feasible, compress it, update incumbent
-  5. Optionally try a local heuristic construction from this node
-  6. Identify the branch conflict (resource overload to resolve)
-  7. For each candidate ordering of the conflicting activities:
-     → build child node with the new pair committed
-     → propagate the child
-     → sort children by lower bound
-     → recurse into each child
+```python
+@dataclass(frozen=True)
+class OverloadExplanation:
+    kind: str           # "point" (single time slot) or "pair" (two-activity conflict)
+    resource: int       # which resource is overloaded
+    window_start: int   # start of the overloaded time window
+    window_end: int     # end of the overloaded time window
+    activities: tuple[int, ...]  # the set of activities causing the overload
+    required: int       # total demand of those activities
+    limit: int          # capacity of the resource
 ```
 
-#### Branch Selection (`branch_children`)
+This tells you exactly *why* propagation detected a problem. Two flavours:
+- **"point"**: at a single time slot, the compulsory parts of several activities collectively exceed the capacity. This is detected by timetable propagation.
+- **"pair"**: two activities that must overlap (their time windows force them to run simultaneously) but whose combined demand exceeds the capacity. This is detected by forced-pair-order propagation.
 
-When the solver must branch on a resource conflict, it picks the "best activity to sequence first" using `branch_order` (see §3.7). For each activity in the conflict set, it generates a child node where that activity is scheduled *before* each other conflicting activity on that resource. Children are sorted by their projected lower bound so the most promising branches are explored first.
+### CpNodePropagation — The Result of Propagating a Node
 
-#### Failure Cache
+```python
+@dataclass(frozen=True)
+class CpNodePropagation:
+    node: CpNode | None              # the propagated node, or None if proved infeasible
+    overload: OverloadExplanation | None  # present if timetable found an overload to branch on
+    rounds: int = 0                   # how many propagation rounds were needed
+```
 
-The solver maintains a cache of **pair-sets that have been proved to lead to infeasibility**. Before propagating any new node, it checks whether the current pair-set is a *superset* of any known failing set (if A ⊆ B and A fails, then B also fails because it contains all of A's constraints plus more). This avoids redundant work.
+Three outcomes are possible:
+- `node is not None, overload is None` — propagation succeeded, the node is consistent, `branch_conflict` on the node tells you what to do next.
+- `node is not None, overload is not None` — there is a timetable overload the solver may want to branch on.
+- `node is None` — the node is provably infeasible (temporal cycle, or lower bound exceeds incumbent, or windows crossed).
 
-The cache stores at most 400 entries, evicting the most specific (largest) sets first to maximise pruning power.
+### CpSearchStats — Counters for Diagnostics
 
-#### Node-Local Heuristic
-
-At each DFS node, the solver may optionally run `construct_schedule` using the current node's time windows as a warm start. This can quickly find a good schedule deep in the tree without completing the full DFS. How often this is allowed depends on the budget mode and instance size — for large instances in fast mode, it's only attempted every 8th node.
-
-#### Incumbent Management (`update_incumbent`)
-
-Whenever a schedule is found (either from construction or from a conflict-free DFS leaf), it's compared to the current best. If it's better, it replaces the incumbent. The incumbent's makespan is then used in all future propagations as an upper bound, pruning any node whose lower bound is already ≥ incumbent makespan.
-
----
-
-### 3.4 `construct.py` — Schedule Construction
-
-**What it does:** Given the current CP state (a set of committed ordering edges and initial start times), tries to build a *complete, valid* feasible schedule by iteratively resolving resource conflicts.
-
-This is a **conflict-repair heuristic**:
-
-1. Start with a schedule where each activity starts as early as its constraints allow (longest-path forward pass).
-2. Find the first resource overload:
-   - For **small instances** (< 20 jobs): find any conflicting pair of activities.
-   - For **large instances** (≥ 20 jobs): find the *minimal conflict set* — the smallest set of activities that, together, cause an overload at some time point.
-3. Score each activity in the conflict using `delay_scores` (a weighted combination of slack, tail length, resource intensity, etc.).
-4. Pick the highest-scoring activity to "protect" (keep in place) and push the others later by adding ordering edges.
-5. Repeat until no conflicts remain.
-
-If the solver cannot resolve a conflict within a step budget, or the time deadline is reached, construction fails and returns `None`.
-
-**Focused repair mode (large instances):** Instead of sequencing one activity before one other, it sequences the selected activity before *all* other conflicting activities at once. This is more aggressive and avoids creating many micro-steps.
-
-**Release-time fallback:** If no ordering resolves a conflict (all edges would create cycles), the solver artificially forces the activity to start *after* all conflicting activities have finished (a "release time"). This is a softer constraint that avoids cycles but may not give the tightest result.
-
-In the archived `hybrid` backend, the same fallback idea recently needed a hardening pass: a fallback release move could contradict the current order edges and create a temporary temporal cycle. The current code now treats that as a dead repair move instead of aborting the whole solve. That fix matters for benchmarking because it turned some stale `hybrid` comparison runs from crashes into real measurements.
-
-After the repair loop:
-- A final forward pass recomputes start times.
-- If release times were used, the solver tries removing them to see if a tighter schedule is possible.
-- A **left-shift** pass (`compress`) moves activities as early as possible without violating constraints.
-- The schedule is validated; if it's still infeasible, construction fails.
+A mutable bag of integers tracking everything that happens during the search: nodes visited, propagation calls, cache hits, construct failures broken down by reason, etc. Not algorithmically important, but essential for tuning and debugging.
 
 ---
 
-### 3.5 `guided_seed.py` — Pre-DFS Warm-Start
+## 4. Constraint Propagation (`propagation.py`)
 
-**What it does:** Runs a structured three-phase mini-solver before the main DFS begins, to give DFS the best possible starting bound.
+This is the algorithmic core. Given a set of ordering decisions (pairs), propagation computes the tightest possible time window for every activity and checks whether any resource is still overloaded.
 
-The three phases run within a time budget (up to 25% of the total time limit):
+### 4.1 All-Pairs Lag Closure
 
-| Phase | What it does |
-|---|---|
-| **Construct** | Runs `construct_schedule` repeatedly (with randomised configs) to find an initial feasible schedule. Keeps the best. |
-| **Improve** | Runs ALNS (`improve_incumbent`, see §3.6) to polish the best construction. |
-| **Proof** | Runs a small exact branch-and-bound (`branch_and_bound_search`) to try to prove optimality or find an even better schedule. |
-| **Polish** | If time remains after proof, runs another ALNS pass. |
+**What:** Compute the longest path between every pair of activities in the constraint graph.
 
-The phases are time-budgeted: construct gets ~20% of the seed budget, improve gets ~35%, and the rest goes to proof and polish.
+**Why:** Lag constraints are transitive. If A must precede B by at least 3 time units, and B must precede C by at least 2 time units, then A must precede C by at least 5 time units. The lag closure captures all such implied constraints in one matrix.
 
-If the guided seed determines the instance is infeasible (the exact search exhausts the tree with no feasible schedule), the main solver returns immediately with status "infeasible" without entering DFS.
+**How:** Standard Floyd-Warshall algorithm (`all_pairs_longest_lags` in `core/lag.py`):
+
+```
+For each intermediate activity k:
+    For each source activity i:
+        For each target activity j:
+            dist[i][j] = max(dist[i][j], dist[i][k] + dist[k][j])
+```
+
+The result is `lag_dist[i][j]` = the minimum number of time units that must separate the start of `i` from the start of `j`. If `lag_dist[i][i] > 0`, there is a positive cycle and the instance is infeasible.
+
+**Incremental updates:** When the solver adds a single new ordering edge, it does not recompute the full Floyd-Warshall. Instead, `extend_longest_lags` updates only the entries affected by the new edge, in O(n^2) time instead of O(n^3). This is critical for performance during search.
+
+### 4.2 Tighten Earliest Starts
+
+**What:** Given the lag distance matrix, compute the earliest possible start time for every activity.
+
+**How:** For each activity `target`, look at every other activity `source`. If `source` must start at time `lower[source]` and the lag from `source` to `target` is `d`, then `target` cannot start before `lower[source] + d`. Take the maximum over all sources:
+
+```
+lower[target] = max over all sources of (lower[source] + lag_dist[source][target])
+```
+
+This is a single forward pass — not an iterative loop — because the lag closure already accounts for all transitive constraints. If a positive diagonal is found (`lag_dist[i][i] > 0`), a `TemporalInfeasibleError` is raised.
+
+### 4.3 Tighten Latest Starts
+
+**What:** If we have an incumbent schedule with makespan `T`, then every activity `i` has a latest possible start: `T - 1 - tail[i]`, where `tail[i]` is the longest path from the end of activity `i` to the project sink. This gives the initial latest-start vector.
+
+**How the backward pass works:** The function `tighten_latest_starts` propagates backward. If activity `source` must precede activity `target` with lag `d`, then:
+
+```
+latest[source] = min(latest[source], latest[target] - d)
+```
+
+When the lag distance matrix is available, this is a single-pass matrix multiply. Otherwise, it runs Bellman-Ford on the reversed edge set.
+
+**Key point:** Latest-start information only exists when there is an incumbent. Without one, the solver has no upper bound and `latest` is `None`. In that case, timetable propagation (Steps 4.4 and 4.5) is skipped entirely, and only temporal propagation applies.
+
+### 4.4 Compulsory Part Detection (Timetable Propagation)
+
+This is the technique that makes the CP backend powerful at detecting resource infeasibility early.
+
+**The idea:** Even though we do not know exactly when an activity will start (it could be anywhere in `[EST, LST]`), there may be a time interval where the activity *must* be running regardless of its exact start time. This is called the **compulsory part** (or mandatory part).
+
+**Example:**
+```
+Activity A: duration = 5, EST = 3, LST = 6
+
+If A starts at time 3 (earliest):  ■■■■■
+                                    3 4 5 6 7
+If A starts at time 6 (latest):        ■■■■■
+                                    3 4 5 6 7 8 9 10
+
+The overlap — where A MUST be running — is [6, 8):
+                                    3 4 5 6 7
+                                          ██
+```
+
+**Formally:** Activity `i` has a compulsory part `[LST[i], EST[i] + duration[i])` if `LST[i] < EST[i] + duration[i]`. The solver computes a **mandatory resource profile** by summing the resource demands of all compulsory parts at each time slot. If any time slot exceeds the resource capacity, the node is infeasible.
+
+**Implementation detail:** The profile is built using a delta-sweep approach (increment at start, decrement at end, then prefix-sum) for efficiency, rather than looping over every time slot of every activity.
+
+### 4.5 Timetable-Based Window Tightening
+
+Beyond detecting overloads, the mandatory profile also lets the solver *tighten* time windows.
+
+**EST tightening:** If activity `i` were placed at its current EST, would it cause an overload? The solver checks every time slot in the range `[EST[i], EST[i] + duration[i])`. At each slot, it computes the *other* activities' mandatory load (excluding `i`'s own compulsory contribution). If adding `i`'s demand would exceed capacity, then `i` cannot start that early — its EST is pushed forward past the overloaded slot.
+
+```
+Before:  EST = 2
+         Time:  2  3  4  5  6  7
+         Other: 3  3  7  7  4  4    (capacity = 8, activity demand = 3)
+                         ^  ^
+                    slots 4,5 would cause overload (7+3=10 > 8)
+After:   EST = 6  (pushed past the overloaded region)
+```
+
+**LST tightening:** The mirror image. If placing `i` at its current LST would cause an overload, the LST is pulled back.
+
+**Infeasibility:** If EST gets pushed past LST, the activity has no valid placement — the node is infeasible (returns `None`).
+
+### 4.6 Forced Pair-Order Propagation
+
+**What:** For every pair of activities that share a resource and whose combined demand exceeds the capacity, check whether the current time windows force a specific ordering.
+
+**How:** Given activities A and B on a shared resource:
+- "A before B" is possible if `EST[A] + duration[A] <= LST[B]` — A can finish before B's latest start.
+- "B before A" is possible if `EST[B] + duration[B] <= LST[A]`.
+
+Three outcomes:
+1. **Both orderings possible** — nothing to infer, move on.
+2. **Exactly one ordering possible** — that ordering is forced. Add it as a new edge and re-propagate.
+3. **Neither ordering possible** — the two activities must overlap, but their combined demand exceeds capacity. The node is infeasible.
+
+This is only run on instances with 20+ jobs (smaller instances are fast enough without it). It uses a precomputed set of `resource_conflict_pairs` to avoid checking pairs that do not actually conflict on any resource.
+
+### 4.7 The Propagation Loop (`propagate_cp_node`)
+
+All the pieces above are wired together in a fixpoint loop:
+
+```
+repeat:
+    1. Tighten earliest starts using lag closure
+    2. Bound-check: if EST[sink] >= incumbent makespan, prune
+    3. Check pairwise infeasibility from lag distance matrix
+    4. Tighten latest starts (backward pass)
+    5. Check for crossed windows (EST > LST anywhere → prune)
+    6. Build mandatory profile and run timetable propagation
+       - If overload detected → return the overload for branching
+       - If windows tightened → update and continue
+    7. Run forced pair-order propagation
+       - If infeasible pair found → return the overload
+       - If new orderings inferred → add edges, update lag closure, continue
+    8. If nothing changed → fixpoint reached, exit loop
+```
+
+After the loop, the solver calls `select_branch_conflict` to find the "best" remaining resource overload to branch on (smallest conflict set, tightest slack). If none exists, the schedule is feasible.
 
 ---
 
-### 3.6 `improve.py` — ALNS Improvement
+## 5. The Main Search (`search.py`)
 
-**What it does:** Implements an **Adaptive Large Neighbourhood Search (ALNS)** loop that improves an existing feasible schedule by repeatedly destroying a part of it and rebuilding it.
+`solve_cp` is the top-level entry point. It orchestrates everything: preprocessing, seeding, and the DFS.
 
-#### How Each Iteration Works
+### 5.1 Preprocessing
 
-1. **Select a base schedule** from an elite pool (up to 6 best distinct schedules seen so far). Under high stagnation, occasionally try a second base.
-2. **Choose a removal operator** (randomly from several strategies):
-   - **Mobility removal:** Remove activities with the most scheduling slack (they're easiest to reschedule).
-   - **Non-peak removal:** Remove activities that run during low-load periods (they're contributing least).
-   - **Segment removal:** Remove all activities overlapping a random time window.
-   - **Random removal:** Remove a random subset.
-   - *(Large instances only)* **Critical chain removal:** Remove the least-slack, most resource-intensive activities.
-   - *(Large instances only)* **Peak-focused removal:** Remove activities near the busiest resource bottleneck.
-   - *(Large instances only)* **Bottleneck pair removal:** Find the most conflicting pair of activities at the bottleneck; try reordering them.
-3. **Rebuild** the removed activities using `repair_schedule_subset`. The rest of the schedule is pinned in its existing order (their resource-ordering edges are kept), and the removed activities are re-inserted using `construct_schedule`.
-4. **Update the elite pool** and check if the overall best has improved.
+Before any search happens:
 
-The loop runs until the time deadline.
+1. **Lag closure:** Compute `all_pairs_longest_lags` for the original instance.
+2. **Pairwise infeasibility check:** Scan for pairs of activities that *must* overlap (their lag constraints force it) and whose combined demand exceeds a resource's capacity. If found, the instance is provably infeasible — return immediately.
+3. **Forced resource orders:** Find pairs where the lag closure already forces one ordering (e.g., the only way to avoid a resource conflict is A before B). These edges are "free" — they do not require branching. They are added to the root and the lag closure is updated.
+4. **Temporal lower bound:** Compute `longest_feasible_starts` with the forced edges. The sink's start time is the *temporal lower bound* — no schedule can possibly have a shorter makespan.
+5. **Tail values:** For each activity, compute the longest path from the end of that activity to the sink. Used in branching heuristics and for computing latest starts.
+6. **Resource intensity:** For each activity, compute a normalised score of how heavily it uses resources. Activities with high intensity are more likely to cause conflicts and are prioritised during branching.
+7. **Resource conflict pairs:** Precompute the set of all activity pairs that share at least one resource beyond capacity. This speeds up forced-pair-order propagation.
 
-**Stagnation handling:** If many iterations pass without improvement, the `stagnation` counter increases, which causes the loop to pull from a wider pool of base schedules. This helps escape local optima.
+### 5.2 Budget Management
+
+The solver divides its time budget into phases:
+
+| Time limit | Budget mode | Behaviour |
+|---|---|---|
+| < 1.0s | `fast` | Minimal heuristic work, aggressive search |
+| 1.0s–5.0s | `medium` | Moderate heuristic work at each node |
+| >= 5.0s | `deep` | More heuristic attempts, deeper local search |
+
+A `soft_deadline` is computed slightly before the actual time limit (with a safety margin of 0.5–5% depending on the budget) so the solver can wrap up cleanly without going over.
+
+### 5.3 Guided Seed Phase
+
+Before the main DFS, the solver calls `run_guided_seed` (which delegates to `guided_seed.py`, see Section 7). This attempts to find a good incumbent quickly through construction, improvement, and a short exact proof. It consumes up to 25% of the time budget (capped at 0.75 seconds).
+
+If the guided seed:
+- **Proves infeasibility** — the solver returns immediately.
+- **Finds an optimal schedule** (makespan equals the temporal lower bound) — the solver returns immediately.
+- **Finds a suboptimal schedule** — great, the DFS will use this as its starting incumbent.
+- **Finds nothing** — the DFS starts without an incumbent (this makes propagation weaker since there are no latest-start bounds).
+
+### 5.4 Constructive Warm Start
+
+If the guided seed did not produce an incumbent, the solver runs `construct_schedule` in a tight loop (see Section 6) using the remaining heuristic budget, keeping the best schedule found. Each restart uses a randomly perturbed version of the heuristic config (`sample_heuristic_config`), introducing diversity.
+
+### 5.5 The DFS
+
+The DFS is an inner function that captures `incumbent` via closure. Here is the logic at each node:
+
+**Step 1 — Time check.** If the soft deadline has passed, set `timed_out = True` and backtrack.
+
+**Step 2 — Failure cache lookup.** If the current pair-set is a superset of any known-failing pair-set, skip this node (see Section 5.7).
+
+**Step 3 — Propagation.** Call `propagate_cp_node` with the current pairs, the incumbent makespan (for latest-start bounds), and the lag distance matrix. Three outcomes:
+- **Overload returned:** The node has a timetable conflict. Record in the failure cache, backtrack.
+- **Node is `None`:** Proved infeasible (temporal cycle, bounds exceeded, or windows crossed). Cache and backtrack.
+- **Valid node returned:** Continue to step 4.
+
+**Step 4 — Duplicate check.** Compute a signature `(pairs, lower, latest)` and check whether this exact node has been seen before. If so, skip it.
+
+**Step 5 — Feasible leaf.** If `branch_conflict is None`, propagation found no remaining resource overload. The earliest-start schedule is feasible. Compress it (`compress_valid_schedule_relaxed` shifts activities left where possible without creating new conflicts) and update the incumbent if it improves.
+
+**Step 6 — Node-local heuristic.** If budget allows (controlled by `allow_node_local_heuristic`), try to build a complete schedule from this node's state using `construct_schedule`. This is a fast way to find incumbents deep in the tree without fully resolving the search. The budget and frequency depend on instance size and budget mode — for example, on very large instances in fast mode, this only runs every 8th node.
+
+There is also a "deep" variant for instances with 100+ jobs in deep budget mode, which gets a larger time slice per attempt. This triggers when the gap between the node's lower bound and the incumbent is large enough to be worth the effort.
+
+**Step 7 — Branch.** Unpack the `branch_conflict` to get the conflicting activities and resource. Call `branch_children` to generate and evaluate all child nodes.
+
+**Step 8 — Recurse.** Iterate through the children (sorted by their lower bound — best-first) and recurse. If the incumbent reaches the temporal lower bound, stop immediately (it is optimal). If a timeout occurs, stop.
+
+**Step 9 — Cache failures.** If no child produced a feasible schedule, record this pair-set in the failure cache.
+
+### 5.6 Branch Child Generation (`branch_children`)
+
+Given a conflict set (the activities overloading a resource at some time point), the solver must decide which activity to delay. The process:
+
+1. **Rank activities** using `branch_order`: score each activity by a weighted combination of slack, tail length, overload contribution, resource intensity, and start time. Activities that score highest are the most "expendable" — delaying them is least likely to worsen the makespan.
+
+2. **Generate children:** For each activity `selected` (in ranked order), and for each other activity `other` in the conflict set, create a child node with the new edge `other → selected` (meaning "`other` must finish before `selected` starts").
+
+3. **Pre-filter children:**
+   - Skip if the pair is already committed.
+   - Skip if the ordering is impossible given current windows (`pair_direction_possible` checks whether `EST[other] + gap <= LST[selected]`, where `gap` accounts for transitive lags).
+   - Skip if the child's pair-set matches a cached failure.
+
+4. **Propagate each child** to get its tightened time windows and lower bound. Skip children that are pruned by propagation.
+
+5. **Sort surviving children** by `child_order_key`: primarily by lower bound at the sink (prefer children closer to optimality), then by slack and window size (prefer tighter, more constrained children that will be easier to resolve or prune).
+
+### 5.7 Failure Cache
+
+The failure cache is a set of `frozenset[tuple[int, int]]` — each entry is a set of ordering decisions that has been proved to lead to infeasibility (either by propagation or by exhaustive subtree search).
+
+**Key property:** ordering decisions are *monotone*. If a set of pairs S is infeasible, then any superset of S is also infeasible (adding more constraints can only make things worse). So before propagating a new node, the solver checks:
+
+```python
+any(failed.issubset(pairs) for failed in failed_pair_sets)
+```
+
+**Cache management:**
+- Maximum 400 entries.
+- When full, evict the *largest* (most specific) entry, since smaller entries prune more branches.
+- When inserting, drop any existing entry that is a superset of the new one (the new entry is more general and therefore more useful).
+- Only enabled when the time limit is >= 0.5s, or for instances with >= 20 jobs at >= 0.1s.
+
+### 5.8 Wrapping Up
+
+After the DFS finishes (either exhausting the tree or hitting the deadline), the solver returns a `SolveResult`:
+- `"feasible"` with the best schedule found, or
+- `"infeasible"` if the tree was fully explored with no feasible leaf, or
+- `"unknown"` if the search timed out without finding a schedule.
 
 ---
 
-### 3.7 `exact.py` — Exact Branch & Bound
+## 6. Schedule Construction (`construct.py`)
 
-**What it does:** A simpler, self-contained DFS branch-and-bound that tries to *prove* the optimality of an incumbent schedule, or find an even better one by exhaustive search.
+`construct_schedule` is a conflict-repair heuristic that tries to build a valid schedule from a starting point (usually the earliest-start-time schedule, which satisfies all temporal constraints but may violate resource limits).
 
-It uses the same conflict-branching structure as the main DFS in `search.py`, but without the full CP propagation infrastructure (no timetable propagation, no failure cache, no node-local heuristic). It is intentionally simpler and faster per node — useful for small subproblems or short proof budgets.
+### 6.1 The Repair Loop
+
+```
+Start: schedule where each activity is at its earliest possible start time
+
+Repeat until no conflicts or budget exhausted:
+    1. Find the worst resource overload
+    2. Score each activity in the conflict
+    3. Pick the "best" activity to protect; push others out of its way
+    4. Recompute start times with the new ordering edges
+```
+
+**Conflict detection** comes in two flavours based on instance size:
+
+- **Small instances (< 20 jobs):** `first_conflict` — find the earliest time slot with any resource overload, list all active activities at that slot. This is simple but can produce large conflict sets.
+
+- **Large instances (>= 20 jobs):** `minimal_conflict_set` — find the most overloaded resource at the earliest conflict, then strip away activities until only the *minimal* set whose combined demand exceeds capacity remains. This produces smaller, more focused conflicts that lead to better repair decisions.
+
+### 6.2 Activity Scoring (`delay_scores`)
+
+Each activity in the conflict is scored by a weighted sum:
+
+```
+score = slack_weight * slack
+      - tail_weight * tail
+      + overload_weight * overload_contribution
+      + resource_weight * intensity
+      + late_weight * start_time
+      + noise_weight * random()
+```
+
+- **Slack:** How much room the activity has before it affects the makespan. High-slack activities are safer to delay.
+- **Tail:** The longest path from this activity to the sink. Long-tail activities are critical — delaying them is risky.
+- **Overload contribution:** How much of the current overload this activity is responsible for.
+- **Resource intensity:** How heavily this activity uses resources relative to capacity.
+- **Start time:** Later-starting activities are slightly preferred for delaying.
+- **Noise:** A small random perturbation to introduce diversity across restarts.
+
+The highest-scoring activity is "protected" (kept in place), and the others are pushed after it.
+
+### 6.3 Edge-Based Repair vs. Focused Repair
+
+**Small instances (edge-based):** For each blocker activity, try both orderings (blocker before selected, selected before blocker). Evaluate each by computing the resulting makespan. Pick the combination that yields the lowest makespan.
+
+**Large instances (focused repair):** Instead of trying each blocker individually, push *all* blockers to one side of the selected activity at once. Try both directions (all blockers before selected, or selected before all blockers) and pick the better one. This is faster because it resolves the entire conflict in one step.
+
+### 6.4 Release-Time Fallback
+
+If neither ordering direction produces a valid schedule (both cause temporal cycles), the solver falls back to *release times*: it sets `release[selected] = max finish time of all blockers`, forcing the activity to start after the conflict point. This avoids cycles but is less precise.
+
+### 6.5 Post-Processing
+
+After the repair loop resolves all conflicts (or the budget expires):
+
+1. **Final forward pass:** Recompute start times from release times and edges.
+2. **Release cleanup:** If release times were used, try removing them to see if a tighter schedule is possible with just the edges.
+3. **Left shift:** Move each activity as early as possible without violating precedence or resource constraints. This is a greedy pass that processes activities in start-time order.
+4. **Compression:** `compress_valid_schedule` extracts the resource-ordering edges implied by the current schedule and recomputes the longest-path schedule, potentially tightening the makespan further.
+5. **Validation:** Check the final schedule against all constraints. If it fails, construction returns `None`.
+
+### 6.6 Failure Diagnostics
+
+Construction tracks why it failed via a `diagnostics` dictionary:
+- `"deadline"` — ran out of time.
+- `"step_limit"` — exceeded the maximum number of repair steps (default: `max(200, n^2 * 6)`).
+- `"projection_infeasible"` — adding edges created a temporal cycle (negative cycle in the constraint graph).
+- `"validation"` — the schedule passed the repair loop but failed final validation.
+
+---
+
+## 7. Guided Seed Phase (`guided_seed.py`)
+
+The guided seed is a self-contained mini-solver that runs before the main DFS. It shares the same preprocessing (lag closure, forced orders, tails, intensity) but has its own time budget and phase structure. It is called from `search.py` through the `run_guided_seed` wrapper.
+
+### 7.1 Four Phases
+
+| Phase | Budget | What it does |
+|---|---|---|
+| **Construct** | ~20% of seed budget (up to 1.0s) | Runs `construct_schedule` in a loop with randomised configs. Keeps the best schedule. Stops early if it matches the temporal lower bound. |
+| **Improve** | ~35% of seed budget (up to 5.0s) | Runs the ALNS improvement loop (Section 8) on the best construction. |
+| **Proof** | Remaining budget until soft deadline | Runs `branch_and_bound_search` (Section 9) — a simpler exact search that can prove optimality or find an even better schedule. |
+| **Polish** | Whatever remains after proof | Runs ALNS one more time on whatever the proof phase returned, if there is time and the schedule is not already optimal. |
+
+### 7.2 When Is It Used?
+
+The guided seed is only invoked when the heuristic budget is >= 0.15 seconds. For very short time limits (< 0.15s), it is skipped entirely and the solver goes straight to construction + DFS.
+
+### 7.3 Status Tracking
+
+The guided seed reports back:
+- Whether it was used, found an incumbent, proved infeasibility, or failed.
+- The best source of the schedule (construct, improve, proof, or polish).
+- Construction failure counts by reason.
+- Exact search statistics (nodes, timed out).
+
+---
+
+## 8. ALNS Improvement (`improve.py`)
+
+Once a feasible schedule exists, the solver can try to improve it using **Adaptive Large Neighbourhood Search**: repeatedly destroy part of the schedule and rebuild it, hoping to find a shorter makespan.
+
+### 8.1 The Destroy-Repair Loop
+
+```
+Initialise: elite pool = [incumbent], stagnation = 0
+
+Repeat until deadline:
+    1. Select one or more base schedules from the elite pool
+    2. For each base:
+        a. Choose a removal operator (randomly)
+        b. Choose a removal size (randomly, 2-33% of activities)
+        c. Remove selected activities from the schedule
+        d. Rebuild using construct_schedule with remaining activities pinned
+    3. Update elite pool and best schedule
+    4. Track stagnation
+```
+
+### 8.2 Removal Operators
+
+The solver randomly picks one of these strategies to decide *which* activities to remove:
+
+**Available to all instances:**
+
+| Operator | Strategy | Rationale |
+|---|---|---|
+| **Mobility** | Remove activities with the *most* scheduling slack | High-slack activities have the most room to be repositioned |
+| **Non-peak** | Remove activities running during low-load periods | Rearranging under-utilised activities might free up room elsewhere |
+| **Segment** | Remove all activities overlapping a random time window | Neighbourhood-focused: lets you rearrange a local region |
+| **Random** | Remove a random subset | Pure diversification |
+
+**Additional operators for large instances (>= 30 jobs):**
+
+| Operator | Strategy | Rationale |
+|---|---|---|
+| **Critical chain** | Remove the *least*-slack, most resource-intensive activities | These are the activities most directly responsible for the makespan |
+| **Peak-focused** | Remove activities near the single busiest resource bottleneck | Directly targets the tightest constraint |
+| **Bottleneck pair** | Find the most conflicting pair of activities at the bottleneck; generate three repair plans: one without pair preference, one favouring the current order, one swapping them | Explores whether reversing a critical ordering decision helps |
+
+### 8.3 The Repair Step
+
+`repair_schedule_subset` extracts the ordering edges from the current schedule, removes any edge involving a removed activity, adds `preferred_pairs` if the bottleneck-pair operator specified them, then calls `construct_schedule` to rebuild. This means the removed activities are free to be re-inserted in any feasible position, while the rest of the schedule stays mostly fixed.
+
+### 8.4 Elite Pool
+
+The solver maintains a pool of up to 4–6 distinct schedules (sorted by makespan). Each repair attempt's result is considered for the pool. This prevents the search from getting stuck on a single local optimum — the solver can restart repairs from a different base schedule.
+
+### 8.5 Stagnation Handling
+
+- If an iteration improves on some base schedule but not the overall best: stagnation decreases slightly.
+- If no iteration produces anything useful: stagnation increases.
+- Higher stagnation causes the solver to select bases from deeper in the elite pool (worse schedules), increasing diversity.
+
+---
+
+## 9. Exact Branch-and-Bound (`exact.py`)
+
+A simpler, stripped-down DFS that tries to either prove the incumbent is optimal or find a better schedule. It is used inside the guided seed phase and shares no state with the main DFS.
+
+### 9.1 How It Differs From the Main DFS
+
+| Feature | Main DFS (`search.py`) | Exact B&B (`exact.py`) |
+|---|---|---|
+| Propagation | Full CP: timetable, forced pairs, lag closure | Only temporal (longest path) |
+| Pruning | Failure cache, timetable, pairwise infeasibility | Bound check, pairwise infeasibility |
+| Heuristic at nodes | Node-local construction | None |
+| State | `CpNode` with lag distance matrix | Raw edge list + start times |
+| Purpose | Find best schedule within time limit | Prove optimality or improve incumbent |
+
+### 9.2 The Search
+
+```
+dfs(edges, pairs, start_times, lag_dist):
+    1. Check deadline
+    2. Duplicate check (sorted pair set)
+    3. Compute start times (longest path with all edges)
+    4. Bound check: if lower_bound >= incumbent makespan, prune
+    5. Pairwise infeasibility check (only when no incumbent yet)
+    6. Find minimal resource conflict
+    7. If no conflict → compress schedule, update incumbent
+    8. Otherwise → branch on conflict, recurse into children
+```
 
 **Two modes:**
-- **Without incumbent:** Searches freely; uses the incremental lag-distance matrix to detect pairwise infeasibility early and prune.
-- **With incumbent:** Propagates start times at each node and prunes any branch whose lower bound already meets or exceeds the incumbent makespan.
-
-When a conflict-free node is reached, the schedule is compressed with `compress_valid_schedule_relaxed` and compared against the best known.
+- **Without incumbent:** Explores freely. Uses the incremental lag distance matrix to catch pairwise infeasibility early (two activities forced to overlap beyond capacity). Children are generated and recursed into immediately.
+- **With incumbent:** More aggressive pruning. Each child's start times are computed *before* recursing, and any child whose lower bound is not strictly less than the incumbent is dropped. Surviving children are sorted by lower bound.
 
 ---
 
-## 4. Key Concepts Summary
+## 10. Putting It All Together
 
-| Concept | Plain-English Explanation |
-|---|---|
-| **Lag constraint** | "Activity B must start at least `d` time units after activity A starts." Negative lags enforce *maximum* gaps. |
-| **Lag closure (all-pairs longest lags)** | Propagating all lag constraints transitively: if A→B with lag 3 and B→C with lag 2, then A→C has implied lag 5. Detected via Floyd-Warshall. |
-| **EST / LST** | Earliest Start Time and Latest Start Time for each activity. The window `[EST, LST]` narrows as more constraints are added. |
-| **Compulsory part** | The intersection of `[LST, EST + duration]` — the time when an activity *must* be running regardless of its exact start. |
-| **Timetable propagation** | Checking that compulsory parts don't collectively overload a resource; tightening EST/LST if they would. |
-| **Forced pair order** | A resource ordering that is *the only feasible option* given current time windows: both "A before B" and "B before A" are technically possible in isolation, but one of them would cause an overload. |
-| **Incumbent** | The best complete feasible schedule found so far. Its makespan serves as an upper bound for pruning. |
-| **Branch on conflict** | When resource conflicts remain, pick a set of activities that overload a resource and add a constraint forcing one to finish before another starts. Recurse into the resulting sub-problem. |
-| **Failure cache** | A set of committed-ordering sets (pair-sets) that are known to lead to infeasibility. Any superset of a cached failure is also infeasible and can be skipped. |
-| **Tail** | For each activity, the longest path from the end of that activity to the project sink. Used as a lower-bound contribution: `start[i] + duration[i] + tail[i] ≤ makespan`. |
-| **Resource intensity** | A per-activity metric reflecting how heavily it uses resources relative to capacity. Used to prioritise branching decisions. |
-
----
-
-## 5. Algorithm Flow Diagram
+Here is the complete flow of a solve, showing how all the pieces connect:
 
 ```
-solve_cp(instance, time_limit)
+solve_cp(instance, time_limit=30.0, seed=0)
 │
-├── Compute lag closure (all_pairs_longest_lags)
-├── Detect pairwise infeasibility → return "infeasible" if found
-├── Extract forced resource orders (free ordering constraints)
-├── Compute temporal lower bound (EST of sink)
+│  ┌─────────────────────────────────────────────────┐
+│  │  PREPROCESSING                                   │
+│  │  1. Compute all-pairs lag closure (Floyd-Warshall)│
+│  │  2. Check pairwise infeasibility → early exit?   │
+│  │  3. Extract forced resource orderings            │
+│  │  4. Compute temporal lower bound (EST of sink)   │
+│  │  5. Compute tail values (longest path to sink)   │
+│  │  6. Compute resource intensity per activity      │
+│  │  7. Precompute resource-conflicting pairs        │
+│  └─────────────────────────────────────────────────┘
 │
-├── [Guided Seed Phase — up to 25% of time budget]
-│   ├── construct_schedule() × many restarts → best schedule
-│   ├── improve_incumbent() (ALNS) → polish
-│   ├── branch_and_bound_search() → short proof attempt
-│   └── improve_incumbent() again → final polish
+├── GUIDED SEED PHASE (up to 25% of budget, if >= 0.15s available)
 │   │
-│   └── If incumbent = lower bound → return immediately (optimal!)
+│   │  guided_seed.py → solve()
+│   │  ├── Construct: construct_schedule() x N restarts
+│   │  ├── Improve:   ALNS destroy/repair loop
+│   │  ├── Proof:     exact branch-and-bound
+│   │  └── Polish:    ALNS again if time remains
+│   │
+│   ├── If proved infeasible → RETURN "infeasible"
+│   └── If optimal (makespan = lower bound) → RETURN immediately
 │
-├── [Short constructive warm start — remaining heuristic budget]
-│   └── construct_schedule() × restarts
+├── CONSTRUCTIVE WARM START (remaining heuristic budget)
+│   │  construct_schedule() x N restarts with random config perturbation
+│   └── Keep best schedule as incumbent
 │
-└── [DFS — remaining time budget]
+└── DFS OVER ORDERING DECISIONS (remaining time until soft deadline)
     │
-    └── dfs(pairs, node):
-        ├── Check time limit
-        ├── Check failure cache
-        ├── propagate_cp_node():
-        │   ├── Tighten EST via lag closure
-        │   ├── Tighten LST via incumbent makespan
-        │   ├── Build mandatory resource profiles
-        │   ├── Propagate compulsory parts (timetable)
-        │   ├── Detect forced pair orders
-        │   └── Repeat to fixpoint → node or None
+    └── dfs(forced_pairs, node=None):
         │
-        ├── Pruned (None) → record in failure cache, backtrack
+        ├── Time check → stop if deadline passed
+        ├── Failure cache check → skip if known-failing superset
         │
-        ├── No conflict → compress schedule, update incumbent
+        ├── PROPAGATE (propagation.py):
+        │   │  ┌─ Tighten EST via lag closure
+        │   │  ├─ Bound check vs incumbent
+        │   │  ├─ Pairwise infeasibility check
+        │   │  ├─ Tighten LST (backward pass)
+        │   │  ├─ Check EST > LST anywhere
+        │   │  ├─ Build mandatory profile
+        │   │  ├─ Timetable propagation (EST/LST tightening)
+        │   │  ├─ Forced pair-order propagation
+        │   │  └─ Repeat until fixpoint
+        │   │
+        │   ├── Pruned → record in failure cache, backtrack
+        │   └── Consistent → continue
         │
-        ├── (optional) Node-local heuristic: construct_schedule()
-        │   from current node's time windows → update incumbent
+        ├── LEAF: branch_conflict is None
+        │   └── Compress schedule, update incumbent
         │
-        └── Conflict found → branch_children():
-            ├── Score each activity (delay_scores)
-            ├── For each ordering of conflicting activities:
-            │   └── Propagate child → sort by lower bound
-            └── Recurse into each child in order
+        ├── NODE-LOCAL HEURISTIC (if budget allows):
+        │   └── construct_schedule() from this node → update incumbent
+        │
+        └── BRANCH on conflict:
+            ├── Score activities with delay_scores
+            ├── Generate children: for each (other → selected) edge
+            │   ├── Check feasibility of direction
+            │   ├── Check failure cache
+            │   ├── Propagate child
+            │   └── Filter by lower bound
+            ├── Sort children by lower bound (best first)
+            └── Recurse into each child
+                └── Stop early if incumbent = lower bound (optimal)
 ```
 
 ---
 
-## 6. File Quick Reference
+## 11. Glossary
 
-| File | One-line purpose |
+| Term | Definition |
 |---|---|
-| `state.py` | Data structures: node state, propagation result, overload explanation, search statistics |
-| `propagation.py` | CP reasoning kernel: tighten time windows, detect resource overloads, infer forced orderings |
-| `search.py` | Main DFS: branching policy, incumbent management, failure cache, node-local heuristic |
-| `construct.py` | Conflict-repair schedule builder: start from lower bounds, iteratively fix resource overloads |
-| `improve.py` | ALNS improvement: destroy-and-repair loop with multiple removal strategies and elite pool |
-| `guided_seed.py` | Pre-DFS warm-start: orchestrates construct → improve → proof → polish within a time budget |
-| `exact.py` | Exact branch-and-bound helper: simpler DFS used for short proof attempts inside guided seed |
-| `solver.py` | Thin entry point: just re-exports `solve_cp` from `search.py` |
+| **Activity** | A unit of work with a fixed duration and resource demands. Indexed 0 to `n_jobs + 1`, where 0 is the dummy source and `n_jobs + 1` is the dummy sink. |
+| **Makespan** | The start time of the sink activity — equivalently, the total project duration. This is what we minimise. |
+| **Edge / Lag constraint** | A directed constraint `(source, target, lag)` meaning "target cannot start until at least `lag` time units after source starts". Negative lags encode maximum-gap constraints. |
+| **Lag closure** | The all-pairs longest-path matrix. `dist[i][j]` is the tightest lower bound on `start[j] - start[i]` implied by all constraints. |
+| **EST / LST** | Earliest Start Time / Latest Start Time. The window `[EST, LST]` for each activity shrinks as ordering decisions are added. |
+| **Tail** | For activity `i`, the longest path from `end(i)` to the sink. Gives a lower bound: `makespan >= start[i] + duration[i] + tail[i]`. |
+| **Compulsory part** | The time interval `[LST, EST + duration)` where an activity must be running regardless of its exact start. Exists only when `LST < EST + duration`. |
+| **Timetable propagation** | Summing compulsory-part demands to detect resource overloads and tighten windows. |
+| **Forced pair order** | When time windows make only one ordering feasible for a pair of conflicting activities, that ordering is inferred as a free constraint. |
+| **Incumbent** | The best complete valid schedule found so far. Its makespan provides an upper bound for pruning. |
+| **Temporal lower bound** | The makespan of the earliest-start-time schedule (ignoring resources). No valid schedule can be shorter. |
+| **Failure cache** | Stores sets of ordering decisions proven to lead to infeasibility. Any superset of a cached set is also infeasible, enabling fast pruning. |
+| **Resource intensity** | A per-activity score measuring how heavily it uses resources. Used to guide branching and scoring. |
+| **ALNS** | Adaptive Large Neighbourhood Search. A metaheuristic that repeatedly destroys and repairs parts of a solution. |
+| **Elite pool** | A small set of the best distinct schedules seen so far, used as starting points for ALNS iterations. |
+
+---
+
+## 12. File Reference
+
+| File | Lines | Role |
+|---|---|---|
+| `state.py` | ~80 | Data structures: `CpNode`, `CpNodePropagation`, `OverloadExplanation`, `CpSearchStats` |
+| `propagation.py` | ~480 | Constraint propagation kernel: EST/LST tightening, timetable propagation, forced pair-order inference, the main `propagate_cp_node` fixpoint loop |
+| `search.py` | ~790 | Main DFS search: preprocessing, guided seed orchestration, branch-and-propagate loop, failure cache, node-local heuristic, incumbent management |
+| `construct.py` | ~330 | Conflict-repair schedule builder: finds resource overloads, adds ordering edges to resolve them, left-shifts and compresses the result |
+| `improve.py` | ~450 | ALNS improvement: 7 removal operators, repair via pinned-edge reconstruction, elite pool management, stagnation tracking |
+| `guided_seed.py` | ~410 | Pre-DFS warm-start: 4-phase pipeline (construct, improve, proof, polish) with its own time budgeting |
+| `exact.py` | ~160 | Exact branch-and-bound: simpler DFS for short proof attempts, used inside the guided seed phase |
+| `solver.py` | ~4 | Entry point: re-exports `solve_cp` from `search.py` |
+| `__init__.py` | ~2 | Package exports |
