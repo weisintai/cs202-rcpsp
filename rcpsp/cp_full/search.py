@@ -124,6 +124,20 @@ def cp_full_propagation_mode(time_limit: float) -> PropagationMode:
     return "fast" if cp_budget_mode(time_limit) == "fast" else "deep"
 
 
+def cp_full_heuristic_budget(
+    instance: Instance,
+    time_limit: float,
+) -> float:
+    base = min(0.75, max(0.01, time_limit * 0.25))
+    if cp_budget_mode(time_limit) != "fast":
+        return base
+    if instance.n_jobs >= 100:
+        return min(0.75, max(base, time_limit * 0.4))
+    if instance.n_jobs >= 50:
+        return min(0.75, max(base, time_limit * 0.32))
+    return base
+
+
 def _record_construct_failure(
     stats: CpSearchStats,
     phase: str,
@@ -534,7 +548,7 @@ def solve_cp(
         "guided_seed_failed": False,
     }
 
-    heuristic_budget = min(0.75, max(0.01, time_limit * 0.25))
+    heuristic_budget = cp_full_heuristic_budget(instance, time_limit)
     heuristic_deadline = min(soft_deadline, started + heuristic_budget)
     if heuristic_budget >= 0.15 and time.perf_counter() < heuristic_deadline:
         incumbent, guided_restarts, guided_seed_meta, guided_infeasible = run_guided_seed(
