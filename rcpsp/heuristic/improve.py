@@ -426,16 +426,19 @@ def repair_schedule_subset(
     except TemporalInfeasibleError:
         return None
 
-    candidate = construct_schedule(
-        instance=instance,
-        rng=rng,
-        tail=tail,
-        intensity=intensity,
-        config=sample_heuristic_config(solver_config, rng),
-        deadline=deadline,
-        base_extra_edges=base_edges,
-        initial_starts=initial_starts,
-    )
+    try:
+        candidate = construct_schedule(
+            instance=instance,
+            rng=rng,
+            tail=tail,
+            intensity=intensity,
+            config=sample_heuristic_config(solver_config, rng),
+            deadline=deadline,
+            base_extra_edges=base_edges,
+            initial_starts=initial_starts,
+        )
+    except TemporalInfeasibleError:
+        return None
     if validate_schedule(instance, candidate):
         return None
     return candidate

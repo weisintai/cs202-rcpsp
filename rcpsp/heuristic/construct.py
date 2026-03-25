@@ -167,11 +167,21 @@ def construct_schedule(
                 (current[activity] + instance.durations[activity] for activity in blockers),
                 default=conflict_time + 1,
             )
+            prior_release = release[selected]
             release[selected] = max(release[selected], fallback_target)
-            current = longest_feasible_starts(instance, release_times=release, extra_edges=extra_edges)
+            try:
+                current = longest_feasible_starts(instance, release_times=release, extra_edges=extra_edges)
+            except TemporalInfeasibleError:
+                # A fallback release move can contradict the current order edges.
+                # Treat that move as a dead end instead of aborting the whole solve.
+                release[selected] = prior_release
+                break
         steps += 1
 
-    current = longest_feasible_starts(instance, release_times=release, extra_edges=extra_edges)
+    try:
+        current = longest_feasible_starts(instance, release_times=release, extra_edges=extra_edges)
+    except TemporalInfeasibleError:
+        pass
     if any(value > 0 for value in release):
         try:
             release_free = longest_feasible_starts(instance, extra_edges=extra_edges)

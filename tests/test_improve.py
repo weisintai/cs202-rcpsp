@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from rcpsp import parse_sch
 from rcpsp.core.metrics import resource_intensity
+from rcpsp.heuristic import solve as solve_hybrid
 from rcpsp.heuristic.improve import (
     AdaptiveOperatorState,
     bottleneck_pair_repair_plans,
@@ -148,3 +150,11 @@ def test_select_repair_operator_learns_toward_successful_choices() -> None:
 
     assert samples.count("mobility") > 150
     assert samples.count("mobility") > samples.count("random") * 4
+
+
+def test_hybrid_solver_handles_infeasible_repair_projection_on_psp229() -> None:
+    instance = parse_sch(Path("benchmarks/data/sm_j30/PSP229.SCH"))
+
+    result = solve_hybrid(instance, time_limit=0.1, seed=228)
+
+    assert result.status in {"feasible", "infeasible", "unknown"}
