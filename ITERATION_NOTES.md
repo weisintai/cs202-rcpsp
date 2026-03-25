@@ -1532,3 +1532,28 @@ Current working conclusion:
   - deeper-budget-only proof/pruning reuse
   - better long-budget conflict explanations
   - explicit separation between short-budget-safe CP and deeper-budget experimental CP
+
+## 2026-03-25: sm_j30 @ 30s acceptance rerun after CP timeout hardening
+
+Context:
+
+- the public `cp_acceptance` run had previously appeared to stall on `sm_j30`
+- inspection showed the process was still burning CPU inside `cp` search, but one pathological instance could overrun the intended budget because the benchmark only enforced the wall-clock limit after `solve_cp` returned
+- the fix was to thread a cooperative deadline through `rcpsp/cp/propagation.py` and branch expansion in `rcpsp/cp/search.py`, and to add long-budget heartbeat/start markers so `--no-progress` guardrail runs are no longer silent
+
+Validation command:
+
+- `uv run python scripts/run_guardrails.py --backend cp --preset cp_acceptance --datasets sm_j30`
+
+Result:
+
+- `sm_j30 @ 30.0s` `cp`
+  - feasible/infeasible/unknown: `184 / 85 / 1`
+  - exact matches: `117/120`
+  - exact match rate: `97.5%`
+
+Operational read:
+
+- the rerun completed cleanly and wrote its summary to `tmp/guardrails/cp-cp_acceptance-20260325-155646/summary.json`
+- known hard public residue cases such as `PSP37` and `PSP46` no longer wedge the dataset-level run
+- heartbeat lines appeared during deep-budget cases, confirming that long instances were still progressing instead of silently hanging

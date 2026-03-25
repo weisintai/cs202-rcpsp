@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from weakref import WeakKeyDictionary
 
 from ..core.conflicts import select_branch_conflict
@@ -14,6 +16,22 @@ from ..temporal import TemporalInfeasibleError
 from .state import CpNode, CpNodePropagation, OverloadExplanation
 
 _RESOURCE_ACTIVITIES_CACHE: WeakKeyDictionary[Instance, tuple[tuple[int, ...], ...]] = WeakKeyDictionary()
+
+
+class PropagationTimedOut(Exception):
+    pass
+
+
+def _checkpoint(
+    *,
+    deadline: float | None,
+    heartbeat: Callable[[str], None] | None,
+    stage: str,
+) -> None:
+    if heartbeat is not None:
+        heartbeat(stage)
+    if deadline is not None and time.perf_counter() >= deadline:
+        raise PropagationTimedOut
 
 def _resource_activities(
     instance: Instance,
@@ -110,7 +128,11 @@ def build_mandatory_profile(
     instance: Instance,
     lower: list[int],
     latest: list[int],
+    *,
+    deadline: float | None = None,
+    heartbeat: Callable[[str], None] | None = None,
 ) -> tuple[list[list[int]], list[tuple[list[tuple[int, int, int]], int, tuple[int, ...]]]]:
+    _checkpoint(deadline=deadline, heartbeat=heartbeat, stage="mandatory-profile")
     horizon = max(
         lower[instance.sink],
         max((max(lower[activity], latest[activity]) + instance.durations[activity] for activity in range(instance.n_activities)), default=0),
@@ -120,6 +142,7 @@ def build_mandatory_profile(
     resource_activity_lists = _resource_activities(instance)
 
     for resource in range(instance.n_resources):
+        _checkpoint(deadline=deadline, heartbeat=heartbeat, stage="mandatory-profile")
         mandatory: list[tuple[int, int, int]] = []
         resource_activities = resource_activity_lists[resource]
         deltas = [0] * (horizon + 1)
@@ -140,6 +163,8 @@ def build_mandatory_profile(
         running = 0
         profile = profiles[resource]
         for time_index in range(horizon):
+            if time_index % 64 == 0:
+                _checkpoint(deadline=deadline, heartbeat=heartbeat, stage="mandatory-profile")
             running += deltas[time_index]
             profile[time_index] = running
         mandatory_intervals.append((mandatory, horizon, resource_activities))
@@ -195,21 +220,34 @@ def propagate_compulsory_parts(
     instance: Instance,
     lower: list[int],
     latest: list[int],
+    *,
+    deadline: float | None = None,
+    heartbeat: Callable[[str], None] | None = None,
 ) -> tuple[bool, list[int], list[int], OverloadExplanation | None] | None:
     changed = False
-    profiles, mandatory_intervals = build_mandatory_profile(instance, lower, latest)
+    profiles, mandatory_intervals = build_mandatory_profile(
+        instance,
+        lower,
+        latest,
+        deadline=deadline,
+        heartbeat=heartbeat,
+    )
 
     for resource, (mandatory, horizon, resource_activities) in enumerate(mandatory_intervals):
+        _checkpoint(deadline=deadline, heartbeat=heartbeat, stage="compulsory-parts")
         if not mandatory:
             continue
         profile = profiles[resource]
         for time_index, usage in enumerate(profile):
+            if time_index % 64 == 0:
+                _checkpoint(deadline=deadline, heartbeat=heartbeat, stage="compulsory-parts")
             if usage <= instance.capacities[resource]:
                 continue
             explanation = minimal_overload_explanation(instance, resource, time_index, mandatory)
             return changed, lower, latest, explanation
 
         for activity in resource_activities:
+            _checkpoint(deadline=deadline, heartbeat=heartbeat, stage="compulsory-parts")
             demand = instance.demands[activity][resource]
             duration = instance.durations[activity]
             if lower[activity] >= latest[activity]:
@@ -220,6 +258,7 @@ def propagate_compulsory_parts(
 
             new_lower = lower[activity]
             while new_lower <= latest[activity]:
+                _checkpoint(deadline=deadline, heartbeat=heartbeat, stage="compulsory-parts")
                 moved = False
                 for time_index in range(new_lower, min(horizon, new_lower + duration)):
                     load = profile[time_index]
@@ -242,6 +281,7 @@ def propagate_compulsory_parts(
             own_right = lower[activity] + duration
             new_latest = latest[activity]
             while new_latest >= lower[activity]:
+                _checkpoint(deadline=deadline, heartbeat=heartbeat, stage="compulsory-parts")
                 moved = False
                 for time_index in range(new_latest, min(horizon, new_latest + duration)):
                     load = profile[time_index]
@@ -269,6 +309,9 @@ def forced_pair_order_propagation(
     latest: list[int],
     pairs: set[tuple[int, int]],
     resource_conflict_pairs: frozenset[tuple[int, int]] | None = None,
+    *,
+    deadline: float | None = None,
+    heartbeat: Callable[[str], None] | None = None,
 ) -> tuple[tuple[tuple[int, int], ...], OverloadExplanation | None]:
     if instance.n_jobs < 20:
         return (), None
@@ -286,7 +329,9 @@ def forced_pair_order_propagation(
             for second in range(first + 1, instance.sink)
         )
 
-    for first, second in pairs_to_check:
+    for index, (first, second) in enumerate(pairs_to_check):
+        if index % 32 == 0:
+            _checkpoint(deadline=deadline, heartbeat=heartbeat, stage="forced-pairs")
         if (first, second) in pending or (second, first) in pending:
             continue
 
@@ -365,119 +410,136 @@ def propagate_cp_node(
     new_edges: tuple[Edge, ...] = (),
     release_times: tuple[int, ...] | list[int] | None = None,
     resource_conflict_pairs: frozenset[tuple[int, int]] | None = None,
+    deadline: float | None = None,
+    heartbeat: Callable[[str], None] | None = None,
 ) -> CpNodePropagation:
-    local_pairs = set(pairs)
-    if new_edges:
-        for edge in new_edges:
-            local_pairs.add((edge.source, edge.target))
-    edges = [
-        Edge(source=source, target=target, lag=instance.durations[source])
-        for source, target in sorted(local_pairs)
-    ]
-
-    lag_dist = base_lag_dist
-    if lag_dist is not None:
-        updated = lag_dist
-        for edge in new_edges:
-            updated = extend_longest_lags(updated, edge)
-        lag_dist = updated
-    else:
-        lag_dist = all_pairs_longest_lags(instance, extra_edges=edges)
-
-    latest = improving_latest_starts(instance, tail, incumbent_makespan)
-    release_bounds = [0] * instance.n_activities if release_times is None else [max(0, int(value)) for value in release_times]
     rounds = 0
-    # Only check pairwise infeasibility when lag_dist was just updated — it is
-    # a pure function of the lag graph structure and can't change between rounds
-    # unless new edges are inferred.
-    lag_dist_updated = True
+    try:
+        _checkpoint(deadline=deadline, heartbeat=heartbeat, stage="propagation")
+        local_pairs = set(pairs)
+        if new_edges:
+            for edge in new_edges:
+                local_pairs.add((edge.source, edge.target))
+        edges = [
+            Edge(source=source, target=target, lag=instance.durations[source])
+            for source, target in sorted(local_pairs)
+        ]
 
-    while True:
-        rounds += 1
-        try:
-            lower = tighten_earliest_starts(instance, release_bounds, lag_dist)
-        except TemporalInfeasibleError:
-            return CpNodePropagation(node=None, rounds=rounds)
+        lag_dist = base_lag_dist
+        if lag_dist is not None:
+            updated = lag_dist
+            for edge in new_edges:
+                _checkpoint(deadline=deadline, heartbeat=heartbeat, stage="propagation")
+                updated = extend_longest_lags(updated, edge)
+            lag_dist = updated
+        else:
+            lag_dist = all_pairs_longest_lags(instance, extra_edges=edges)
 
-        if incumbent_makespan is not None and lower[instance.sink] >= incumbent_makespan:
-            return CpNodePropagation(node=None, rounds=rounds)
+        latest = improving_latest_starts(instance, tail, incumbent_makespan)
+        release_bounds = [0] * instance.n_activities if release_times is None else [max(0, int(value)) for value in release_times]
+        lag_dist_updated = True
 
-        if lag_dist is not None and lag_dist_updated:
-            if pairwise_infeasibility_reason_from_dist(instance, lag_dist) is not None:
+        while True:
+            _checkpoint(deadline=deadline, heartbeat=heartbeat, stage="propagation")
+            rounds += 1
+            try:
+                lower = tighten_earliest_starts(instance, release_bounds, lag_dist)
+            except TemporalInfeasibleError:
                 return CpNodePropagation(node=None, rounds=rounds)
-            lag_dist_updated = False
 
-        if latest is None:
-            break
+            if incumbent_makespan is not None and lower[instance.sink] >= incumbent_makespan:
+                return CpNodePropagation(node=None, rounds=rounds)
 
-        latest = tighten_latest_starts(instance, edges, latest, lag_dist)
-        if any(lower[activity] > latest[activity] for activity in range(instance.n_activities)):
-            return CpNodePropagation(node=None, rounds=rounds)
+            if lag_dist is not None and lag_dist_updated:
+                if pairwise_infeasibility_reason_from_dist(instance, lag_dist) is not None:
+                    return CpNodePropagation(node=None, rounds=rounds)
+                lag_dist_updated = False
 
-        propagated = propagate_compulsory_parts(instance, lower, latest)
-        if propagated is None:
-            return CpNodePropagation(node=None, rounds=rounds)
+            if latest is None:
+                break
 
-        changed, new_lower, new_latest, overload = propagated
-        if overload is not None:
-            return CpNodePropagation(
-                node=CpNode(
-                    lower=tuple(new_lower),
-                    latest=tuple(new_latest),
-                    edges=tuple(edges),
-                    pairs=frozenset(local_pairs),
-                    lag_dist=lag_dist,
-                ),
-                overload=overload,
-                rounds=rounds,
+            latest = tighten_latest_starts(instance, edges, latest, lag_dist)
+            if any(lower[activity] > latest[activity] for activity in range(instance.n_activities)):
+                return CpNodePropagation(node=None, rounds=rounds)
+
+            propagated = propagate_compulsory_parts(
+                instance,
+                lower,
+                latest,
+                deadline=deadline,
+                heartbeat=heartbeat,
             )
-        lower = new_lower
-        latest = new_latest
+            if propagated is None:
+                return CpNodePropagation(node=None, rounds=rounds)
 
-        inferred_pairs, pair_overload = forced_pair_order_propagation(
-            instance, lower, latest, local_pairs,
-            resource_conflict_pairs=resource_conflict_pairs,
-        )
-        if pair_overload is not None:
-            return CpNodePropagation(
-                node=CpNode(
-                    lower=tuple(lower),
-                    latest=tuple(latest),
-                    edges=tuple(edges),
-                    pairs=frozenset(local_pairs),
-                    lag_dist=lag_dist,
-                ),
-                overload=pair_overload,
-                rounds=rounds,
+            changed, new_lower, new_latest, overload = propagated
+            if overload is not None:
+                return CpNodePropagation(
+                    node=CpNode(
+                        lower=tuple(new_lower),
+                        latest=tuple(new_latest),
+                        edges=tuple(edges),
+                        pairs=frozenset(local_pairs),
+                        lag_dist=lag_dist,
+                    ),
+                    overload=overload,
+                    rounds=rounds,
+                )
+            lower = new_lower
+            latest = new_latest
+
+            inferred_pairs, pair_overload = forced_pair_order_propagation(
+                instance,
+                lower,
+                latest,
+                local_pairs,
+                resource_conflict_pairs=resource_conflict_pairs,
+                deadline=deadline,
+                heartbeat=heartbeat,
             )
+            if pair_overload is not None:
+                return CpNodePropagation(
+                    node=CpNode(
+                        lower=tuple(lower),
+                        latest=tuple(latest),
+                        edges=tuple(edges),
+                        pairs=frozenset(local_pairs),
+                        lag_dist=lag_dist,
+                    ),
+                    overload=pair_overload,
+                    rounds=rounds,
+                )
 
-        if inferred_pairs:
-            if lag_dist is not None and lag_dist is base_lag_dist:
-                lag_dist = [row[:] for row in lag_dist]
-            for source, target in inferred_pairs:
-                local_pairs.add((source, target))
-                edge = Edge(source=source, target=target, lag=instance.durations[source])
-                edges.append(edge)
-                if lag_dist is not None:
-                    extend_longest_lags_inplace(lag_dist, edge)
-            lag_dist_updated = True
+            if inferred_pairs:
+                if lag_dist is not None and lag_dist is base_lag_dist:
+                    lag_dist = [row[:] for row in lag_dist]
+                for source, target in inferred_pairs:
+                    _checkpoint(deadline=deadline, heartbeat=heartbeat, stage="forced-pairs")
+                    local_pairs.add((source, target))
+                    edge = Edge(source=source, target=target, lag=instance.durations[source])
+                    edges.append(edge)
+                    if lag_dist is not None:
+                        extend_longest_lags_inplace(lag_dist, edge)
+                lag_dist_updated = True
+                release_bounds = lower
+                continue
+
+            if not changed:
+                break
+
             release_bounds = lower
-            continue
 
-        if not changed:
-            break
-
-        release_bounds = lower
-
-    branch_conflict = select_branch_conflict(instance, lower, tuple(latest) if latest is not None else None)
-    return CpNodePropagation(
-        node=CpNode(
-            lower=tuple(lower),
-            latest=tuple(latest) if latest is not None else None,
-            edges=tuple(edges),
-            pairs=frozenset(local_pairs),
-            lag_dist=lag_dist,
-            branch_conflict=branch_conflict,
-        ),
-        rounds=rounds,
-    )
+        branch_conflict = select_branch_conflict(instance, lower, tuple(latest) if latest is not None else None)
+        return CpNodePropagation(
+            node=CpNode(
+                lower=tuple(lower),
+                latest=tuple(latest) if latest is not None else None,
+                edges=tuple(edges),
+                pairs=frozenset(local_pairs),
+                lag_dist=lag_dist,
+                branch_conflict=branch_conflict,
+            ),
+            rounds=rounds,
+        )
+    except PropagationTimedOut:
+        return CpNodePropagation(node=None, rounds=rounds, timed_out=True)

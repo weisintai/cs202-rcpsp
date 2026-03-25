@@ -182,11 +182,15 @@ Fresh reruns on the current checkout still support the repo split between `hybri
   - `hybrid` compare: `125/158` exact, exact-match rate `79.1%`, avg exact ratio `1.0167`
   - `cp`: `184 feasible / 86 infeasible / 0 unknown`
   - `cp` compare: `155/158` exact, exact-match rate `98.1%`, avg exact ratio `1.0009`
+- `sm_j30 @ 30.0s`
+  - `cp`: `184 feasible / 85 infeasible / 1 unknown`
+  - `cp` compare: `117/120` exact, exact-match rate `97.5%`
 
 Practical read:
 
 - `hybrid` is still the stronger short-budget comparison baseline on `sm_j30 @ 0.1s`
 - `cp` is the clearly stronger medium-budget submission backend on `sm_j20 @ 1.0s`
+- `cp` now also looks healthy on the public `sm_j30 @ 30.0s` acceptance row after fixing the long-budget overrun path
 - both statements are based on the fresh reruns above, after hardening the `hybrid` repair path against infeasible local repair projections
 
 ## CP Backend Read

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import random
+import sys
 import time
+from collections.abc import Callable
 
 from ..config import HeuristicConfig, sample_heuristic_config
 from ..core.branching import branch_order
@@ -391,7 +393,9 @@ def branch_children(
     failure_cache_enabled: bool,
     stats: CpSearchStats,
     resource_conflict_pairs: frozenset[tuple[int, int]] | None = None,
-) -> list[tuple[int, int, frozenset[tuple[int, int]], CpNode]]:
+    deadline: float | None = None,
+    heartbeat: Callable[[str], None] | None = None,
+) -> tuple[list[tuple[int, int, frozenset[tuple[int, int]], CpNode]], bool]:
     ordered = branch_order(
         instance=instance,
         start_times=list(node.lower),
@@ -402,6 +406,10 @@ def branch_children(
     )
     children: list[tuple[int, int, frozenset[tuple[int, int]], CpNode]] = []
     for order_index, selected in enumerate(ordered):
+        if deadline is not None and time.perf_counter() >= deadline:
+            return children, True
+        if heartbeat is not None:
+            heartbeat("branch")
         for other in conflict_set:
             if other == selected or instance.demands[other][resource] == 0:
                 continue
@@ -423,7 +431,11 @@ def branch_children(
                 base_lag_dist=node.lag_dist,
                 new_edges=(Edge(source=other, target=selected, lag=instance.durations[other]),),
                 resource_conflict_pairs=resource_conflict_pairs,
+                deadline=deadline,
+                heartbeat=heartbeat,
             )
+            if child.timed_out:
+                return children, True
             stats.propagation_calls += 1
             stats.propagation_rounds += child.rounds
             if child.overload is not None:
@@ -449,7 +461,7 @@ def branch_children(
                 continue
             children.append((child.node.lower[instance.sink], order_index, child.node.pairs, child.node))
     children.sort(key=lambda item: child_order_key(instance, item[3], item[1]))
-    return children
+    return children, False
 
 
 def solve_cp(
@@ -524,6 +536,28 @@ def solve_cp(
         "guided_seed_found_incumbent": False,
         "guided_seed_failed": False,
     }
+    heartbeat_interval = 15.0 if time_limit >= 5.0 else None
+    last_heartbeat = started
+
+    def heartbeat(stage: str) -> None:
+        nonlocal last_heartbeat
+        if heartbeat_interval is None:
+            return
+        now = time.perf_counter()
+        if now - last_heartbeat < heartbeat_interval:
+            return
+        elapsed = now - started
+        incumbent_makespan = incumbent.makespan if incumbent is not None else None
+        print(
+            (
+                f"[cp heartbeat] instance={instance.name} elapsed={elapsed:.1f}s "
+                f"stage={stage} nodes={stats.nodes} incumbent={incumbent_makespan} "
+                f"lb={temporal_lower[instance.sink]}"
+            ),
+            file=sys.stderr,
+            flush=True,
+        )
+        last_heartbeat = now
 
     heuristic_budget = min(0.75, max(0.01, time_limit * 0.25))
     heuristic_deadline = min(soft_deadline, started + heuristic_budget)
@@ -600,6 +634,7 @@ def solve_cp(
 
     def dfs(pairs: frozenset[tuple[int, int]], node: CpNode | None = None) -> bool:
         nonlocal incumbent
+        heartbeat("dfs")
         if time.perf_counter() >= soft_deadline:
             stats.timed_out = True
             return False
@@ -617,7 +652,12 @@ def solve_cp(
                 incumbent_makespan=incumbent.makespan if incumbent is not None else None,
                 base_lag_dist=root_lag_dist if pairs == forced_pairs else None,
                 resource_conflict_pairs=resource_conflict_pairs,
+                deadline=soft_deadline,
+                heartbeat=heartbeat,
             )
+            if propagation.timed_out:
+                stats.timed_out = True
+                return False
             stats.propagation_calls += 1
             stats.propagation_rounds += propagation.rounds
             if propagation.overload is not None:
@@ -718,7 +758,7 @@ def solve_cp(
         stats.total_conflict_size += len(conflict_set)
         stats.max_conflict_size = max(stats.max_conflict_size, len(conflict_set))
 
-        children = branch_children(
+        children, timed_out = branch_children(
             instance=instance,
             node=node,
             tail=tail,
@@ -732,7 +772,12 @@ def solve_cp(
             failure_cache_enabled=failure_cache_enabled,
             stats=stats,
             resource_conflict_pairs=resource_conflict_pairs,
+            deadline=soft_deadline,
+            heartbeat=heartbeat,
         )
+        if timed_out:
+            stats.timed_out = True
+            return False
 
         for _, _, child_pairs, child in children:
             stats.branches += 1

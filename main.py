@@ -230,6 +230,12 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     for index, path in enumerate(paths, start=1):
         case_started = time.perf_counter()
         instance = parse_sch(path)
+        if args.no_progress and args.time_limit >= 5.0:
+            print(
+                f"[benchmark] start {index}/{len(paths)} {instance.name}",
+                file=sys.stderr,
+                flush=True,
+            )
         raw_result = _solve_with_backend(
             instance,
             backend=args.backend,

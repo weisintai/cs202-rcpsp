@@ -79,3 +79,4 @@ class CpNodePropagation:
     node: CpNode | None
     overload: OverloadExplanation | None = None
     rounds: int = 0
+    timed_out: bool = False
