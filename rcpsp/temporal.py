@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import deque
+
 from .models import Edge, Instance
 
 
@@ -21,24 +23,43 @@ def longest_feasible_starts(
         starts = [max(0, int(value)) for value in release_times]
     starts[instance.source] = 0
 
-    all_edges = instance.edges if extra_edges is None else tuple(instance.edges) + tuple(extra_edges)
+    if extra_edges is None:
+        outgoing: tuple[tuple[Edge, ...], ...] | list[list[Edge]] = instance.outgoing
+    else:
+        outgoing = [list(edges) for edges in instance.outgoing]
+        for edge in extra_edges:
+            outgoing[edge.source].append(edge)
 
-    for _ in range(n - 1):
-        updated = False
-        for edge in all_edges:
-            candidate = starts[edge.source] + edge.lag
-            if candidate > starts[edge.target]:
-                starts[edge.target] = candidate
-                updated = True
-        starts[instance.source] = 0
-        if not updated:
-            return starts
+    queue = deque(range(n))
+    in_queue = [True] * n
+    update_counts = [0] * n
 
-    for edge in all_edges:
-        if starts[edge.source] + edge.lag > starts[edge.target]:
-            raise TemporalInfeasibleError(
-                f"{instance.name} contains an inconsistent lag cycle involving {edge.source}->{edge.target}"
-            )
+    while queue:
+        source = queue.popleft()
+        in_queue[source] = False
+        source_start = starts[source]
+
+        for edge in outgoing[source]:
+            candidate = source_start + edge.lag
+            target = edge.target
+            if target == instance.source:
+                if candidate > 0:
+                    raise TemporalInfeasibleError(
+                        f"{instance.name} contains an inconsistent lag cycle involving {edge.source}->{edge.target}"
+                    )
+                continue
+            if candidate <= starts[target]:
+                continue
+            starts[target] = candidate
+            update_counts[target] += 1
+            if update_counts[target] >= n:
+                raise TemporalInfeasibleError(
+                    f"{instance.name} contains an inconsistent lag cycle involving {edge.source}->{edge.target}"
+                )
+            if not in_queue[target]:
+                queue.append(target)
+                in_queue[target] = True
+
     starts[instance.source] = 0
     return starts
 

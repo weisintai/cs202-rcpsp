@@ -166,6 +166,72 @@ The `cp` roadmap is currently optimizing for:
 5. improve `30s` residue behavior without damaging the short-budget path
 6. avoid fake gains that collapse on `ubo10/100/200`
 
+## Optimization Policy
+
+The backend is close enough to its current architectural ceiling that each change must declare what it is trying to optimize.
+
+Do not treat `cp` as having one scalar objective called "faster". Track three separate objectives:
+
+1. `tight-budget quality`
+   - `0.1s` behavior
+   - early incumbent quality
+   - reducing `unknown`
+   - avoiding constructor and warm-start regressions
+2. `moderate-budget quality`
+   - `1.0s` to `30s` behavior
+   - better exact closure after propagation and DFS have time to work
+3. `kernel throughput`
+   - lower cost per propagation, conflict-selection, and projection step
+   - lower node overhead
+   - lower proof and seed overhead
+
+Every non-trivial `cp` change should declare one primary target category before implementation:
+
+- `constructor-first`
+- `propagation-throughput`
+- `search-quality`
+- `proof-quality`
+- `architecture`
+
+The primary target decides how the change is judged:
+
+- `constructor-first`
+  - focus on `sm_j30 @ 0.1s`, `testset_ubo20 @ 0.1s`, `testset_ubo50 @ 0.1s`
+- `propagation-throughput`
+  - focus on profiles plus `sm_j10 @ 1.0s` and `sm_j20 @ 1.0s`
+- `search-quality`
+  - focus on exact closure at `1.0s` and `30s`
+- `proof-quality`
+  - focus on exact closure and proof-side `unknown` reduction
+- `architecture`
+  - accept neutral or modestly negative local results only if the change unlocks a stronger future propagator or search mode
+
+For now, reject changes that only look better in a profiler but do not survive the acceptance matrix.
+
+## Experiment Discipline
+
+Record every meaningful `cp` change in [ITERATION_NOTES.md](ITERATION_NOTES.md) with:
+
+- change id or short label
+- hypothesis
+- primary target
+- files touched
+- focused validation
+- `submission_quick` result
+- `broad_generalization` result
+- keep / revert / revisit decision
+
+Use these acceptance gates:
+
+1. must pass focused `pytest`
+2. must not introduce crashes or correctness regressions
+3. must pass `submission_quick`
+4. must pass `broad_generalization`
+5. if the change targets `0.1s`, it should improve at least one short-budget row without materially hurting `1.0s`
+6. if the change targets `1.0s` to `30s`, it should improve exact closure there without materially hurting `0.1s`
+
+This is the default process until the backend gets another architectural step forward.
+
 ## Current Gaps
 
 What `cp` is missing is now fairly specific:
@@ -201,6 +267,8 @@ This does **not** mean building full trailing, watched literals, or CP-SAT inter
 
 It does mean the roadmap should explicitly improve the CP kernel before chasing more surface heuristics.
 
+This remains the most likely source of the next real step-function improvement. Recent work showed that local kernel optimizations can recover or preserve benchmark rows, but they do not materially raise the architecture ceiling.
+
 ### 4. Better explanation reuse
 
 The failure cache in [rcpsp/cp/search.py](rcpsp/cp/search.py) is useful, but still too coarse. It stores failed pair sets, not smaller reusable overload cores.
@@ -219,6 +287,41 @@ This is now a stronger priority than it looked initially. Recent reverted experi
 - the same ideas are harmful at `0.1s`, especially on held-out `ubo100/200`
 
 So future deeper-budget experiments should be written as explicitly gated deep-budget behavior, not as new universal defaults.
+
+## Near-Term Direction
+
+The roadmap is now split into two lanes.
+
+### Lane A: Stabilize The Current CP Solver
+
+Goal:
+
+- keep guardrails green
+- only accept narrowly scoped, reversible improvements
+- stop mixing correctness fixes, throughput tweaks, and search-quality experiments in one patch
+
+Allowed work:
+
+- correctness fixes
+- cache-safety fixes
+- bounded throughput improvements with guardrail wins
+- targeted branch or constructor adjustments with an explicit budget target
+
+### Lane B: Make The CP Solver Fuller
+
+Goal:
+
+- break through the current architecture ceiling rather than shaving a few more percent off hot paths
+
+Priority items:
+
+- incremental propagation and watched-state reruns
+- explicit `fast` versus `deep` propagation modes
+- better failure-core reuse and explanation shrinking
+- stronger cumulative reasoning such as `not-first / not-last`
+- better no-incumbent constructor and seed behavior on hard feasible cases
+
+This lane is where future bigger gains should come from. Treat it as roadmap work, not opportunistic micro-optimization.
 
 ## Phased Plan
 

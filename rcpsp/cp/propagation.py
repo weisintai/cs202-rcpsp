@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from weakref import WeakKeyDictionary
+
+from ..core.conflicts import select_branch_conflict
 from ..core.lag import (
     all_pairs_longest_lags,
     extend_longest_lags,
@@ -7,8 +10,27 @@ from ..core.lag import (
     pairwise_infeasibility_reason_from_dist,
 )
 from ..models import Edge, Instance
-from ..temporal import TemporalInfeasibleError, longest_feasible_starts
+from ..temporal import TemporalInfeasibleError
 from .state import CpNode, CpNodePropagation, OverloadExplanation
+
+_RESOURCE_ACTIVITIES_CACHE: WeakKeyDictionary[Instance, tuple[tuple[int, ...], ...]] = WeakKeyDictionary()
+
+def _resource_activities(
+    instance: Instance,
+) -> tuple[tuple[int, ...], ...]:
+    cached = _RESOURCE_ACTIVITIES_CACHE.get(instance)
+    if cached is not None:
+        return cached
+    computed = tuple(
+        tuple(
+            activity
+            for activity in range(1, instance.sink)
+            if instance.durations[activity] > 0 and instance.demands[activity][resource] > 0
+        )
+        for resource in range(instance.n_resources)
+    )
+    _RESOURCE_ACTIVITIES_CACHE[instance] = computed
+    return computed
 
 
 def tighten_latest_starts(
@@ -54,33 +76,73 @@ def tighten_latest_starts(
     return upper
 
 
+def tighten_earliest_starts(
+    instance: Instance,
+    release_times: list[int],
+    lag_dist: list[list[float]],
+) -> list[int]:
+    lower = release_times[:]
+    lower[instance.source] = 0
+    neg_inf = float("-inf")
+
+    for activity in range(instance.n_activities):
+        if lag_dist[activity][activity] > 0:
+            raise TemporalInfeasibleError(
+                f"{instance.name} contains an inconsistent lag cycle involving activity {activity}"
+            )
+
+    updated = lower[:]
+    for target in range(instance.n_activities):
+        best = lower[target]
+        for source in range(instance.n_activities):
+            lag = lag_dist[source][target]
+            if lag == neg_inf:
+                continue
+            candidate = lower[source] + int(lag)
+            if candidate > best:
+                best = candidate
+        updated[target] = best
+    updated[instance.source] = 0
+    return updated
+
+
 def build_mandatory_profile(
     instance: Instance,
     lower: list[int],
     latest: list[int],
-) -> tuple[list[list[int]], list[tuple[list[tuple[int, int, int]], int]]]:
+) -> tuple[list[list[int]], list[tuple[list[tuple[int, int, int]], int, tuple[int, ...]]]]:
     horizon = max(
         lower[instance.sink],
         max((max(lower[activity], latest[activity]) + instance.durations[activity] for activity in range(instance.n_activities)), default=0),
     )
     profiles = [[0] * max(0, horizon) for _ in range(instance.n_resources)]
-    mandatory_intervals: list[tuple[list[tuple[int, int, int]], int]] = []
+    mandatory_intervals: list[tuple[list[tuple[int, int, int]], int, tuple[int, ...]]] = []
+    resource_activity_lists = _resource_activities(instance)
 
     for resource in range(instance.n_resources):
         mandatory: list[tuple[int, int, int]] = []
-        for activity in range(1, instance.sink):
+        resource_activities = resource_activity_lists[resource]
+        deltas = [0] * (horizon + 1)
+        for activity in resource_activities:
             duration = instance.durations[activity]
             demand = instance.demands[activity][resource]
-            if duration <= 0 or demand <= 0:
-                continue
             left = latest[activity]
             right = lower[activity] + duration
             if left >= right:
                 continue
-            mandatory.append((activity, left, right))
-            for time_index in range(max(0, left), min(horizon, right)):
-                profiles[resource][time_index] += demand
-        mandatory_intervals.append((mandatory, horizon))
+            start = max(0, left)
+            end = min(horizon, right)
+            if start >= end:
+                continue
+            mandatory.append((activity, start, end))
+            deltas[start] += demand
+            deltas[end] -= demand
+        running = 0
+        profile = profiles[resource]
+        for time_index in range(horizon):
+            running += deltas[time_index]
+            profile[time_index] = running
+        mandatory_intervals.append((mandatory, horizon, resource_activities))
 
     return profiles, mandatory_intervals
 
@@ -128,6 +190,7 @@ def minimum_overlap_in_window(
     after = max(0, lst + duration - window_end)
     return max(0, duration - before - after)
 
+
 def propagate_compulsory_parts(
     instance: Instance,
     lower: list[int],
@@ -136,7 +199,9 @@ def propagate_compulsory_parts(
     changed = False
     profiles, mandatory_intervals = build_mandatory_profile(instance, lower, latest)
 
-    for resource, (mandatory, horizon) in enumerate(mandatory_intervals):
+    for resource, (mandatory, horizon, resource_activities) in enumerate(mandatory_intervals):
+        if not mandatory:
+            continue
         profile = profiles[resource]
         for time_index, usage in enumerate(profile):
             if usage <= instance.capacities[resource]:
@@ -144,10 +209,10 @@ def propagate_compulsory_parts(
             explanation = minimal_overload_explanation(instance, resource, time_index, mandatory)
             return changed, lower, latest, explanation
 
-        for activity in range(1, instance.sink):
+        for activity in resource_activities:
             demand = instance.demands[activity][resource]
             duration = instance.durations[activity]
-            if demand <= 0 or duration <= 0:
+            if lower[activity] >= latest[activity]:
                 continue
 
             own_left = latest[activity]
@@ -330,7 +395,7 @@ def propagate_cp_node(
     while True:
         rounds += 1
         try:
-            lower = longest_feasible_starts(instance, release_times=release_bounds, extra_edges=edges)
+            lower = tighten_earliest_starts(instance, release_bounds, lag_dist)
         except TemporalInfeasibleError:
             return CpNodePropagation(node=None, rounds=rounds)
 
@@ -349,7 +414,7 @@ def propagate_cp_node(
         if any(lower[activity] > latest[activity] for activity in range(instance.n_activities)):
             return CpNodePropagation(node=None, rounds=rounds)
 
-        propagated = propagate_compulsory_parts(instance, lower[:], latest[:])
+        propagated = propagate_compulsory_parts(instance, lower, latest)
         if propagated is None:
             return CpNodePropagation(node=None, rounds=rounds)
 
@@ -404,6 +469,7 @@ def propagate_cp_node(
 
         release_bounds = lower
 
+    branch_conflict = select_branch_conflict(instance, lower, tuple(latest) if latest is not None else None)
     return CpNodePropagation(
         node=CpNode(
             lower=tuple(lower),
@@ -411,6 +477,7 @@ def propagate_cp_node(
             edges=tuple(edges),
             pairs=frozenset(local_pairs),
             lag_dist=lag_dist,
+            branch_conflict=branch_conflict,
         ),
         rounds=rounds,
     )

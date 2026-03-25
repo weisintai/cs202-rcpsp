@@ -1,6 +1,30 @@
 from __future__ import annotations
 
+from weakref import WeakKeyDictionary
+
 from .models import Instance, Schedule
+
+_NONZERO_RESOURCE_DEMANDS_CACHE: WeakKeyDictionary[
+    Instance, tuple[tuple[tuple[int, int], ...], ...]
+] = WeakKeyDictionary()
+
+
+def _nonzero_resource_demands(
+    instance: Instance,
+) -> tuple[tuple[tuple[int, int], ...], ...]:
+    cached = _NONZERO_RESOURCE_DEMANDS_CACHE.get(instance)
+    if cached is not None:
+        return cached
+    computed = tuple(
+        tuple(
+            (resource, amount)
+            for resource, amount in enumerate(instance.demands[activity])
+            if amount != 0
+        )
+        for activity in range(instance.n_activities)
+    )
+    _NONZERO_RESOURCE_DEMANDS_CACHE[instance] = computed
+    return computed
 
 
 def build_resource_profile(instance: Instance, start_times: list[int] | tuple[int, ...]) -> list[list[int]]:
@@ -8,15 +32,25 @@ def build_resource_profile(instance: Instance, start_times: list[int] | tuple[in
     for activity, start in enumerate(start_times):
         horizon = max(horizon, start + instance.durations[activity])
     profile = [[0] * instance.n_resources for _ in range(horizon)]
+    deltas = [[0] * instance.n_resources for _ in range(horizon + 1)]
+    nonzero_demands = _nonzero_resource_demands(instance)
     for activity, start in enumerate(start_times):
         duration = instance.durations[activity]
         if duration == 0:
             continue
-        demand = instance.demands[activity]
-        for t in range(start, start + duration):
-            row = profile[t]
-            for resource in range(instance.n_resources):
-                row[resource] += demand[resource]
+        end = start + duration
+        start_row = deltas[start]
+        end_row = deltas[end]
+        for resource, amount in nonzero_demands[activity]:
+            start_row[resource] += amount
+            end_row[resource] -= amount
+    running = [0] * instance.n_resources
+    for time_index in range(horizon):
+        delta_row = deltas[time_index]
+        row = profile[time_index]
+        for resource in range(instance.n_resources):
+            running[resource] += delta_row[resource]
+            row[resource] = running[resource]
     return profile
 
 

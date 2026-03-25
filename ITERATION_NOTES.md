@@ -1,6 +1,78 @@
 # RCPSP/max Iteration Notes
 
-Last updated: 2026-03-21
+Last updated: 2026-03-25
+
+## 2026-03-25 CP kernel cleanup and acceptance reset
+
+We pushed a cluster of CP-side optimizations, then separated what was actually worth keeping from what only looked good locally.
+
+### Kept
+
+- cached ranked branch conflicts on CP nodes
+- diff-array resource-profile construction
+- weak-key instance caches for propagation and validation helpers
+- `tighten_earliest_starts(...)` in CP propagation using `lag_dist`
+- queue-based `longest_feasible_starts(...)`
+- the `guided_seed` metadata crash fix
+
+### Rejected
+
+- constructor-side incremental `lag_dist` candidate projection
+- the heavier event-sweep conflict-extraction rewrite
+- jump-based compulsory-part scans
+
+The rejected items either hurt the short-budget rows, added too much regression risk, or both.
+
+### What broke and why
+
+One regression was a real correctness bug, not just weaker benchmarks.
+
+- the first cache implementation used `id(instance)` as the cache key
+- during long benchmark runs, Python can reuse object ids after old instances are dropped
+- that let later instances read cached resource metadata from earlier instances
+- the visible symptoms were unstable guardrail rows and a constructor crash in `sm_j30 @ 0.1s`
+
+Replacing those caches with `WeakKeyDictionary` fixed the corruption and recovered the long-budget rows.
+
+### Current post-cleanup read
+
+Focused validation:
+
+- `uv run pytest tests/test_cp_propagation.py tests/test_cp_search.py -q`
+- `31 passed`
+
+Current kept baseline:
+
+- `submission_quick`
+  - `sm_j10 @ 1.0s`: `187/187`
+  - `sm_j20 @ 1.0s`: `155/158`
+  - `sm_j30 @ 0.1s`: `76/120`
+  - `testset_ubo20 @ 0.1s`: `55/66`
+  - `testset_ubo50 @ 0.1s`: `14/33`
+- `broad_generalization`
+  - `testset_ubo10 @ 0.1s`: `73/73`
+  - `testset_ubo100 @ 0.1s`: `1/24`
+  - `testset_ubo200 @ 0.1s`: `0/25`
+
+### Process change going forward
+
+The backend is now close enough to its current architecture limit that solver changes need explicit target labels and tighter acceptance discipline.
+
+Going forward, every meaningful CP change should record:
+
+- hypothesis
+- primary target:
+  - `constructor-first`
+  - `propagation-throughput`
+  - `search-quality`
+  - `proof-quality`
+  - `architecture`
+- focused tests
+- `submission_quick` result
+- `broad_generalization` result
+- keep / revert / revisit
+
+The important lesson from this round is that local throughput wins are not enough. If a change cannot survive the benchmark matrix, it does not count as an accepted improvement.
 
 ## 2026-03-21 SGS direction update
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..core.conflicts import BranchConflict
 from ..models import Edge
 
 
@@ -47,6 +48,7 @@ class CpNode:
     edges: tuple[Edge, ...]
     pairs: frozenset[tuple[int, int]]
     lag_dist: list[list[float]] | None = None
+    branch_conflict: BranchConflict | None = None
 
 
 @dataclass(frozen=True)

@@ -77,6 +77,35 @@ def test_node_signature_distinguishes_tighter_latest_bounds() -> None:
     assert node_signature(loose) != node_signature(tight)
 
 
+def test_select_branch_conflict_prefers_tighter_conflict() -> None:
+    instance = _dummy_instance(3)
+    instance = Instance(
+        name=instance.name,
+        path=instance.path,
+        n_jobs=3,
+        n_resources=1,
+        durations=(0, 3, 2, 1, 0),
+        demands=((0,), (1,), (1,), (1,), (0,)),
+        capacities=(2,),
+        edges=(
+            instance.edges
+            + ()
+        ),
+        outgoing=instance.outgoing,
+        incoming=instance.incoming,
+    )
+    start_times = [0, 0, 0, 1, 3]
+    latest = (0, 0, 1, 2, 3)
+
+    conflict = select_branch_conflict(instance, start_times, latest)
+
+    assert conflict is not None
+    _, resource, activities, overload = conflict
+    assert resource == 0
+    assert activities == (1, 2, 3)
+    assert overload == (1,)
+
+
 def test_run_guided_seed_updates_incumbent_from_local_seed(monkeypatch) -> None:
     instance = _dummy_instance(30)
     stats = CpSearchStats()
@@ -468,8 +497,8 @@ def test_select_branch_conflict_prefers_smaller_tighter_conflict() -> None:
     time_index, resource, activities, overload = conflict
     assert time_index == 1
     assert resource == 0
-    assert activities == [2, 3]
-    assert overload == [4]
+    assert activities == (2, 3)
+    assert overload == (4,)
 
 
 def test_required_pair_gap_uses_lag_closure_when_tighter() -> None:

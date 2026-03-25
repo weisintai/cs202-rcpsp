@@ -385,6 +385,8 @@ def solve(
                 best_source=best_source,
                 improvement_iterations=improvement_iterations,
                 exact_stats=exact_stats,
+                construct_failure_counts=construct_failure_counts,
+                construct_successes=construct_successes,
                 reason=errors[0],
             ),
         )
