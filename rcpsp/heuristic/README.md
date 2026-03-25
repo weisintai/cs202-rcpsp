@@ -1,6 +1,6 @@
 # Heuristic Backend
 
-This is the accepted main solver backend.
+This is the archived `hybrid` comparison backend.
 
 ## Purpose
 
@@ -28,4 +28,17 @@ This backend owns:
 - pairwise conflict branch-and-bound
 - incumbent polishing
 
-It should stay focused on `anytime performance`, since this is still the submission-quality default backend.
+It should stay focused on `anytime performance`, because that is the main reason to keep it as a comparison baseline.
+
+Current practical read on this checkout:
+
+- `hybrid` is no longer the submission default; `cp` is
+- `hybrid` is still useful as the short-budget comparison baseline
+- in fresh reruns, `hybrid` beat `cp` on `sm_j30 @ 0.1s`
+  - `83/120` exact for `hybrid`
+  - `75/120` exact for `cp`
+- on `sm_j20 @ 1.0s`, `hybrid` is clearly behind `cp`
+  - `125/158` exact for `hybrid`
+  - `155/158` exact for `cp`
+
+This backend remains worth keeping for side-by-side checks, but active submission-facing work should go into `rcpsp/cp`.

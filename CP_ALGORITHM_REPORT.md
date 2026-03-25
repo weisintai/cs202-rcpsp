@@ -17,6 +17,22 @@ The CP backend has a strict **30-second wall-clock budget** and must never claim
 
 ---
 
+## 1.5 Current Empirical Read
+
+This document is mainly an architecture walkthrough, not a benchmark log, but the current checkout has a clear practical split between the in-repo backends:
+
+- On short-budget public cases such as `sm_j30 @ 0.1s`, the archived `hybrid` backend is still the stronger comparison baseline.
+  - Fresh rerun: `hybrid` reached `172 feasible / 85 infeasible / 13 unknown`
+  - Fresh rerun: `cp` reached `165 feasible / 85 infeasible / 20 unknown`
+  - Reference comparison: `hybrid` matched `83/120` exact cases, while `cp` matched `75/120`
+- On medium-budget public cases such as `sm_j20 @ 1.0s`, `cp` is the clearly stronger submission-oriented backend.
+  - Fresh rerun: both `hybrid` and `cp` classified all `270` instances with `184 feasible / 86 infeasible / 0 unknown`
+  - Reference comparison: `hybrid` matched `125/158` exact cases, while `cp` matched `155/158`
+
+One important caveat behind these numbers: the old `hybrid` benchmark path was stale because its repair loop could abort on an infeasible local repair projection. That comparison bug has now been hardened, so the figures above are from a clean rerun rather than from the older notes.
+
+---
+
 ## 2. Big Picture: How a Solve Runs
 
 The solver does **not** enumerate complete schedules directly. Instead, it searches over **pairwise resource-ordering decisions**: "should activity A finish before activity B starts?" Each decision is represented as an extra precedence edge. The solver incrementally adds edges, propagates their consequences, and prunes search branches that cannot beat the best schedule found so far.
@@ -206,6 +222,8 @@ If the solver cannot resolve a conflict within a step budget, or the time deadli
 **Focused repair mode (large instances):** Instead of sequencing one activity before one other, it sequences the selected activity before *all* other conflicting activities at once. This is more aggressive and avoids creating many micro-steps.
 
 **Release-time fallback:** If no ordering resolves a conflict (all edges would create cycles), the solver artificially forces the activity to start *after* all conflicting activities have finished (a "release time"). This is a softer constraint that avoids cycles but may not give the tightest result.
+
+In the archived `hybrid` backend, the same fallback idea recently needed a hardening pass: a fallback release move could contradict the current order edges and create a temporary temporal cycle. The current code now treats that as a dead repair move instead of aborting the whole solve. That fix matters for benchmarking because it turned some stale `hybrid` comparison runs from crashes into real measurements.
 
 After the repair loop:
 - A final forward pass recomputes start times.

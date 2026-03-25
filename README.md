@@ -1,6 +1,6 @@
 # RCPSP/max Solver
 
-In-repo RCPSP/max solver and experiment harness for the course project. The active submission-oriented workflow now targets the custom `cp` backend. `hybrid` and `sgs` are kept in the repo as historical comparison baselines and idea sources, not as the main iteration path.
+In-repo RCPSP/max solver and experiment harness for the course project. The active submission-oriented workflow now targets the custom `cp` backend. `cp_full` is the experimental fuller-CP track for architectural work. `hybrid` and `sgs` are kept in the repo as historical comparison baselines and idea sources, not as the main iteration path.
 
 Raw benchmark datasets now live under `benchmarks/data/` to keep the project root cleaner. The CLI still accepts the old shorthand dataset names such as `sm_j10` and `testset_ubo50`.
 
@@ -10,8 +10,12 @@ Raw benchmark datasets now live under `benchmarks/data/` to keep the project roo
   - package index and shared module layout
 - [rcpsp/cp/README.md](rcpsp/cp/README.md)
   - current submission-candidate backend
+- [rcpsp/cp_full/README.md](rcpsp/cp_full/README.md)
+  - experimental fuller-CP backend
 - [CP_ROADMAP.md](CP_ROADMAP.md)
   - phased implementation plan for the CP backend
+- [CP_FULL_ROADMAP.md](CP_FULL_ROADMAP.md)
+  - architectural charter for the fuller-CP track
 - [report.md](report.md)
   - project report notes and submission positioning
 - [rcpsp/heuristic/README.md](rcpsp/heuristic/README.md)
@@ -28,6 +32,7 @@ Raw benchmark datasets now live under `benchmarks/data/` to keep the project roo
 - Parses ProGenMax `.SCH` files across the benchmark folders in this repo, including `sm_j10`, `sm_j20`, `sm_j30`, `testset_ubo20`, and `testset_ubo50`
 - Handles generalized lag constraints of the form `S_j >= S_i + lag`
 - Uses the `cp` backend as the active submission-candidate path for branch-and-propagate search under the assignment constraints
+- Keeps `cp_full` as the experimental branch for larger architectural CP changes
 - Implements the current `cp` backend around lag-closure propagation, compulsory-part / timetable pruning, pair-order branching, and a local guided-seed warm start
 - Keeps `hybrid` and `sgs` only as comparison baselines for side-by-side checks
 - Benchmarks folders of instances from the command line
@@ -37,7 +42,7 @@ Raw benchmark datasets now live under `benchmarks/data/` to keep the project roo
 
 ## Usage
 
-Unless you are explicitly comparing backends, assume `cp` is the backend to run for iteration and for final submission checks.
+Unless you are explicitly comparing backends, assume `cp` is the backend to run for iteration and for final submission checks. Use `cp_full` only when you are deliberately testing architectural changes.
 
 Solve one instance:
 
@@ -47,6 +52,8 @@ uv run main.py solve benchmarks/data/sm_j10/PSP1.SCH --time-limit 1.0 --backend 
 ```
 
 For a teammate handoff on how the active solver works, start with [rcpsp/cp/README.md](rcpsp/cp/README.md). It gives the CP mental model, solve flow, key files, and the recommended iteration loop.
+
+For the experimental fuller-CP track, start with [rcpsp/cp_full/README.md](rcpsp/cp_full/README.md) and [CP_FULL_ROADMAP.md](CP_FULL_ROADMAP.md).
 
 Benchmark a full folder:
 
@@ -159,7 +166,28 @@ Recommended validation loop:
 
 This is the minimum anti-overfitting policy for the repo. A change that helps only `j10/j20` but hurts `sm_j30` or `ubo50` should be treated as suspect.
 
-For the final submission backend, use `cp` and the stricter roadmap matrix in [CP_ROADMAP.md](CP_ROADMAP.md). Treat `hybrid` and `sgs` as archived comparison paths unless a change specifically needs a baseline comparison.
+For the final submission backend, use `cp` and the stricter roadmap matrix in [CP_ROADMAP.md](CP_ROADMAP.md). Treat `cp_full` as experimental until it beats `cp` on the same screens and remains stable. Treat `hybrid` and `sgs` as archived comparison paths unless a change specifically needs a baseline comparison.
+
+## Current Backend Snapshot
+
+Fresh reruns on the current checkout still support the repo split between `hybrid` and `cp`, but the numbers are not the older ones in `ITERATION_NOTES.md`.
+
+- `sm_j30 @ 0.1s`
+  - `hybrid`: `172 feasible / 85 infeasible / 13 unknown`
+  - `hybrid` compare: `83/120` exact, exact-match rate `69.2%`, avg exact ratio `1.0207`
+  - `cp`: `165 feasible / 85 infeasible / 20 unknown`
+  - `cp` compare: `75/120` exact, exact-match rate `62.5%`, avg exact ratio `1.0406`
+- `sm_j20 @ 1.0s`
+  - `hybrid`: `184 feasible / 86 infeasible / 0 unknown`
+  - `hybrid` compare: `125/158` exact, exact-match rate `79.1%`, avg exact ratio `1.0167`
+  - `cp`: `184 feasible / 86 infeasible / 0 unknown`
+  - `cp` compare: `155/158` exact, exact-match rate `98.1%`, avg exact ratio `1.0009`
+
+Practical read:
+
+- `hybrid` is still the stronger short-budget comparison baseline on `sm_j30 @ 0.1s`
+- `cp` is the clearly stronger medium-budget submission backend on `sm_j20 @ 1.0s`
+- both statements are based on the fresh reruns above, after hardening the `hybrid` repair path against infeasible local repair projections
 
 ## CP Backend Read
 
