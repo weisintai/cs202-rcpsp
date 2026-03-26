@@ -97,9 +97,9 @@ The recent probe change improved this materially, but the deeper issue is not fu
 
 Relevant code:
 
-- [rcpsp/cp/search.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/search.py#L562)
-- [rcpsp/cp/guided_seed.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/guided_seed.py#L309)
-- [rcpsp/cp/search.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/search.py#L635)
+- [rcpsp/cp/search.py](rcpsp/cp/search.py#L562)
+- [rcpsp/cp/guided_seed.py](rcpsp/cp/guided_seed.py#L309)
+- [rcpsp/cp/search.py](rcpsp/cp/search.py#L635)
 
 What changed:
 
@@ -129,12 +129,12 @@ Large parts of the stack repeatedly recompute whole-instance structures:
 
 Relevant code:
 
-- [rcpsp/cp/construct.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/construct.py#L148)
-- [rcpsp/cp/construct.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/construct.py#L203)
-- [rcpsp/cp/improve.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/improve.py#L321)
-- [rcpsp/cp/propagation.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/propagation.py#L127)
-- [rcpsp/core/conflicts.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/core/conflicts.py#L69)
-- [rcpsp/temporal.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/temporal.py#L12)
+- [rcpsp/cp/construct.py](rcpsp/cp/construct.py#L148)
+- [rcpsp/cp/construct.py](rcpsp/cp/construct.py#L203)
+- [rcpsp/cp/improve.py](rcpsp/cp/improve.py#L321)
+- [rcpsp/cp/propagation.py](rcpsp/cp/propagation.py#L127)
+- [rcpsp/core/conflicts.py](rcpsp/core/conflicts.py#L69)
+- [rcpsp/temporal.py](rcpsp/temporal.py#L12)
 
 Why this matters:
 
@@ -153,9 +153,9 @@ High-value direction:
 
 Relevant code:
 
-- [rcpsp/cp/improve.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/improve.py#L321)
-- [rcpsp/core/compress.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/core/compress.py#L80)
-- [rcpsp/core/compress.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/core/compress.py#L101)
+- [rcpsp/cp/improve.py](rcpsp/cp/improve.py#L321)
+- [rcpsp/core/compress.py](rcpsp/core/compress.py#L80)
+- [rcpsp/core/compress.py](rcpsp/core/compress.py#L101)
 
 Why this matters:
 
@@ -174,12 +174,12 @@ The main `cp` backend always pays for the heavier propagation path: compulsory-p
 
 Relevant code:
 
-- [rcpsp/cp/search.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/search.py#L562)
-- [rcpsp/cp/propagation.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/propagation.py#L219)
-- [rcpsp/cp/propagation.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp/propagation.py#L306)
-- [rcpsp/cp_full/search.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp_full/search.py#L123)
-- [rcpsp/cp_full/propagation.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp_full/propagation.py#L94)
-- [rcpsp/cp_full/propagation.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/cp_full/propagation.py#L492)
+- [rcpsp/cp/search.py](rcpsp/cp/search.py#L562)
+- [rcpsp/cp/propagation.py](rcpsp/cp/propagation.py#L219)
+- [rcpsp/cp/propagation.py](rcpsp/cp/propagation.py#L306)
+- [rcpsp/cp_full/search.py](rcpsp/cp_full/search.py#L123)
+- [rcpsp/cp_full/propagation.py](rcpsp/cp_full/propagation.py#L94)
+- [rcpsp/cp_full/propagation.py](rcpsp/cp_full/propagation.py#L492)
 
 Why this matters:
 
@@ -197,11 +197,11 @@ High-value direction:
 Transferable ideas from `sgs` and the older `heuristic` stack:
 
 - tiny warm-start budget before the main search:
-  - [rcpsp/sgs/warm_start.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs/warm_start.py#L14)
+  - [rcpsp/sgs/warm_start.py](rcpsp/sgs/warm_start.py#L14)
 - cheap forward/backward polish after a feasible schedule:
-  - [rcpsp/sgs/fbi.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/sgs/fbi.py#L75)
+  - [rcpsp/sgs/fbi.py](rcpsp/sgs/fbi.py#L75)
 - adaptive operator weighting in local improvement:
-  - [rcpsp/heuristic/improve.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/rcpsp/heuristic/improve.py#L34)
+  - [rcpsp/heuristic/improve.py](rcpsp/heuristic/improve.py#L34)
 
 These are not cosmetic. They directly target the incumbent starvation pattern seen in the residue run.
 
@@ -212,14 +212,14 @@ The current `guardrails + compare` harness is good enough for day-to-day iterati
 ### 1. Missing reference rows are counted but not treated as evaluation failures
 
 - compare keeps going on missing references:
-  - [main.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/main.py#L344)
+  - [main.py](main.py#L344)
 
 ### 2. Everything is effectively tuned against one deterministic seed stream
 
 - benchmark seeds are `args.seed + index - 1`:
-  - [main.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/main.py#L239)
+  - [main.py](main.py#L239)
 - guardrails pass one seed through the whole run:
-  - [scripts/guardrails_lib.py](/Users/weisintai/development/smu/modules/y2s2/cs202/project/scripts/guardrails_lib.py#L218)
+  - [scripts/guardrails_lib.py](scripts/guardrails_lib.py#L218)
 
 This is fine for reproducibility, but weak for judging whether a change is genuinely stronger instead of just luckier.
 

@@ -18,6 +18,8 @@ Raw benchmark datasets now live under `benchmarks/data/` to keep the project roo
   - architectural charter for the fuller-CP track
 - [report.md](report.md)
   - project report notes and submission positioning
+- [SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md)
+  - requirement-to-code trace and pre-submit hygiene checklist
 - [rcpsp/heuristic/README.md](rcpsp/heuristic/README.md)
   - archived heuristic baseline
 - [rcpsp/sgs/README.md](rcpsp/sgs/README.md)

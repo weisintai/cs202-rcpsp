@@ -52,7 +52,7 @@ Main implementation files:
 
 ## What The Solver Currently Does Well
 
-The strongest evidence for the backend is the `30s` public acceptance matrix from [tmp/guardrails/cp-cp_acceptance-20260323-152344/summary.json](tmp/guardrails/cp-cp_acceptance-20260323-152344/summary.json).
+The strongest evidence for the backend is the `30s` public acceptance matrix from local guardrail run snapshot `tmp/guardrails/cp-cp_acceptance-20260323-152344/summary.json`.
 
 | Dataset | Exact | Unknown | Over Budget |
 | --- | ---: | ---: | ---: |
@@ -66,7 +66,7 @@ This means the backend is already strong on the main course-facing public matrix
 
 ## What Still Looks Weak
 
-The short-budget guardrail screen is still much harder. Current quick-screen numbers come from [tmp/guardrails/cp-submission_quick-20260324-123953/summary.json](tmp/guardrails/cp-submission_quick-20260324-123953/summary.json).
+The short-budget guardrail screen is still much harder. Current quick-screen numbers come from local guardrail run snapshot `tmp/guardrails/cp-submission_quick-20260324-123953/summary.json`.
 
 | Dataset | Exact | Unknown | Over Budget |
 | --- | ---: | ---: | ---: |
@@ -76,7 +76,7 @@ The short-budget guardrail screen is still much harder. Current quick-screen num
 | `testset_ubo20 @ 0.1s` | `57 / 66` | `1` | `0` |
 | `testset_ubo50 @ 0.1s` | `16 / 33` | `15` | `0` |
 
-The held-out anti-overfitting screen is also still a scaling wall. Current numbers come from [tmp/guardrails/cp-broad_generalization-20260324-124159/summary.json](tmp/guardrails/cp-broad_generalization-20260324-124159/summary.json).
+The held-out anti-overfitting screen is also still a scaling wall. Current numbers come from local guardrail run snapshot `tmp/guardrails/cp-broad_generalization-20260324-124159/summary.json`.
 
 | Dataset | Exact | Feasible | Unknown | Over Budget |
 | --- | ---: | ---: | ---: | ---: |
