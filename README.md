@@ -28,6 +28,12 @@ Raw benchmark datasets now live under `benchmarks/data/` to keep the project roo
   - historical SGS roadmap
 - [references/README.md](references/README.md)
   - external reference repos cloned for study
+- [scripts/README.md](scripts/README.md)
+  - automation and benchmark helper script index
+- [benchmarks/README.md](benchmarks/README.md)
+  - dataset directory layout and usage notes
+- [tests/README.md](tests/README.md)
+  - test suite quick-start and focused run commands
 
 ## What it does
 
