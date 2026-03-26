@@ -263,7 +263,7 @@ Current clean reference outputs:
 
 Example:
 
-- [sm_j20/PSP1.SCH](sm_j20/PSP1.SCH) is classified as infeasible because activities `2` and `17` are forced to overlap and exceed one resource capacity together.
+- [sm_j20/PSP1.SCH](benchmarks/data/sm_j20/PSP1.SCH) is classified as infeasible because activities `2` and `17` are forced to overlap and exceed one resource capacity together.
 
 ### Baseline before conflict-set branch-and-bound
 
@@ -308,7 +308,7 @@ At `0.1s` per instance:
 
 ### Example recovered instance
 
-- [sm_j10/PSP102.SCH](sm_j10/PSP102.SCH)
+- [sm_j10/PSP102.SCH](benchmarks/data/sm_j10/PSP102.SCH)
   - previously `unknown`
   - now `feasible`
   - makespan `52`
@@ -394,11 +394,11 @@ Net effect relative to the current conditional-prune version:
 
 Recovered examples:
 
-- [sm_j20/PSP264.SCH](sm_j20/PSP264.SCH)
+- [sm_j20/PSP264.SCH](benchmarks/data/sm_j20/PSP264.SCH)
   - previously `infeasible` at `0.1s`
   - now `feasible`
   - at `1s`, feasible with makespan `99`
-- [sm_j20/PSP269.SCH](sm_j20/PSP269.SCH)
+- [sm_j20/PSP269.SCH](benchmarks/data/sm_j20/PSP269.SCH)
   - previously `infeasible` at `0.1s`
   - now `feasible`
   - at `1s`, feasible with makespan `136`
@@ -430,7 +430,7 @@ Net effect relative to the previous size-adaptive version:
 
 - `sm_j10`
   - same status counts
-  - one feasible instance improved: [sm_j10/PSP65.SCH](sm_j10/PSP65.SCH)
+  - one feasible instance improved: [sm_j10/PSP65.SCH](benchmarks/data/sm_j10/PSP65.SCH)
   - average ratio improved from `1.3370` to `1.3362`
 - `sm_j20`
   - same status counts
@@ -459,14 +459,14 @@ From `0.1s` to `1.0s` on `sm_j20`:
 
 Remaining unknown `J20` instances at `1.0s`:
 
-- [sm_j20/PSP127.SCH](sm_j20/PSP127.SCH)
-- [sm_j20/PSP14.SCH](sm_j20/PSP14.SCH)
-- [sm_j20/PSP211.SCH](sm_j20/PSP211.SCH)
-- [sm_j20/PSP243.SCH](sm_j20/PSP243.SCH)
-- [sm_j20/PSP247.SCH](sm_j20/PSP247.SCH)
-- [sm_j20/PSP249.SCH](sm_j20/PSP249.SCH)
-- [sm_j20/PSP39.SCH](sm_j20/PSP39.SCH)
-- [sm_j20/PSP99.SCH](sm_j20/PSP99.SCH)
+- [sm_j20/PSP127.SCH](benchmarks/data/sm_j20/PSP127.SCH)
+- [sm_j20/PSP14.SCH](benchmarks/data/sm_j20/PSP14.SCH)
+- [sm_j20/PSP211.SCH](benchmarks/data/sm_j20/PSP211.SCH)
+- [sm_j20/PSP243.SCH](benchmarks/data/sm_j20/PSP243.SCH)
+- [sm_j20/PSP247.SCH](benchmarks/data/sm_j20/PSP247.SCH)
+- [sm_j20/PSP249.SCH](benchmarks/data/sm_j20/PSP249.SCH)
+- [sm_j20/PSP39.SCH](benchmarks/data/sm_j20/PSP39.SCH)
+- [sm_j20/PSP99.SCH](benchmarks/data/sm_j20/PSP99.SCH)
 
 ### Follow-up iteration: adaptive incremental pairwise propagation
 
@@ -511,17 +511,17 @@ Net effect relative to the previous incumbent-guided exact-search version at `1.
 - same feasible count: `184`
 - unknown reduced from `8` to `6`
 - two hard instances moved from `unknown` to `infeasible`
-  - [sm_j20/PSP247.SCH](sm_j20/PSP247.SCH)
-  - [sm_j20/PSP99.SCH](sm_j20/PSP99.SCH)
+  - [sm_j20/PSP247.SCH](benchmarks/data/sm_j20/PSP247.SCH)
+  - [sm_j20/PSP99.SCH](benchmarks/data/sm_j20/PSP99.SCH)
 
 Remaining unknown `J20` instances at `1.0s` with the current solver:
 
-- [sm_j20/PSP127.SCH](sm_j20/PSP127.SCH)
-- [sm_j20/PSP14.SCH](sm_j20/PSP14.SCH)
-- [sm_j20/PSP211.SCH](sm_j20/PSP211.SCH)
-- [sm_j20/PSP243.SCH](sm_j20/PSP243.SCH)
-- [sm_j20/PSP249.SCH](sm_j20/PSP249.SCH)
-- [sm_j20/PSP39.SCH](sm_j20/PSP39.SCH)
+- [sm_j20/PSP127.SCH](benchmarks/data/sm_j20/PSP127.SCH)
+- [sm_j20/PSP14.SCH](benchmarks/data/sm_j20/PSP14.SCH)
+- [sm_j20/PSP211.SCH](benchmarks/data/sm_j20/PSP211.SCH)
+- [sm_j20/PSP243.SCH](benchmarks/data/sm_j20/PSP243.SCH)
+- [sm_j20/PSP249.SCH](benchmarks/data/sm_j20/PSP249.SCH)
+- [sm_j20/PSP39.SCH](benchmarks/data/sm_j20/PSP39.SCH)
 
 ## Research notes
 
@@ -553,7 +553,7 @@ Relevant code is in:
 
 ### Why this was needed
 
-While testing [sm_j10/PSP223.SCH](sm_j10/PSP223.SCH), the old solver labeled the instance `infeasible`, but the repair path produced a valid schedule. That exposed an important limitation:
+While testing [sm_j10/PSP223.SCH](benchmarks/data/sm_j10/PSP223.SCH), the old solver labeled the instance `infeasible`, but the repair path produced a valid schedule. That exposed an important limitation:
 
 - the current exact search is a strong feasibility/quality intensifier
 - but it is **not** a formal proof procedure for infeasibility
@@ -597,18 +597,18 @@ At `1.0s` per instance:
 
 Concrete instance-level effects:
 
-- [sm_j10/PSP223.SCH](sm_j10/PSP223.SCH) moved from `infeasible` to `feasible` with makespan `92`
-- [sm_j10/PSP88.SCH](sm_j10/PSP88.SCH) improved from `48 -> 43`
-- [sm_j20/PSP79.SCH](sm_j20/PSP79.SCH) moved from `unknown` to `feasible` with makespan `105`
-- [sm_j20/PSP139.SCH](sm_j20/PSP139.SCH) improved from `144 -> 117`
+- [sm_j10/PSP223.SCH](benchmarks/data/sm_j10/PSP223.SCH) moved from `infeasible` to `feasible` with makespan `92`
+- [sm_j10/PSP88.SCH](benchmarks/data/sm_j10/PSP88.SCH) improved from `48 -> 43`
+- [sm_j20/PSP79.SCH](benchmarks/data/sm_j20/PSP79.SCH) moved from `unknown` to `feasible` with makespan `105`
+- [sm_j20/PSP139.SCH](benchmarks/data/sm_j20/PSP139.SCH) improved from `144 -> 117`
 
 ### Longer targeted checks
 
 For the previously unresolved `J20` cases:
 
-- by `5s`, only [sm_j20/PSP127.SCH](sm_j20/PSP127.SCH) and [sm_j20/PSP39.SCH](sm_j20/PSP39.SCH) remained `unknown`
-- at `30s`, [sm_j20/PSP127.SCH](sm_j20/PSP127.SCH) became `infeasible`
-- at `30s`, [sm_j20/PSP39.SCH](sm_j20/PSP39.SCH) still remained `unknown`
+- by `5s`, only [sm_j20/PSP127.SCH](benchmarks/data/sm_j20/PSP127.SCH) and [sm_j20/PSP39.SCH](benchmarks/data/sm_j20/PSP39.SCH) remained `unknown`
+- at `30s`, [sm_j20/PSP127.SCH](benchmarks/data/sm_j20/PSP127.SCH) became `infeasible`
+- at `30s`, [sm_j20/PSP39.SCH](benchmarks/data/sm_j20/PSP39.SCH) still remained `unknown`
 
 ## Reference-driven target
 
@@ -715,30 +715,30 @@ This is the first iteration that moved us materially closer to the public best-k
 
 New exact matches on `sm_j10` included:
 
-- [sm_j10/PSP56.SCH](sm_j10/PSP56.SCH): `42 -> 34`
-- [sm_j10/PSP161.SCH](sm_j10/PSP161.SCH): `35 -> 29`
-- [sm_j10/PSP236.SCH](sm_j10/PSP236.SCH): `40 -> 36`
+- [sm_j10/PSP56.SCH](benchmarks/data/sm_j10/PSP56.SCH): `42 -> 34`
+- [sm_j10/PSP161.SCH](benchmarks/data/sm_j10/PSP161.SCH): `35 -> 29`
+- [sm_j10/PSP236.SCH](benchmarks/data/sm_j10/PSP236.SCH): `40 -> 36`
 
 New exact matches on `sm_j20` included:
 
-- [sm_j20/PSP112.SCH](sm_j20/PSP112.SCH): `97 -> 90`
-- [sm_j20/PSP146.SCH](sm_j20/PSP146.SCH): `66 -> 59`
-- [sm_j20/PSP173.SCH](sm_j20/PSP173.SCH): `91 -> 81`
-- [sm_j20/PSP208.SCH](sm_j20/PSP208.SCH): `95 -> 85`
+- [sm_j20/PSP112.SCH](benchmarks/data/sm_j20/PSP112.SCH): `97 -> 90`
+- [sm_j20/PSP146.SCH](benchmarks/data/sm_j20/PSP146.SCH): `66 -> 59`
+- [sm_j20/PSP173.SCH](benchmarks/data/sm_j20/PSP173.SCH): `91 -> 81`
+- [sm_j20/PSP208.SCH](benchmarks/data/sm_j20/PSP208.SCH): `95 -> 85`
 
 Large quality improvements without full exact matching included:
 
-- [sm_j20/PSP264.SCH](sm_j20/PSP264.SCH): `99 -> 81`
-- [sm_j20/PSP79.SCH](sm_j20/PSP79.SCH): `101 -> 92`
-- [sm_j20/PSP269.SCH](sm_j20/PSP269.SCH): `136 -> 130`
+- [sm_j20/PSP264.SCH](benchmarks/data/sm_j20/PSP264.SCH): `99 -> 81`
+- [sm_j20/PSP79.SCH](benchmarks/data/sm_j20/PSP79.SCH): `101 -> 92`
+- [sm_j20/PSP269.SCH](benchmarks/data/sm_j20/PSP269.SCH): `136 -> 130`
 
 ## Added benchmark families
 
 To check that the solver is not just drifting toward the public `sm_j10` and `sm_j20` sets, we added three more public benchmark families from the same RCPSP/max collection:
 
-- [sm_j30](sm_j30)
-- [testset_ubo20](testset_ubo20)
-- [testset_ubo50](testset_ubo50)
+- [sm_j30](benchmarks/data/sm_j30)
+- [testset_ubo20](benchmarks/data/testset_ubo20)
+- [testset_ubo50](benchmarks/data/testset_ubo50)
 
 We also extended the CLI so that:
 
@@ -839,7 +839,7 @@ Why this was accepted:
 
 The post-exact polishing pass directly fixed one of the worst visible `sm_j10` outliers:
 
-- [sm_j10/PSP223.SCH](sm_j10/PSP223.SCH): the earlier solver was at `92`; the accepted post-exact pass found `68` within the same `1.0s` budget during targeted testing
+- [sm_j10/PSP223.SCH](benchmarks/data/sm_j10/PSP223.SCH): the earlier solver was at `92`; the accepted post-exact pass found `68` within the same `1.0s` budget during targeted testing
 
 ### Current clean benchmark files
 
@@ -860,7 +860,7 @@ The post-exact polishing pass directly fixed one of the worst visible `sm_j10` o
 - the new local search is still lightweight and not yet critical-chain-aware
 - `sm_j10` is still short of the `90%` exact-match target
 - `sm_j20` is still short of the `70%` exact-match target
-- the main remaining `sm_j20` quality outliers are [sm_j20/PSP123.SCH](sm_j20/PSP123.SCH), [sm_j20/PSP153.SCH](sm_j20/PSP153.SCH), [sm_j20/PSP82.SCH](sm_j20/PSP82.SCH), [sm_j20/PSP57.SCH](sm_j20/PSP57.SCH), and [sm_j20/PSP269.SCH](sm_j20/PSP269.SCH)
+- the main remaining `sm_j20` quality outliers are [sm_j20/PSP123.SCH](benchmarks/data/sm_j20/PSP123.SCH), [sm_j20/PSP153.SCH](benchmarks/data/sm_j20/PSP153.SCH), [sm_j20/PSP82.SCH](benchmarks/data/sm_j20/PSP82.SCH), [sm_j20/PSP57.SCH](benchmarks/data/sm_j20/PSP57.SCH), and [sm_j20/PSP269.SCH](benchmarks/data/sm_j20/PSP269.SCH)
 - `sm_j30` still has `19` unknown instances at `0.1s`
 - `testset_ubo50` still has `27` unknown instances at `0.1s`
 
