@@ -131,6 +131,10 @@ def test_run_guided_seed_updates_incumbent_from_local_seed(monkeypatch) -> None:
         seed=0,
         solver_config=config,
         heuristic_deadline=time.perf_counter() + 1.0,
+        temporal_lower=[0] * instance.n_activities,
+        forced_edges=(),
+        tail=[0] * instance.n_activities,
+        intensity=[0.0] * instance.n_activities,
         stats=stats,
         incumbent=None,
     )
@@ -170,6 +174,10 @@ def test_run_guided_seed_marks_infeasible_from_local_seed(monkeypatch) -> None:
         seed=0,
         solver_config=config,
         heuristic_deadline=time.perf_counter() + 1.0,
+        temporal_lower=[0] * instance.n_activities,
+        forced_edges=(),
+        tail=[0] * instance.n_activities,
+        intensity=[0.0] * instance.n_activities,
         stats=stats,
         incumbent=None,
     )
@@ -207,6 +215,10 @@ def test_run_guided_seed_marks_unknown_seed_as_failed(monkeypatch) -> None:
         seed=0,
         solver_config=config,
         heuristic_deadline=time.perf_counter() + 1.0,
+        temporal_lower=[0] * instance.n_activities,
+        forced_edges=(),
+        tail=[0] * instance.n_activities,
+        intensity=[0.0] * instance.n_activities,
         stats=stats,
         incumbent=None,
     )
@@ -244,6 +256,55 @@ def test_solve_cp_accepts_guided_seed_infeasible_result(monkeypatch) -> None:
     assert result.metadata["guided_seed_infeasible"] is True
 
 
+def test_solve_cp_accepts_first_incumbent_probe_result(monkeypatch) -> None:
+    instance = _dummy_instance(30)
+    probe_schedule = Schedule(start_times=(0,) * instance.n_activities, makespan=7)
+    probe_node = CpNode(
+        lower=probe_schedule.start_times,
+        latest=None,
+        edges=(),
+        pairs=frozenset(),
+    )
+
+    def fake_seed(**kwargs) -> SolveResult:
+        return SolveResult(
+            instance_name=instance.name,
+            status="unknown",
+            schedule=None,
+            runtime_seconds=0.01,
+            temporal_lower_bound=0,
+            restarts=1,
+            metadata={"reason": "seed could not build an incumbent"},
+        )
+
+    def fake_probe(**kwargs):
+        return (
+            probe_schedule,
+            probe_node,
+            False,
+            {
+                "first_incumbent_probe_used": True,
+                "first_incumbent_probe_found_incumbent": True,
+                "first_incumbent_probe_budget_seconds": 0.2,
+                "first_incumbent_probe_expanded_nodes": 3,
+                "first_incumbent_probe_frontier_peak": 2,
+                "first_incumbent_probe_source": "node_local",
+            },
+        )
+
+    monkeypatch.setattr("rcpsp.cp.search.solve_guided_seed", fake_seed)
+    monkeypatch.setattr("rcpsp.cp.search.run_first_incumbent_probe", fake_probe)
+
+    result = solve_cp(instance, time_limit=1.0, seed=0)
+
+    assert result.status == "feasible"
+    assert result.schedule is not None
+    assert result.metadata["first_incumbent_probe_used"] is True
+    assert result.metadata["first_incumbent_probe_found_incumbent"] is True
+    assert result.metadata["first_incumbent_probe_source"] == "node_local"
+    assert result.metadata["no_incumbent_before_dfs"] is False
+
+
 def test_solve_cp_reports_conflict_counters_on_trivial_instance() -> None:
     result = solve_cp(_dummy_instance(2), time_limit=0.1, seed=0)
 
@@ -261,6 +322,8 @@ def test_solve_cp_reports_conflict_counters_on_trivial_instance() -> None:
     assert result.metadata["deep_node_local_improvements"] == 0
     assert result.metadata["propagation_pruned_nodes"] >= 0
     assert "no_incumbent_before_dfs" in result.metadata
+    assert "first_incumbent_probe_used" in result.metadata
+    assert "first_incumbent_probe_found_incumbent" in result.metadata
 
 
 def test_guided_seed_reports_seed_phase_metadata() -> None:
@@ -274,7 +337,7 @@ def test_guided_seed_reports_seed_phase_metadata() -> None:
     assert "seed_improve_makespan" in result.metadata
     assert "seed_proof_makespan" in result.metadata
     assert "seed_polish_makespan" in result.metadata
-    assert result.metadata["seed_best_source"] in {"none", "construct", "improve", "proof", "polish"}
+    assert result.metadata["seed_best_source"] in {"none", "construct", "improve", "polish"}
 
 
 def test_use_failure_cache_enables_large_short_runs() -> None:
@@ -499,6 +562,41 @@ def test_select_branch_conflict_prefers_smaller_tighter_conflict() -> None:
     assert resource == 0
     assert activities == (2, 3)
     assert overload == (4,)
+
+
+def test_select_branch_conflict_uses_minimal_conflict_without_latest_on_large_instance() -> None:
+    instance = _dummy_instance(50)
+    durations = list(instance.durations)
+    demands = [list(row) for row in instance.demands]
+    durations[1] = 3
+    durations[2] = 2
+    durations[3] = 1
+    demands[1][0] = 1
+    demands[2][0] = 1
+    demands[3][0] = 1
+    instance = Instance(
+        name="conflict-no-latest-large",
+        path=Path("conflict-no-latest-large.sch"),
+        n_jobs=50,
+        n_resources=1,
+        durations=tuple(durations),
+        demands=tuple(tuple(row) for row in demands),
+        capacities=(2,),
+        edges=(),
+        outgoing=instance.outgoing,
+        incoming=instance.incoming,
+    )
+    start_times = [0] * instance.n_activities
+    start_times[3] = 1
+    start_times[instance.sink] = 3
+
+    conflict = select_branch_conflict(instance, start_times, None)
+
+    assert conflict is not None
+    _, resource, activities, overload = conflict
+    assert resource == 0
+    assert activities == (1, 2, 3)
+    assert overload == (1,)
 
 
 def test_required_pair_gap_uses_lag_closure_when_tighter() -> None:

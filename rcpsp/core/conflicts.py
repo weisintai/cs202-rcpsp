@@ -71,6 +71,13 @@ def select_branch_conflict(
     start_times: list[int] | tuple[int, ...],
     latest: tuple[int, ...] | None,
 ) -> BranchConflict | None:
+    if latest is None and instance.n_jobs >= 50:
+        minimal = minimal_conflict_set(instance, list(start_times))
+        if minimal is None:
+            return None
+        time_index, resource, active, overload = minimal
+        return time_index, resource, tuple(active), tuple(overload)
+
     profile = build_resource_profile(instance, start_times)
     best: tuple[tuple[int, int, int, int, int], BranchConflict] | None = None
 

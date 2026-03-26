@@ -15,7 +15,6 @@ from ..models import Edge, Instance, Schedule, SolveResult
 from ..temporal import TemporalInfeasibleError, longest_feasible_starts, longest_tail_to_sink
 from ..validate import validate_schedule
 from .construct import CONSTRUCT_FAILURE_REASONS, construct_failure_reason, construct_schedule
-from .exact import SearchStats, branch_and_bound_search
 from .improve import improve_incumbent
 
 
@@ -38,8 +37,112 @@ class SeedContext:
 class SeedBudgets:
     construct_until: float
     improve_budget: float
-    proof_until: float
     polish_until: float
+
+
+@dataclass(frozen=True)
+class SeedSearchStats:
+    nodes: int = 0
+    timed_out: bool = False
+
+
+def _soft_deadline(started: float, time_limit: float) -> float:
+    final_deadline = started + time_limit
+    safety_margin = min(max(0.005, time_limit * 0.005), max(0.005, time_limit * 0.05))
+    return max(started, final_deadline - safety_margin)
+
+
+def _solve_prepared_context(
+    context: SeedContext,
+    rng: random.Random,
+) -> SolveResult:
+    budgets = _seed_budgets(context)
+
+    best, restarts, construct_failure_counts, construct_successes = _run_construct_phase(context, budgets, rng)
+    best_source = "construct" if best is not None else "none"
+    construct_makespan = best.makespan if best is not None else None
+    best, improvement_iterations = _run_improve_phase(context, budgets, best, rng)
+    improve_makespan = best.makespan if best is not None else None
+    if best is not None and construct_makespan is None:
+        best_source = "improve"
+    elif best is not None and construct_makespan is not None and best.makespan < construct_makespan:
+        best_source = "improve"
+    search_stats = SeedSearchStats()
+    proof_makespan = None
+    best, polish_iterations = _run_polish_phase(context, budgets, best, rng)
+    polish_makespan = best.makespan if best is not None else None
+    proof_base = improve_makespan
+    if best is not None and proof_base is not None and best.makespan < proof_base:
+        best_source = "polish"
+    improvement_iterations += polish_iterations
+
+    if best is None:
+        return _seed_result(
+            context,
+            status="unknown",
+            schedule=None,
+            temporal_lower_bound=context.temporal_lower_bound,
+            restarts=restarts,
+            metadata=_seed_metadata(
+                context,
+                budgets,
+                construct_makespan=construct_makespan,
+                improve_makespan=improve_makespan,
+                proof_makespan=proof_makespan,
+                polish_makespan=polish_makespan,
+                best_source=best_source,
+                improvement_iterations=improvement_iterations,
+                search_stats=search_stats,
+                construct_failure_counts=construct_failure_counts,
+                construct_successes=construct_successes,
+                reason="seed phase could not build a feasible incumbent within the allotted time",
+            ),
+        )
+
+    errors = validate_schedule(context.instance, best)
+    if errors:
+        return _seed_result(
+            context,
+            status="unknown",
+            schedule=None,
+            temporal_lower_bound=context.temporal_lower_bound,
+            restarts=restarts,
+            metadata=_seed_metadata(
+                context,
+                budgets,
+                construct_makespan=construct_makespan,
+                improve_makespan=improve_makespan,
+                proof_makespan=proof_makespan,
+                polish_makespan=polish_makespan,
+                best_source=best_source,
+                improvement_iterations=improvement_iterations,
+                search_stats=search_stats,
+                construct_failure_counts=construct_failure_counts,
+                construct_successes=construct_successes,
+                reason=errors[0],
+            ),
+        )
+
+    return _seed_result(
+        context,
+        status="feasible",
+        schedule=best,
+        temporal_lower_bound=context.temporal_lower_bound,
+        restarts=restarts,
+        metadata=_seed_metadata(
+            context,
+            budgets,
+            construct_makespan=construct_makespan,
+            improve_makespan=improve_makespan,
+            proof_makespan=proof_makespan,
+            polish_makespan=polish_makespan,
+            best_source=best_source,
+            improvement_iterations=improvement_iterations,
+            search_stats=search_stats,
+            construct_failure_counts=construct_failure_counts,
+            construct_successes=construct_successes,
+        ),
+    )
 
 
 def _prepare_seed_context(
@@ -51,9 +154,7 @@ def _prepare_seed_context(
     solver_config = config or HeuristicConfig()
     rng = random.Random(seed)
     started = time.perf_counter()
-    final_deadline = started + time_limit
-    safety_margin = min(max(0.005, time_limit * 0.005), max(0.005, time_limit * 0.05))
-    soft_deadline = max(started, final_deadline - safety_margin)
+    soft_deadline = _soft_deadline(started, time_limit)
 
     try:
         lag_dist = all_pairs_longest_lags(instance)
@@ -101,16 +202,51 @@ def _prepare_seed_context(
     return context, rng
 
 
+def solve_with_root_state(
+    instance: Instance,
+    *,
+    time_limit: float,
+    seed: int,
+    solver_config: HeuristicConfig,
+    temporal_lower: list[int],
+    forced_edges: tuple[Edge, ...] | list[Edge],
+    tail: list[int],
+    intensity: list[float],
+) -> SolveResult:
+    rng = random.Random(seed)
+    started = time.perf_counter()
+    context = SeedContext(
+        instance=instance,
+        seed=seed,
+        time_limit=time_limit,
+        solver_config=solver_config,
+        started=started,
+        soft_deadline=_soft_deadline(started, time_limit),
+        temporal_lower=temporal_lower,
+        temporal_lower_bound=temporal_lower[instance.sink],
+        forced_edges=tuple(forced_edges),
+        tail=tail,
+        intensity=intensity,
+    )
+    return _solve_prepared_context(context, rng)
+
+
 def _seed_budgets(context: SeedContext) -> SeedBudgets:
     started = context.started
-    construct_until = min(context.soft_deadline, started + min(1.0, max(0.01, context.time_limit * 0.2)))
-    improve_budget = min(5.0, max(0.02, context.time_limit * 0.35))
-    proof_until = context.soft_deadline
+    construct_fraction = 0.55 if context.instance.n_jobs >= 50 else 0.45
+    improve_fraction = 0.35 if context.instance.n_jobs >= 30 else 0.30
+    construct_until = min(
+        context.soft_deadline,
+        started + min(1.0, max(0.02, context.time_limit * construct_fraction)),
+    )
+    improve_budget = min(
+        max(0.0, context.soft_deadline - construct_until),
+        min(5.0, max(0.02, context.time_limit * improve_fraction)),
+    )
     polish_until = context.soft_deadline
     return SeedBudgets(
         construct_until=construct_until,
         improve_budget=improve_budget,
-        proof_until=proof_until,
         polish_until=polish_until,
     )
 
@@ -180,7 +316,7 @@ def _seed_metadata(
     polish_makespan: int | None,
     best_source: str,
     improvement_iterations: int,
-    exact_stats: SearchStats,
+    search_stats: SeedSearchStats,
     construct_failure_counts: dict[str, int],
     construct_successes: int,
     reason: str | None = None,
@@ -192,7 +328,7 @@ def _seed_metadata(
         "resources": context.instance.n_resources,
         "seed_construct_until_seconds": max(0.0, budgets.construct_until - context.started),
         "seed_improve_budget_seconds": budgets.improve_budget,
-        "seed_proof_budget_seconds": max(0.0, budgets.proof_until - budgets.construct_until),
+        "seed_proof_budget_seconds": 0.0,
         "seed_construct_successes": construct_successes,
         "seed_construct_failures": sum(construct_failure_counts.values()),
         "seed_construct_deadline_failures": construct_failure_counts["deadline"],
@@ -207,8 +343,8 @@ def _seed_metadata(
         "seed_polish_makespan": polish_makespan,
         "seed_best_source": best_source,
         "improvement_iterations": improvement_iterations,
-        "search_nodes": exact_stats.nodes,
-        "search_timed_out": exact_stats.timed_out,
+        "search_nodes": search_stats.nodes,
+        "search_timed_out": search_stats.timed_out,
         "forced_resource_orders": len(context.forced_edges),
     }
     if reason is not None:
@@ -264,22 +400,6 @@ def _run_improve_phase(
     return incumbent, iterations
 
 
-def _run_proof_phase(
-    context: SeedContext,
-    budgets: SeedBudgets,
-    incumbent: Schedule | None,
-) -> tuple[Schedule | None, SearchStats]:
-    return branch_and_bound_search(
-        instance=context.instance,
-        tail=context.tail,
-        intensity=context.intensity,
-        deadline=budgets.proof_until,
-        incumbent=incumbent,
-        incremental_pairwise=context.time_limit >= 0.5,
-        base_extra_edges=context.forced_edges,
-    )
-
-
 def _run_polish_phase(
     context: SeedContext,
     budgets: SeedBudgets,
@@ -288,7 +408,7 @@ def _run_polish_phase(
 ) -> tuple[Schedule | None, int]:
     if incumbent is None or incumbent.makespan <= context.temporal_lower_bound:
         return incumbent, 0
-    if context.time_limit < 0.5 or time.perf_counter() >= budgets.polish_until:
+    if time.perf_counter() >= budgets.polish_until:
         return incumbent, 0
 
     polished_best, iterations = improve_incumbent(
@@ -317,97 +437,4 @@ def solve(
         return prepared
 
     context, rng = prepared
-    budgets = _seed_budgets(context)
-
-    best, restarts, construct_failure_counts, construct_successes = _run_construct_phase(context, budgets, rng)
-    best_source = "construct" if best is not None else "none"
-    construct_makespan = best.makespan if best is not None else None
-    best, improvement_iterations = _run_improve_phase(context, budgets, best, rng)
-    improve_makespan = best.makespan if best is not None else None
-    if best is not None and construct_makespan is None:
-        best_source = "improve"
-    elif best is not None and construct_makespan is not None and best.makespan < construct_makespan:
-        best_source = "improve"
-    exact_best, exact_stats = _run_proof_phase(context, budgets, best)
-    proof_makespan = exact_best.makespan if exact_best is not None else None
-    if exact_best is not None and (best is None or exact_best.makespan < best.makespan):
-        best = exact_best
-        best_source = "proof"
-    best, polish_iterations = _run_polish_phase(context, budgets, best, rng)
-    polish_makespan = best.makespan if best is not None else None
-    proof_base = proof_makespan if proof_makespan is not None else improve_makespan
-    if best is not None and proof_base is not None and best.makespan < proof_base:
-        best_source = "polish"
-    improvement_iterations += polish_iterations
-
-    if best is None:
-        return _seed_result(
-            context,
-            status="unknown" if exact_stats.timed_out else "infeasible",
-            schedule=None,
-            temporal_lower_bound=context.temporal_lower_bound,
-            restarts=restarts,
-            metadata=_seed_metadata(
-                context,
-                budgets,
-                construct_makespan=construct_makespan,
-                improve_makespan=improve_makespan,
-                proof_makespan=proof_makespan,
-                polish_makespan=polish_makespan,
-                best_source=best_source,
-                improvement_iterations=improvement_iterations,
-                exact_stats=exact_stats,
-                construct_failure_counts=construct_failure_counts,
-                construct_successes=construct_successes,
-                reason=(
-                    "exact search exhausted without finding a feasible schedule"
-                    if not exact_stats.timed_out
-                    else "time limit reached before exact search could prove feasibility or infeasibility"
-                ),
-            ),
-        )
-
-    errors = validate_schedule(context.instance, best)
-    if errors:
-        return _seed_result(
-            context,
-            status="unknown",
-            schedule=None,
-            temporal_lower_bound=context.temporal_lower_bound,
-            restarts=restarts,
-            metadata=_seed_metadata(
-                context,
-                budgets,
-                construct_makespan=construct_makespan,
-                improve_makespan=improve_makespan,
-                proof_makespan=proof_makespan,
-                polish_makespan=polish_makespan,
-                best_source=best_source,
-                improvement_iterations=improvement_iterations,
-                exact_stats=exact_stats,
-                construct_failure_counts=construct_failure_counts,
-                construct_successes=construct_successes,
-                reason=errors[0],
-            ),
-        )
-
-    return _seed_result(
-        context,
-        status="feasible",
-        schedule=best,
-        temporal_lower_bound=context.temporal_lower_bound,
-        restarts=restarts,
-        metadata=_seed_metadata(
-            context,
-            budgets,
-            construct_makespan=construct_makespan,
-            improve_makespan=improve_makespan,
-            proof_makespan=proof_makespan,
-            polish_makespan=polish_makespan,
-            best_source=best_source,
-            improvement_iterations=improvement_iterations,
-            exact_stats=exact_stats,
-            construct_failure_counts=construct_failure_counts,
-            construct_successes=construct_successes,
-        ),
-    )
+    return _solve_prepared_context(context, rng)

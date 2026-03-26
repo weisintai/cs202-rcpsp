@@ -33,7 +33,8 @@ The easiest way to follow the backend is to read it in this order:
    - thin entrypoint that forwards into `search.py`
 2. `search.py`
    - builds the root CP state
-   - runs `guided_seed` to try to get an early incumbent or early infeasibility
+   - runs `guided_seed` to try to get an early incumbent
+   - runs a bounded pre-incumbent probe if `guided_seed` still leaves CP empty-handed
    - runs DFS over pair-order decisions
    - updates the incumbent when a feasible leaf schedule is found
 3. `propagation.py`
@@ -44,16 +45,16 @@ The easiest way to follow the backend is to read it in this order:
 4. `construct.py`
    - tries to build a feasible warm-start schedule from the current CP state
 5. `guided_seed.py`
-   - orchestrates the early construct / improve / proof budget before the main DFS
+   - orchestrates the early construct / improve / polish budget before the main DFS
 6. `exact.py`
-   - small exact branch-and-bound helper used inside guided seed
+   - legacy exact helper kept for comparison experiments
 
 The normal execution flow is:
 
 1. Parse the instance and compute lag closure.
 2. Build the root node with temporal lower bounds and any forced resource orders.
 3. Run `guided_seed` to try to get a first incumbent quickly.
-4. If needed, run a short constructive warm start from the root.
+4. If that still leaves no incumbent, run a bounded pre-incumbent beam over shallow CP nodes.
 5. Enter DFS over pair-order decisions.
 6. At each node, propagate temporal and resource constraints to a fixpoint.
 7. If propagation proves the node impossible, prune it.
@@ -71,9 +72,9 @@ The normal execution flow is:
 - `construct.py`
   - CP-native schedule construction attempts for no-incumbent states
 - `guided_seed.py`
-  - pre-DFS budget split for construct, improve, and short proof work
+  - pre-DFS budget split for construct, improve, and polish work
 - `exact.py`
-  - exact helper used when the seed phase has time to try a small proof
+  - legacy exact helper kept for comparison experiments
 
 ## Where To Work First
 
@@ -105,6 +106,7 @@ This backend currently owns:
 - a medium-budget failure cache over monotone pair-order sets
 - pairwise conflict branching from resource explanations
 - a local guided-seed warm-start phase that gives CP search a stronger incumbent bound
+- a bounded pre-incumbent probe that reuses shallow propagated CP nodes before the main DFS
 
 The core modeling direction is standard for `RCPSP/max`: temporal lag closure, cumulative-capacity pruning, search over resource-order decisions, and branch-and-bound against an incumbent makespan. Changes here should target `stronger propagation and branching`, not generic heuristic polishing.
 

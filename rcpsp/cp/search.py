@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import heapq
 import random
 import sys
 import time
 from collections.abc import Callable
+from itertools import count
 
 from ..config import HeuristicConfig, sample_heuristic_config
 from ..core.branching import branch_order
@@ -19,7 +21,7 @@ from ..models import Edge, Instance, Schedule, SolveResult
 from ..temporal import TemporalInfeasibleError, longest_feasible_starts, longest_tail_to_sink
 from ..validate import validate_schedule
 from .construct import CONSTRUCT_FAILURE_REASONS, construct_failure_reason, construct_schedule
-from .guided_seed import solve as solve_guided_seed
+from .guided_seed import solve_with_root_state as solve_guided_seed
 from .propagation import propagate_cp_node
 from .state import CpNode, CpSearchStats
 
@@ -217,6 +219,7 @@ def _search_metadata(
     budget_mode: str,
     stats: CpSearchStats,
     guided_seed_meta: dict[str, object],
+    first_incumbent_probe_meta: dict[str, object],
     no_incumbent_before_dfs: bool,
 ) -> dict[str, object]:
     return {
@@ -263,6 +266,7 @@ def _search_metadata(
         "budget_mode": budget_mode,
         "no_incumbent_before_dfs": no_incumbent_before_dfs,
         **guided_seed_meta,
+        **first_incumbent_probe_meta,
     }
 
 
@@ -330,6 +334,10 @@ def run_guided_seed(
     seed: int,
     solver_config: HeuristicConfig,
     heuristic_deadline: float,
+    temporal_lower: list[int],
+    forced_edges: tuple[Edge, ...],
+    tail: list[int],
+    intensity: list[float],
     stats: CpSearchStats,
     incumbent: Schedule | None,
 ) -> tuple[Schedule | None, int, dict[str, object], bool]:
@@ -350,7 +358,11 @@ def run_guided_seed(
             instance=instance,
             time_limit=remaining,
             seed=seed,
-            config=solver_config,
+            solver_config=solver_config,
+            temporal_lower=temporal_lower,
+            forced_edges=forced_edges,
+            tail=tail,
+            intensity=intensity,
         )
         metadata["guided_seed_used"] = True
         for key, value in guided.metadata.items():
@@ -377,6 +389,173 @@ def run_guided_seed(
     )
 
     return incumbent, restarts, metadata, bool(metadata["guided_seed_infeasible"])
+
+
+def first_incumbent_probe_budget_seconds(
+    instance: Instance,
+    time_limit: float,
+) -> float:
+    if time_limit < 0.5 or instance.n_jobs < 20:
+        return 0.0
+    return min(1.0, max(0.1, time_limit * 0.2))
+
+
+def first_incumbent_probe_node_limit(
+    instance: Instance,
+    time_limit: float,
+) -> int:
+    if instance.n_jobs >= 100:
+        return 64
+    if time_limit >= 5.0:
+        return 200
+    if time_limit >= 1.0:
+        return 96
+    return 32
+
+
+def run_first_incumbent_probe(
+    *,
+    instance: Instance,
+    time_limit: float,
+    solver_config: HeuristicConfig,
+    soft_deadline: float,
+    root_lag_dist: list[list[float]],
+    forced_pairs: frozenset[tuple[int, int]],
+    tail: list[int],
+    intensity: list[float],
+    resource_conflict_pairs: frozenset[tuple[int, int]] | None,
+    stats: CpSearchStats,
+    rng: random.Random,
+    incumbent: Schedule | None,
+) -> tuple[Schedule | None, CpNode | None, bool, dict[str, object]]:
+    metadata: dict[str, object] = {
+        "first_incumbent_probe_used": False,
+        "first_incumbent_probe_found_incumbent": False,
+        "first_incumbent_probe_budget_seconds": 0.0,
+        "first_incumbent_probe_expanded_nodes": 0,
+        "first_incumbent_probe_frontier_peak": 0,
+        "first_incumbent_probe_source": "none",
+    }
+    budget = first_incumbent_probe_budget_seconds(instance, time_limit)
+    if budget <= 0.0 or time.perf_counter() >= soft_deadline:
+        return incumbent, None, False, metadata
+
+    probe_deadline = min(soft_deadline, time.perf_counter() + budget)
+    metadata["first_incumbent_probe_used"] = True
+    metadata["first_incumbent_probe_budget_seconds"] = max(0.0, probe_deadline - time.perf_counter())
+
+    root_propagation = propagate_cp_node(
+        instance=instance,
+        tail=tail,
+        pairs=forced_pairs,
+        incumbent_makespan=incumbent.makespan if incumbent is not None else None,
+        base_lag_dist=root_lag_dist,
+        resource_conflict_pairs=resource_conflict_pairs,
+        deadline=probe_deadline,
+    )
+    if root_propagation.timed_out:
+        return incumbent, None, False, metadata
+
+    stats.propagation_calls += 1
+    stats.propagation_rounds += root_propagation.rounds
+    if root_propagation.overload is not None:
+        stats.propagation_pruned_nodes += 1
+        stats.timetable_failures += 1
+        stats.max_timetable_explanation = max(
+            stats.max_timetable_explanation,
+            root_propagation.overload.size,
+        )
+        return incumbent, None, True, metadata
+    root_node = root_propagation.node
+    if root_node is None:
+        stats.propagation_pruned_nodes += 1
+        return incumbent, None, True, metadata
+
+    if root_node.branch_conflict is None:
+        starts = compress_valid_schedule_relaxed(instance, list(root_node.lower))
+        incumbent = update_incumbent(
+            incumbent,
+            Schedule(start_times=tuple(starts), makespan=starts[instance.sink]),
+            stats,
+        )
+        metadata["first_incumbent_probe_found_incumbent"] = incumbent is not None
+        metadata["first_incumbent_probe_source"] = "root"
+        return incumbent, root_node, False, metadata
+
+    frontier: list[tuple[tuple[int, int, int, int], int, int, CpNode]] = []
+    seen: set[tuple[frozenset[tuple[int, int]], tuple[int, ...], tuple[int, ...] | None]] = {
+        node_signature(root_node)
+    }
+    frontier_index = count()
+    heapq.heappush(frontier, (child_order_key(instance, root_node, 0), 0, next(frontier_index), root_node))
+    frontier_peak = 1
+    expanded = 0
+    node_limit = first_incumbent_probe_node_limit(instance, time_limit)
+
+    while frontier and time.perf_counter() < probe_deadline and expanded < node_limit:
+        _, depth, _, node = heapq.heappop(frontier)
+        expanded += 1
+
+        if node.branch_conflict is None:
+            starts = compress_valid_schedule_relaxed(instance, list(node.lower))
+            incumbent = update_incumbent(
+                incumbent,
+                Schedule(start_times=tuple(starts), makespan=starts[instance.sink]),
+                stats,
+            )
+            metadata["first_incumbent_probe_found_incumbent"] = incumbent is not None
+            metadata["first_incumbent_probe_source"] = "branch"
+            break
+
+        candidate = try_cp_incumbent(
+            instance=instance,
+            node=node,
+            tail=tail,
+            intensity=intensity,
+            solver_config=solver_config,
+            rng=rng,
+            deadline=min(probe_deadline, time.perf_counter() + 0.05),
+            search_stats=stats,
+        )
+        if candidate is not None:
+            incumbent = update_incumbent(incumbent, candidate, stats)
+            metadata["first_incumbent_probe_found_incumbent"] = True
+            metadata["first_incumbent_probe_source"] = "node_local"
+            break
+
+        _, resource, conflict_activities, overload = node.branch_conflict
+        children, timed_out = branch_children(
+            instance=instance,
+            node=node,
+            tail=tail,
+            intensity=intensity,
+            conflict_set=list(conflict_activities),
+            resource=resource,
+            overload=list(overload),
+            incumbent_makespan=incumbent.makespan if incumbent is not None else None,
+            seen=seen,
+            failed_pair_sets=set(),
+            failure_cache_enabled=False,
+            stats=stats,
+            resource_conflict_pairs=resource_conflict_pairs,
+            deadline=probe_deadline,
+        )
+        if timed_out:
+            break
+        for _, order_index, _, child in children[:4]:
+            signature = node_signature(child)
+            if signature in seen:
+                continue
+            seen.add(signature)
+            heapq.heappush(
+                frontier,
+                (child_order_key(instance, child, order_index), depth + 1, next(frontier_index), child),
+            )
+        frontier_peak = max(frontier_peak, len(frontier))
+
+    metadata["first_incumbent_probe_expanded_nodes"] = expanded
+    metadata["first_incumbent_probe_frontier_peak"] = frontier_peak
+    return incumbent, root_node, False, metadata
 
 
 def branch_children(
@@ -536,6 +715,14 @@ def solve_cp(
         "guided_seed_found_incumbent": False,
         "guided_seed_failed": False,
     }
+    first_incumbent_probe_meta: dict[str, object] = {
+        "first_incumbent_probe_used": False,
+        "first_incumbent_probe_found_incumbent": False,
+        "first_incumbent_probe_budget_seconds": 0.0,
+        "first_incumbent_probe_expanded_nodes": 0,
+        "first_incumbent_probe_frontier_peak": 0,
+        "first_incumbent_probe_source": "none",
+    }
     heartbeat_interval = 15.0 if time_limit >= 5.0 else None
     last_heartbeat = started
 
@@ -561,12 +748,18 @@ def solve_cp(
 
     heuristic_budget = min(0.75, max(0.01, time_limit * 0.25))
     heuristic_deadline = min(soft_deadline, started + heuristic_budget)
+    ran_guided_seed = False
     if heuristic_budget >= 0.15 and time.perf_counter() < heuristic_deadline:
+        ran_guided_seed = True
         incumbent, guided_restarts, guided_seed_meta, guided_infeasible = run_guided_seed(
             instance=instance,
             seed=seed,
             solver_config=solver_config,
             heuristic_deadline=heuristic_deadline,
+            temporal_lower=temporal_lower,
+            forced_edges=tuple(forced_edges),
+            tail=tail,
+            intensity=intensity,
             stats=stats,
             incumbent=incumbent,
         )
@@ -587,6 +780,7 @@ def solve_cp(
                     budget_mode=budget_mode,
                     stats=stats,
                     guided_seed_meta=guided_seed_meta,
+                    first_incumbent_probe_meta=first_incumbent_probe_meta,
                     no_incumbent_before_dfs=True,
                 ),
             )
@@ -606,31 +800,70 @@ def solve_cp(
                     budget_mode=budget_mode,
                     stats=stats,
                     guided_seed_meta=guided_seed_meta,
+                    first_incumbent_probe_meta=first_incumbent_probe_meta,
                     no_incumbent_before_dfs=False,
                 ),
             )
 
-    while time.perf_counter() < heuristic_deadline:
-        diagnostics: dict[str, object] = {}
-        schedule = construct_schedule(
+    if not ran_guided_seed:
+        while time.perf_counter() < heuristic_deadline:
+            diagnostics: dict[str, object] = {}
+            schedule = construct_schedule(
+                instance=instance,
+                rng=rng,
+                tail=tail,
+                intensity=intensity,
+                config=sample_heuristic_config(solver_config, rng),
+                deadline=heuristic_deadline,
+                base_extra_edges=forced_edges,
+                initial_starts=temporal_lower,
+                diagnostics=diagnostics,
+            )
+            if schedule is None:
+                _record_construct_failure(stats, "heuristic", diagnostics)
+                restarts += 1
+                continue
+            incumbent = update_incumbent(incumbent, schedule, stats)
+            restarts += 1
+            if incumbent is not None and incumbent.makespan == temporal_lower[instance.sink]:
+                break
+
+    root_node_for_dfs: CpNode | None = None
+    if incumbent is None:
+        incumbent, root_node_for_dfs, root_infeasible, first_incumbent_probe_meta = run_first_incumbent_probe(
             instance=instance,
-            rng=rng,
+            time_limit=time_limit,
+            solver_config=solver_config,
+            soft_deadline=soft_deadline,
+            root_lag_dist=root_lag_dist,
+            forced_pairs=forced_pairs,
             tail=tail,
             intensity=intensity,
-            config=sample_heuristic_config(solver_config, rng),
-            deadline=heuristic_deadline,
-            base_extra_edges=forced_edges,
-            initial_starts=temporal_lower,
-            diagnostics=diagnostics,
+            resource_conflict_pairs=resource_conflict_pairs,
+            stats=stats,
+            rng=rng,
+            incumbent=incumbent,
         )
-        if schedule is None:
-            _record_construct_failure(stats, "heuristic", diagnostics)
-            restarts += 1
-            continue
-        incumbent = update_incumbent(incumbent, schedule, stats)
-        restarts += 1
-        if incumbent is not None and incumbent.makespan == temporal_lower[instance.sink]:
-            break
+        if root_infeasible:
+            runtime = time.perf_counter() - started
+            return SolveResult(
+                instance_name=instance.name,
+                status="infeasible",
+                schedule=None,
+                runtime_seconds=runtime,
+                temporal_lower_bound=temporal_lower[instance.sink],
+                restarts=restarts,
+                metadata=_search_metadata(
+                    seed=seed,
+                    time_limit=time_limit,
+                    forced_resource_orders=len(forced_edges),
+                    budget_mode=budget_mode,
+                    stats=stats,
+                    guided_seed_meta=guided_seed_meta,
+                    first_incumbent_probe_meta=first_incumbent_probe_meta,
+                    no_incumbent_before_dfs=True,
+                ),
+            )
 
     def dfs(pairs: frozenset[tuple[int, int]], node: CpNode | None = None) -> bool:
         nonlocal incumbent
@@ -794,7 +1027,7 @@ def solve_cp(
         return found_feasible
 
     no_incumbent_before_dfs = incumbent is None
-    dfs(forced_pairs)
+    dfs(forced_pairs, root_node_for_dfs)
 
     runtime = time.perf_counter() - started
     if incumbent is None:
@@ -812,6 +1045,7 @@ def solve_cp(
                 budget_mode=budget_mode,
                 stats=stats,
                 guided_seed_meta=guided_seed_meta,
+                first_incumbent_probe_meta=first_incumbent_probe_meta,
                 no_incumbent_before_dfs=no_incumbent_before_dfs,
             ),
         )
@@ -830,6 +1064,7 @@ def solve_cp(
             budget_mode=budget_mode,
             stats=stats,
             guided_seed_meta=guided_seed_meta,
+            first_incumbent_probe_meta=first_incumbent_probe_meta,
             no_incumbent_before_dfs=no_incumbent_before_dfs,
         ),
     )

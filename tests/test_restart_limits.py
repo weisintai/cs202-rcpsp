@@ -48,7 +48,6 @@ def test_hybrid_solver_counts_invalid_attempts_toward_max_restarts(monkeypatch) 
 
 def test_cp_guided_seed_counts_invalid_attempts_toward_max_restarts(monkeypatch) -> None:
     from rcpsp.config import HeuristicConfig
-    from rcpsp.cp.exact import SearchStats
     from rcpsp.cp.guided_seed import solve
 
     instance = _probe_instance()
@@ -58,11 +57,7 @@ def test_cp_guided_seed_counts_invalid_attempts_toward_max_restarts(monkeypatch)
         calls["count"] += 1
         return None
 
-    def fake_exact(*args, **kwargs):
-        return None, SearchStats()
-
     monkeypatch.setattr("rcpsp.cp.guided_seed.construct_schedule", fake_construct)
-    monkeypatch.setattr("rcpsp.cp.guided_seed.branch_and_bound_search", fake_exact)
 
     result = solve(instance, time_limit=0.02, seed=0, config=HeuristicConfig(max_restarts=1))
 
