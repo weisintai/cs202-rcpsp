@@ -1,6 +1,6 @@
-# RCPSP Autoresearch Program
+# RCPSP Iteration Program
 
-This repo is set up in the style of Karpathy's `autoresearch`, but the target is not language-model training. The target is the RCPSP/max solver in this repo, and the north star is [METRICS.md](METRICS.md).
+This repo now uses a direct solver-iteration workflow. The target is the RCPSP/max solver in this repo, and the north star is [METRICS.md](METRICS.md).
 
 ## Mission
 
@@ -27,8 +27,10 @@ The real objective is lower makespan on harder unseen instances, with validity a
   - current submission-candidate backend
 - `rcpsp/core/*`
   - branching, compression, conflict, lag, and metric helpers
-- `scripts/run_autoresearch_eval.py`
-  - research loop evaluator
+- `scripts/run_guardrails.py`
+  - preset benchmark screens
+- `scripts/run_cp_residue.py`
+  - fastest loop on the hardest public misses
 
 ## Setup
 
@@ -41,7 +43,7 @@ uv run python scripts/fetch_reference_csvs.py --datasets sm_j10 sm_j20
 2. Establish a baseline run:
 
 ```bash
-uv run python scripts/run_autoresearch_eval.py --backend cp --preset submission_quick --output-dir tmp/guardrails/autoresearch-baseline
+uv run python scripts/run_guardrails.py --backend cp --preset submission_quick --output-dir tmp/guardrails/baseline-submission-quick
 ```
 
 3. Read:
@@ -55,20 +57,26 @@ uv run python scripts/run_autoresearch_eval.py --backend cp --preset submission_
 1. Form one concrete hypothesis.
 2. Make one focused code change.
 3. Run the smallest relevant tests first.
-4. Run the fast screen:
+4. Run the residue set if the change touches incumbent generation, branching, or propagation:
 
 ```bash
-uv run python scripts/run_autoresearch_eval.py --backend cp --preset submission_quick --output-dir tmp/guardrails/autoresearch-quick
+uv run python scripts/run_cp_residue.py --time-limit 5.0
 ```
 
-5. Only if the fast screen is clean, run the submission-readiness guardrails:
+5. Run the fast screen:
 
 ```bash
-uv run python scripts/run_guardrails.py --backend cp --preset broad_generalization --output-dir tmp/guardrails/autoresearch-broad
-uv run python scripts/run_guardrails.py --backend cp --preset cp_acceptance --output-dir tmp/guardrails/autoresearch-final
+uv run python scripts/run_guardrails.py --backend cp --preset submission_quick --output-dir tmp/guardrails/submission-quick
 ```
 
-6. Keep the change only if the quick score improves and the broader guardrails stay clean.
+6. Only if the fast screen is clean, run the broader guardrails:
+
+```bash
+uv run python scripts/run_guardrails.py --backend cp --preset broad_generalization --output-dir tmp/guardrails/broad-generalization
+uv run python scripts/run_guardrails.py --backend cp --preset cp_acceptance --output-dir tmp/guardrails/cp-acceptance
+```
+
+7. Keep the change only if the target set improves and the broader guardrails stay clean.
 
 ## Acceptance Rules
 

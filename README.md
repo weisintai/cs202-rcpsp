@@ -77,13 +77,6 @@ Run the small CP residue set when you want a fast signal on the hard public `30s
 uv run python scripts/run_cp_residue.py
 ```
 
-Run the CP-focused autoresearch evaluation loop:
-
-```bash
-uv run python scripts/run_autoresearch_eval.py
-uv run python scripts/run_autoresearch_eval.py --backend cp --preset submission_quick
-```
-
 Run an auxiliary anti-overfitting sweep on broader public RCPSP/max sets from the Kobe corpus:
 
 ```bash
@@ -105,7 +98,7 @@ If `sm_j10` and `sm_j20` reference CSVs are missing locally, cache them first:
 uv run python scripts/fetch_reference_csvs.py --datasets sm_j10 sm_j20
 ```
 
-The root [program.md](program.md) is an RCPSP-specific adaptation of the `karpathy/autoresearch` workflow for this repo.
+The root [program.md](program.md) is the repo iteration guide for the current `guardrails + residue + targeted tests` workflow.
 
 `benchmark` now prints live progress to `stderr` by default. The automated harness disables progress to reduce timing noise. Use `--no-progress` for manual runs when you want only the final summary:
 
