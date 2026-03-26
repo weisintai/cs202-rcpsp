@@ -1,9 +1,27 @@
+# OS/editor
 .DS_Store
+.vscode/
+.idea/
+
+# Python cache/build artifacts
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.python-version
+.venv/
+venv/
+.env
+
+# Local reference checkouts (kept out of git by default)
 references/*
 !references/README.md
 
+# Benchmark result artifacts
 sm_j10_results*.json
 sm_j20_results*.json
 !sm_j10_results_current_clean_0p1.json
@@ -11,9 +29,10 @@ sm_j20_results*.json
 !sm_j20_results_current_clean_0p1.json
 !sm_j20_results_current_clean_1p0.json
 
+# Local experiment outputs
 tmp/
+*.log
 
+# Local tooling files
 .claude/
-.claude/*
 CLAUDE.md
-.json 
