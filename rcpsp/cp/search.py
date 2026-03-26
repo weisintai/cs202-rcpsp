@@ -109,6 +109,31 @@ def update_incumbent(
     return incumbent
 
 
+def validated_no_conflict_candidate(
+    instance: Instance,
+    node: CpNode,
+) -> Schedule | None:
+    lower_starts = list(node.lower)
+    lower_candidate = Schedule(
+        start_times=tuple(lower_starts),
+        makespan=lower_starts[instance.sink],
+    )
+    if validate_schedule(instance, lower_candidate):
+        return None
+
+    compressed_starts = compress_valid_schedule_relaxed(instance, lower_starts)
+    if tuple(compressed_starts) == lower_candidate.start_times:
+        return lower_candidate
+
+    compressed_candidate = Schedule(
+        start_times=tuple(compressed_starts),
+        makespan=compressed_starts[instance.sink],
+    )
+    if validate_schedule(instance, compressed_candidate):
+        return lower_candidate
+    return compressed_candidate
+
+
 def use_failure_cache(
     instance: Instance,
     time_limit: float,
@@ -472,15 +497,15 @@ def run_first_incumbent_probe(
         return incumbent, None, True, metadata
 
     if root_node.branch_conflict is None:
-        starts = compress_valid_schedule_relaxed(instance, list(root_node.lower))
         incumbent = update_incumbent(
             incumbent,
-            Schedule(start_times=tuple(starts), makespan=starts[instance.sink]),
+            validated_no_conflict_candidate(instance, root_node),
             stats,
         )
         metadata["first_incumbent_probe_found_incumbent"] = incumbent is not None
-        metadata["first_incumbent_probe_source"] = "root"
-        return incumbent, root_node, False, metadata
+        if incumbent is not None:
+            metadata["first_incumbent_probe_source"] = "root"
+            return incumbent, root_node, False, metadata
 
     frontier: list[tuple[tuple[int, int, int, int], int, int, CpNode]] = []
     seen: set[tuple[frozenset[tuple[int, int]], tuple[int, ...], tuple[int, ...] | None]] = {
@@ -497,15 +522,15 @@ def run_first_incumbent_probe(
         expanded += 1
 
         if node.branch_conflict is None:
-            starts = compress_valid_schedule_relaxed(instance, list(node.lower))
             incumbent = update_incumbent(
                 incumbent,
-                Schedule(start_times=tuple(starts), makespan=starts[instance.sink]),
+                validated_no_conflict_candidate(instance, node),
                 stats,
             )
             metadata["first_incumbent_probe_found_incumbent"] = incumbent is not None
-            metadata["first_incumbent_probe_source"] = "branch"
-            break
+            if incumbent is not None:
+                metadata["first_incumbent_probe_source"] = "branch"
+                break
 
         candidate = try_cp_incumbent(
             instance=instance,
@@ -522,6 +547,9 @@ def run_first_incumbent_probe(
             metadata["first_incumbent_probe_found_incumbent"] = True
             metadata["first_incumbent_probe_source"] = "node_local"
             break
+
+        if node.branch_conflict is None:
+            continue
 
         _, resource, conflict_activities, overload = node.branch_conflict
         children, timed_out = branch_children(
@@ -918,20 +946,16 @@ def solve_cp(
             return True
         seen.add(key)
 
-        lower = list(node.lower)
+        invalid_no_conflict_candidate = False
         if node.branch_conflict is None:
-            # `branch_conflict is None` means propagation already proved the lower
-            # schedule has no resource overload, so only optional compression
-            # remains before accepting it as a feasible incumbent candidate.
-            candidate_starts = compress_valid_schedule_relaxed(instance, lower)
-            candidate = Schedule(start_times=tuple(candidate_starts), makespan=candidate_starts[instance.sink])
-            if incumbent is None or candidate.makespan < incumbent.makespan:
-                incumbent = candidate
-                stats.incumbent_updates += 1
-            return True
+            candidate = validated_no_conflict_candidate(instance, node)
+            if candidate is not None:
+                incumbent = update_incumbent(incumbent, candidate, stats)
+                return True
+            invalid_no_conflict_candidate = True
 
         found_feasible = False
-        use_local_heuristic = allow_node_local_heuristic(
+        use_local_heuristic = invalid_no_conflict_candidate or allow_node_local_heuristic(
             instance,
             time_limit,
             incumbent,
@@ -978,6 +1002,11 @@ def solve_cp(
                         stats.deep_node_local_improvements += 1
                     if incumbent.makespan == temporal_lower[instance.sink]:
                         return True
+
+        if node.branch_conflict is None:
+            if not found_feasible and failure_cache_enabled:
+                record_failed_pairs(node.pairs, failed_pair_sets, stats)
+            return found_feasible
 
         _, resource, conflict_activities, overload = node.branch_conflict
         conflict_set = list(conflict_activities)

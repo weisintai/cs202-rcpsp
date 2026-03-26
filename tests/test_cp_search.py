@@ -16,14 +16,16 @@ from rcpsp.cp.search import (
     pair_direction_possible,
     required_pair_gap,
     record_failed_pairs,
+    run_first_incumbent_probe,
     run_guided_seed,
     select_branch_conflict,
     solve_cp,
     try_cp_incumbent,
     use_failure_cache,
+    validated_no_conflict_candidate,
 )
-from rcpsp.cp.state import CpNode, CpSearchStats
-from rcpsp.models import Instance, Schedule, SolveResult
+from rcpsp.cp.state import CpNode, CpNodePropagation, CpSearchStats
+from rcpsp.models import Edge, Instance, Schedule, SolveResult
 
 
 def _dummy_instance(n_jobs: int) -> Instance:
@@ -41,6 +43,39 @@ def _dummy_instance(n_jobs: int) -> Instance:
         edges=(),
         outgoing=tuple(() for _ in range(n_activities)),
         incoming=tuple(() for _ in range(n_activities)),
+    )
+
+
+def _resource_conflict_instance() -> Instance:
+    edges = (
+        Edge(source=0, target=1, lag=0),
+        Edge(source=0, target=2, lag=0),
+        Edge(source=1, target=3, lag=2),
+        Edge(source=2, target=3, lag=2),
+    )
+    outgoing = (
+        (edges[0], edges[1]),
+        (edges[2],),
+        (edges[3],),
+        (),
+    )
+    incoming = (
+        (),
+        (edges[0],),
+        (edges[1],),
+        (edges[2], edges[3]),
+    )
+    return Instance(
+        name="resource-conflict",
+        path=Path("resource-conflict.sch"),
+        n_jobs=2,
+        n_resources=1,
+        durations=(0, 2, 2, 0),
+        demands=((0,), (1,), (1,), (0,)),
+        capacities=(1,),
+        edges=edges,
+        outgoing=outgoing,
+        incoming=incoming,
     )
 
 
@@ -303,6 +338,57 @@ def test_solve_cp_accepts_first_incumbent_probe_result(monkeypatch) -> None:
     assert result.metadata["first_incumbent_probe_found_incumbent"] is True
     assert result.metadata["first_incumbent_probe_source"] == "node_local"
     assert result.metadata["no_incumbent_before_dfs"] is False
+
+
+def test_validated_no_conflict_candidate_rejects_invalid_lower_schedule() -> None:
+    instance = _resource_conflict_instance()
+    invalid_node = CpNode(
+        lower=(0, 0, 0, 2),
+        latest=None,
+        edges=(),
+        pairs=frozenset(),
+    )
+
+    assert validated_no_conflict_candidate(instance, invalid_node) is None
+
+
+def test_first_incumbent_probe_does_not_accept_invalid_no_conflict_root(monkeypatch) -> None:
+    instance = _dummy_instance(20)
+    invalid_node = CpNode(
+        lower=(0,) * instance.n_activities,
+        latest=None,
+        edges=(),
+        pairs=frozenset(),
+        branch_conflict=None,
+    )
+
+    def fake_propagate(**kwargs) -> CpNodePropagation:
+        return CpNodePropagation(node=invalid_node, rounds=1)
+
+    monkeypatch.setattr("rcpsp.cp.search.propagate_cp_node", fake_propagate)
+    monkeypatch.setattr("rcpsp.cp.search.try_cp_incumbent", lambda **kwargs: None)
+    monkeypatch.setattr("rcpsp.cp.search.validate_schedule", lambda instance, schedule: ["resource violation"])
+
+    incumbent, root_node, root_infeasible, metadata = run_first_incumbent_probe(
+        instance=instance,
+        time_limit=1.0,
+        solver_config=HeuristicConfig(),
+        soft_deadline=time.perf_counter() + 1.0,
+        root_lag_dist=[],
+        forced_pairs=frozenset(),
+        tail=[0] * instance.n_activities,
+        intensity=[0.0] * instance.n_activities,
+        resource_conflict_pairs=None,
+        stats=CpSearchStats(),
+        rng=random.Random(0),
+        incumbent=None,
+    )
+
+    assert incumbent is None
+    assert root_node == invalid_node
+    assert root_infeasible is False
+    assert metadata["first_incumbent_probe_found_incumbent"] is False
+    assert metadata["first_incumbent_probe_source"] == "none"
 
 
 def test_solve_cp_reports_conflict_counters_on_trivial_instance() -> None:

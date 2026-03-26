@@ -58,7 +58,7 @@ The normal execution flow is:
 5. Enter DFS over pair-order decisions.
 6. At each node, propagate temporal and resource constraints to a fixpoint.
 7. If propagation proves the node impossible, prune it.
-8. If the node yields a valid schedule, compress it and compare it against the incumbent.
+8. If the node yields a valid schedule, validate it, try relaxed compression, and compare it against the incumbent.
 9. Otherwise branch on a conflict and recurse until the deadline or proof.
 
 ## What Each File Owns
@@ -107,6 +107,7 @@ This backend currently owns:
 - pairwise conflict branching from resource explanations
 - a local guided-seed warm-start phase that gives CP search a stronger incumbent bound
 - a bounded pre-incumbent probe that reuses shallow propagated CP nodes before the main DFS
+- a validation gate on `branch_conflict is None` nodes so CP does not accept an invalid lower-bound schedule as feasible
 
 The core modeling direction is standard for `RCPSP/max`: temporal lag closure, cumulative-capacity pruning, search over resource-order decisions, and branch-and-bound against an incumbent makespan. Changes here should target `stronger propagation and branching`, not generic heuristic polishing.
 

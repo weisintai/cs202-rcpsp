@@ -52,7 +52,7 @@ flowchart TD
     J --> J5[select_branch_conflict]
 
     J --> K{resource conflict left?}
-    K -- no --> L[compress_valid_schedule_relaxed\naccept incumbent]
+    K -- no --> L[validate lower / compressed schedule\naccept incumbent]
     K -- yes --> M[node-local constructor]
     M --> N[branch_children]
     N --> O[add pair order edge]
