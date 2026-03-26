@@ -20,6 +20,8 @@ Raw benchmark datasets now live under `benchmarks/data/` to keep the project roo
   - project report notes and submission positioning
 - [SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md)
   - requirement-to-code trace and pre-submit hygiene checklist
+- [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)
+  - grouped map of all major docs in the repo
 - [rcpsp/heuristic/README.md](rcpsp/heuristic/README.md)
   - archived heuristic baseline
 - [rcpsp/sgs/README.md](rcpsp/sgs/README.md)
