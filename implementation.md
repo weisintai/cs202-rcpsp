@@ -1,5 +1,7 @@
 # RCPSP Solver — Implementation Plan
 
+## Language: C++17
+
 ## Algorithm: Genetic Algorithm with Serial Schedule Generation Scheme (SSGS) Decoder
 
 ---
@@ -78,3 +80,4 @@
 - **Best case:** loosely constrained instances (large resource capacity) — SSGS with LFT gives near-optimal in O(n² · K)
 - **Worst case:** tightly constrained instances where the GA must explore many generations — bounded by the 30-second time budget
 - **Empirical scaling:** measure wall-clock time vs n to show sub-linear growth relative to the budget
+
