@@ -1,6 +1,6 @@
 # Current Project State
 
-## Status: Step 1 Complete — Parser Done
+## Status: Step 2 Complete — SSGS Working
 
 ## What's Done
 
@@ -14,10 +14,16 @@
   - `.SCH` parser filters out negative time lags (max time lags) to produce a clean DAG
   - `.sm` parser reads section headers, precedence, durations, and resource capacities
   - Debug print to stderr, output to stdout
+- **Step 2 complete:** SSGS decoder + topological sort + feasibility validator
+  - Kahn's algorithm topological sort with cycle-resilient fallback (forces lowest in-degree node when stalled)
+  - `remove_back_edges()` cleans up cycle edges from predecessor/successor lists after topo sort
+  - SSGS decodes an activity list into a schedule: flat resource profile `usage[t*K + k]`, early-break on resource conflict
+  - `validate()` checks both precedence and resource constraints independently of SSGS
+  - All 540 instances produce feasible schedules (0 violations)
 
 ## What's Next
 
-- **Step 2:** Implement Serial Schedule Generation Scheme (SSGS)
+- **Step 3:** Implement priority-rule initial solution generators
 - **Step 3:** Implement priority-rule initial solution generators
 - **Step 4:** Implement Genetic Algorithm (selection, crossover, mutation, replacement)
 - **Step 5:** Implement forward-backward improvement
@@ -38,7 +44,7 @@
 
 ## Open Issues
 
-- **Cycle detection:** The `.SCH` parser prevents cycles by filtering out negative-lag edges, but there is no explicit cycle detection (e.g. topological sort failure check) as a safety net for malformed input. Consider adding an O(n + E) check before scheduling. Does not affect `.sm` files (DAGs by definition).
+- **Cycle detection (partially resolved):** The `.SCH` parser filters out negative-lag edges, and the topological sort now has a cycle-resilient fallback that breaks remaining cycles. `remove_back_edges()` cleans up the graph afterwards. This handles all 540 test instances. However, there is no user-facing warning when cycles are detected and broken — consider adding a stderr warning. Does not affect `.sm` files (DAGs by definition).
 
 ## Decisions Log
 

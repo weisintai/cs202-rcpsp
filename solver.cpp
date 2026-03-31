@@ -232,6 +232,203 @@ Problem parse(const std::string& filename) {
     }
 }
 
+// ── Topological sort (Kahn's algorithm, cycle-resilient) ────────────────────
+// Returns a precedence-feasible ordering of activities 0..n+1.
+// If cycles exist (possible in .SCH files), breaks them by forcing the
+// lowest in-degree node into the queue when it stalls.
+std::vector<int> topological_sort(const Problem& p) {
+    int total = p.n + 2;
+    std::vector<int> in_degree(total, 0);
+    for (int i = 0; i < total; i++) {
+        in_degree[i] = (int)p.predecessors[i].size();
+    }
+
+    std::vector<bool> processed(total, false);
+    std::vector<int> queue;
+    for (int i = 0; i < total; i++) {
+        if (in_degree[i] == 0) queue.push_back(i);
+    }
+
+    std::vector<int> order;
+    order.reserve(total);
+    int head = 0;
+    while ((int)order.size() < total) {
+        // Process everything currently in the queue
+        while (head < (int)queue.size()) {
+            int u = queue[head++];
+            if (processed[u]) continue;
+            processed[u] = true;
+            order.push_back(u);
+            for (int v : p.successors[u]) {
+                if (!processed[v] && --in_degree[v] == 0) {
+                    queue.push_back(v);
+                }
+            }
+        }
+
+        if ((int)order.size() >= total) break;
+
+        // Cycle detected — force the unprocessed node with lowest in-degree
+        int best = -1;
+        for (int i = 0; i < total; i++) {
+            if (!processed[i]) {
+                if (best == -1 || in_degree[i] < in_degree[best]) {
+                    best = i;
+                }
+            }
+        }
+        if (best != -1) {
+            in_degree[best] = 0;
+            queue.push_back(best);
+        }
+    }
+    return order;
+}
+
+// ── Remove edges that violate topological order (cycle-breaking cleanup) ────
+// After topological sort with forced cycle breaks, some edges go "backwards".
+// Remove them from the predecessor/successor lists so SSGS sees a clean DAG.
+void remove_back_edges(Problem& p, const std::vector<int>& order) {
+    int total = p.n + 2;
+    std::vector<int> pos(total);  // position of each activity in the order
+    for (int i = 0; i < total; i++) {
+        pos[order[i]] = i;
+    }
+
+    for (int u = 0; u < total; u++) {
+        // Remove successors that appear before u in the order
+        auto& succ = p.successors[u];
+        succ.erase(std::remove_if(succ.begin(), succ.end(),
+            [&](int v) { return pos[v] <= pos[u]; }), succ.end());
+    }
+
+    // Rebuild predecessors from clean successors
+    for (int i = 0; i < total; i++) p.predecessors[i].clear();
+    for (int u = 0; u < total; u++) {
+        for (int v : p.successors[u]) {
+            p.predecessors[v].push_back(u);
+        }
+    }
+}
+
+// ── Serial Schedule Generation Scheme (SSGS) ───────────────────────────────
+// Takes a precedence-feasible activity list and returns start times + makespan.
+// activity_list must contain all activities 0..n+1 in a topological order.
+struct Schedule {
+    std::vector<int> start_time;  // start_time[i] for activity i
+    int makespan;                 // = start_time[n+1]
+};
+
+Schedule ssgs(const Problem& p, const std::vector<int>& activity_list) {
+    int total = p.n + 2;
+
+    // Upper bound on horizon: sum of all durations
+    int horizon = 0;
+    for (int i = 0; i < total; i++) horizon += p.duration[i];
+    horizon = std::max(horizon, 1);
+
+    // Resource usage profile: usage[t * K + k] = units of resource k used at time t
+    std::vector<int> usage(horizon * p.K, 0);
+
+    std::vector<int> start_time(total, 0);
+    std::vector<int> finish_time(total, 0);
+
+    for (int act : activity_list) {
+        int dur = p.duration[act];
+
+        // Earliest start from precedence: max of all predecessor finish times
+        int es = 0;
+        for (int pred : p.predecessors[act]) {
+            es = std::max(es, finish_time[pred]);
+        }
+
+        if (dur == 0) {
+            // Dummy activity or zero-duration — no resource check needed
+            start_time[act] = es;
+            finish_time[act] = es;
+            continue;
+        }
+
+        // Find earliest feasible start time >= es where resources are available
+        // for the entire duration [t, t + dur)
+        int t = es;
+        while (true) {
+            bool feasible = true;
+            for (int tau = t; tau < t + dur; tau++) {
+                for (int k = 0; k < p.K; k++) {
+                    if (usage[tau * p.K + k] + p.resource[act][k] > p.capacity[k]) {
+                        feasible = false;
+                        // Jump to tau+1 as the next candidate start
+                        t = tau + 1;
+                        break;
+                    }
+                }
+                if (!feasible) break;
+            }
+            if (feasible) break;
+        }
+
+        // Schedule activity at time t
+        start_time[act] = t;
+        finish_time[act] = t + dur;
+
+        // Update resource usage
+        for (int tau = t; tau < t + dur; tau++) {
+            for (int k = 0; k < p.K; k++) {
+                usage[tau * p.K + k] += p.resource[act][k];
+            }
+        }
+    }
+
+    Schedule sched;
+    sched.start_time = std::move(start_time);
+    sched.makespan = sched.start_time[p.n + 1];
+    return sched;
+}
+
+// ── Feasibility validator ───────────────────────────────────────────────────
+bool validate(const Problem& p, const Schedule& sched) {
+    int total = p.n + 2;
+    bool ok = true;
+
+    // Check precedence
+    for (int i = 0; i < total; i++) {
+        for (int j : p.successors[i]) {
+            if (sched.start_time[j] < sched.start_time[i] + p.duration[i]) {
+                std::cerr << "PRECEDENCE VIOLATION: " << i << " -> " << j
+                          << " (S[" << j << "]=" << sched.start_time[j]
+                          << " < S[" << i << "]+" << p.duration[i]
+                          << "=" << sched.start_time[i] + p.duration[i] << ")\n";
+                ok = false;
+            }
+        }
+    }
+
+    // Check resource capacity at every timestep
+    int horizon = sched.makespan;
+    for (int t = 0; t < horizon; t++) {
+        std::vector<int> used(p.K, 0);
+        for (int i = 0; i < total; i++) {
+            if (sched.start_time[i] <= t && t < sched.start_time[i] + p.duration[i]) {
+                for (int k = 0; k < p.K; k++) {
+                    used[k] += p.resource[i][k];
+                }
+            }
+        }
+        for (int k = 0; k < p.K; k++) {
+            if (used[k] > p.capacity[k]) {
+                std::cerr << "RESOURCE VIOLATION at t=" << t
+                          << " resource " << k << ": " << used[k]
+                          << " > " << p.capacity[k] << "\n";
+                ok = false;
+            }
+        }
+    }
+
+    if (ok) std::cerr << "Schedule is FEASIBLE" << std::endl;
+    return ok;
+}
+
 // ── Debug print ─────────────────────────────────────────────────────────────
 void print_problem(const Problem& p) {
     std::cerr << "n=" << p.n << " K=" << p.K << std::endl;
@@ -269,12 +466,18 @@ int main(int argc, char* argv[]) {
     }
 
     Problem prob = parse(argv[1]);
-    print_problem(prob);
 
-    // TODO: Steps 2-6 will go here
-    // For now, output dummy start times (all zeros) so the program is runnable
+    // Generate a topological order, clean up any cycles, and decode via SSGS
+    std::vector<int> order = topological_sort(prob);
+    remove_back_edges(prob, order);
+    Schedule sched = ssgs(prob, order);
+
+    validate(prob, sched);
+    std::cerr << "Makespan: " << sched.makespan << std::endl;
+
+    // Output start times for activities 1..n
     for (int i = 1; i <= prob.n; i++) {
-        std::cout << 0 << "\n";
+        std::cout << sched.start_time[i] << "\n";
     }
 
     return 0;
