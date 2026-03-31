@@ -41,6 +41,7 @@
 | `sm_j20/` | J20 benchmark instances (270 files) |
 | `solver.cpp` | Main solver source (single-file) |
 | `Makefile` | Build config: `make` for optimised, `make debug` for sanitizer |
+| `programFlow.md` | End-to-end walkthrough of how solver.cpp works |
 
 ## Open Issues
 
