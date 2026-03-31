@@ -36,6 +36,10 @@
 | `solver.cpp` | Main solver source (single-file) |
 | `Makefile` | Build config: `make` for optimised, `make debug` for sanitizer |
 
+## Open Issues
+
+- **Cycle detection:** The `.SCH` parser prevents cycles by filtering out negative-lag edges, but there is no explicit cycle detection (e.g. topological sort failure check) as a safety net for malformed input. Consider adding an O(n + E) check before scheduling. Does not affect `.sm` files (DAGs by definition).
+
 ## Decisions Log
 
 | Decision | Rationale |
