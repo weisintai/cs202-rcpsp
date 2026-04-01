@@ -3,6 +3,7 @@
 #include <queue>
 #include <functional>
 #include <numeric>
+#include <string>
 
 // ── Compute Latest Finish Time for each activity ────────────────────────────
 // Backward pass from sink: LFT[sink] = CPM makespan, then work backwards.
@@ -127,8 +128,53 @@ static std::vector<int> biased_topo_sort(const Problem& p, const std::vector<int
     return order;
 }
 
-// ── Public: priority-biased sort by rule name ───────────────────────────────
-std::vector<int> priority_sort(const Problem& p, const std::string& rule) {
+// ── Randomized priority-biased topological sort ─────────────────────────────
+// At each step, sample uniformly from the best few eligible activities by the
+// chosen priority rule instead of always taking the single best one.
+static std::vector<int> randomized_biased_topo_sort(const Problem& p,
+                                                    const std::vector<int>& priority,
+                                                    int candidate_pool,
+                                                    std::mt19937& rng) {
+    int total = p.n + 2;
+    std::vector<int> in_deg(total, 0);
+    for (int i = 0; i < total; i++)
+        in_deg[i] = (int)p.predecessors[i].size();
+
+    std::vector<int> eligible;
+    for (int i = 0; i < total; i++) {
+        if (in_deg[i] == 0) eligible.push_back(i);
+    }
+
+    std::vector<int> order;
+    order.reserve(total);
+
+    while (!eligible.empty()) {
+        std::sort(eligible.begin(), eligible.end(), [&](int a, int b) {
+            if (priority[a] != priority[b]) return priority[a] < priority[b];
+            return a < b;
+        });
+
+        int pool = std::min(candidate_pool, (int)eligible.size());
+        std::uniform_int_distribution<int> dist(0, pool - 1);
+        int idx = dist(rng);
+        int u = eligible[idx];
+
+        eligible[idx] = eligible.back();
+        eligible.pop_back();
+
+        order.push_back(u);
+        for (int v : p.successors[u]) {
+            if (--in_deg[v] == 0) {
+                eligible.push_back(v);
+            }
+        }
+    }
+
+    return order;
+}
+
+// ── Priority values by rule name ────────────────────────────────────────────
+static std::vector<int> compute_priority_values(const Problem& p, const std::string& rule) {
     int total = p.n + 2;
     std::vector<int> priority(total, 0);
 
@@ -154,7 +200,12 @@ std::vector<int> priority_sort(const Problem& p, const std::string& rule) {
             priority[i] = p.duration[i];
     }
 
-    return biased_topo_sort(p, priority);
+    return priority;
+}
+
+// ── Public: priority-biased sort by rule name ───────────────────────────────
+std::vector<int> priority_sort(const Problem& p, const std::string& rule) {
+    return biased_topo_sort(p, compute_priority_values(p, rule));
 }
 
 // ── Public: random feasible topological order ───────────────────────────────
@@ -202,8 +253,23 @@ std::vector<std::vector<int>> generate_initial_solutions(const Problem& p, int n
         solutions.push_back(priority_sort(p, rule));
     }
 
-    // Additional random feasible permutations
-    for (int i = 0; i < num_random; i++) {
+    // Replace most pure-random seeds with randomized strong-rule variants.
+    int num_lft = num_random / 2;
+    int num_mts = num_random / 3;
+    int num_pure_random = num_random - num_lft - num_mts;
+
+    auto lft_priority = compute_priority_values(p, "lft");
+    auto mts_priority = compute_priority_values(p, "mts");
+
+    for (int i = 0; i < num_lft; i++) {
+        solutions.push_back(randomized_biased_topo_sort(p, lft_priority, 3, rng));
+    }
+
+    for (int i = 0; i < num_mts; i++) {
+        solutions.push_back(randomized_biased_topo_sort(p, mts_priority, 3, rng));
+    }
+
+    for (int i = 0; i < num_pure_random; i++) {
         solutions.push_back(random_sort(p, rng));
     }
 
