@@ -1,6 +1,6 @@
 # Current Project State
 
-## Status: Step 4 Complete — Genetic Algorithm Working
+## Status: Step 5 Complete — Forward-Backward Improvement Working
 
 ## What's Done
 
@@ -43,8 +43,14 @@
   - Improvements over Step 3: e.g. PSP100 J10: 43→39, PSP1 J20: 50→47
   - All tested instances: 0 violations
 
+- **Step 5 complete:** Forward-backward improvement (double justification)
+  - Backward SSGS: schedules activities as late as possible (latest-start times)
+  - Forward re-pass: extracts new ordering from backward schedule, re-decodes with forward SSGS
+  - Iterates up to 10 times until no improvement
+  - Integrated into GA: applied to best individual every 50K generations + final pass
+  - All tested instances: 0 violations
+
 ## What's Next
-- **Step 5:** Implement forward-backward improvement
 - **Step 6:** Output formatting and feasibility validation
 - **Step 7:** Test on J10/J20 benchmarks and compare against known optima
 
@@ -69,6 +75,7 @@
 | `src/validator.h/.cpp` | Feasibility checker (precedence + resource) |
 | `src/priority.h/.cpp` | Priority rules (LFT, MTS, GRD, SPT) + random permutations |
 | `src/ga.h/.cpp` | Genetic algorithm (selection, crossover, mutation, replacement) |
+| `src/improvement.h/.cpp` | Forward-backward improvement (double justification) |
 | `src/main.cpp` | Entry point |
 | `Makefile` | Build config: `make` for optimised, `make debug` for sanitizer |
 | `programFlow.md` | End-to-end walkthrough of how the solver works |

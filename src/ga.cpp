@@ -1,6 +1,7 @@
 #include "ga.h"
 #include "ssgs.h"
 #include "priority.h"
+#include "improvement.h"
 #include <algorithm>
 #include <numeric>
 #include <iostream>
@@ -160,6 +161,7 @@ Schedule run_ga(const Problem& p,
     }
 
     int generations = 0;
+    int last_improve_gen = 0;  // track when we last applied forward-backward
 
     // Main GA loop
     while (true) {
@@ -167,6 +169,31 @@ Schedule run_ga(const Problem& p,
         auto now = std::chrono::steady_clock::now();
         double elapsed = std::chrono::duration<double>(now - start_time).count();
         if (elapsed >= config.time_limit_seconds) break;
+
+        // Periodically apply forward-backward improvement to best individual
+        if (generations - last_improve_gen >= 50000) {
+            Schedule improved = forward_backward_improve(p, schedules[best_idx]);
+            if (improved.makespan < fitness[best_idx]) {
+                schedules[best_idx] = improved;
+                fitness[best_idx] = improved.makespan;
+                // Update the activity list from the improved schedule
+                std::vector<int> new_order(p.n + 2);
+                std::iota(new_order.begin(), new_order.end(), 0);
+                std::sort(new_order.begin(), new_order.end(), [&](int a, int b) {
+                    if (improved.start_time[a] != improved.start_time[b])
+                        return improved.start_time[a] < improved.start_time[b];
+                    return a < b;
+                });
+                population[best_idx] = std::move(new_order);
+
+                // Re-find worst
+                worst_idx = 0;
+                for (int i = 1; i < pop_size; i++) {
+                    if (fitness[i] > fitness[worst_idx]) worst_idx = i;
+                }
+            }
+            last_improve_gen = generations;
+        }
 
         // Select two parents
         int p1 = tournament_select(fitness, config.tournament_size, rng);
@@ -216,6 +243,13 @@ Schedule run_ga(const Problem& p,
         }
 
         generations++;
+    }
+
+    // Final forward-backward improvement on the best solution
+    Schedule final_sched = forward_backward_improve(p, schedules[best_idx]);
+    if (final_sched.makespan < fitness[best_idx]) {
+        schedules[best_idx] = final_sched;
+        fitness[best_idx] = final_sched.makespan;
     }
 
     std::cerr << "GA: " << generations << " generations, best makespan: "

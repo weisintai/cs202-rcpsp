@@ -191,6 +191,8 @@ For each activity in list order:
 
 **Replacement:** Steady-state. If the offspring's makespan is better than the worst individual in the population, replace the worst. The best individual is always tracked (elitism).
 
+**Forward-backward improvement (integrated):** Every 50,000 generations, the GA applies forward-backward improvement to the best individual. If the makespan improves, the improved schedule replaces the best individual and its activity list is updated. A final forward-backward pass is applied before returning.
+
 **Termination:** 28-second wall-clock budget (2s margin before the 30s hard cutoff). The GA has an anytime property — a valid schedule exists from generation 0.
 
 **Throughput:** ~8-17M generations in 28 seconds depending on instance size (J10-J30).
@@ -199,7 +201,23 @@ For each activity in list order:
 
 ---
 
-## Stage 7: Validate — `validate()`
+## Stage 7: Forward-Backward Improvement — `forward_backward_improve()`
+
+**Purpose:** Improve a schedule by shifting activities to close gaps. Applied both during the GA (periodically) and as a final pass.
+
+**Algorithm (double justification):**
+1. **Backward pass:** Take the current schedule and schedule activities as **late** as possible. Process activities in reverse order of their forward start times (latest-scheduled first). For each activity, compute the latest finish time as the minimum start time among all successors, then scan backwards for resource feasibility.
+2. **Extract new order:** Sort activities by their backward start times (ascending) to get a new precedence-feasible ordering.
+3. **Forward pass:** Re-decode the new ordering with standard forward SSGS.
+4. **Iterate:** If the forward pass produced a better makespan, repeat from step 1. Stop after 10 iterations or when no improvement is found.
+
+**Why it works:** The backward pass pushes activities to the right (as late as possible), then the forward pass compresses them to the left (as early as possible). This "breathing" motion closes resource gaps that the original schedule left open, often shaving 1-3 time units off the makespan.
+
+**Reference:** `src/improvement.h`, `src/improvement.cpp`
+
+---
+
+## Stage 8: Validate — `validate()`
 
 **Purpose:** Independent correctness check. Verifies the schedule produced by SSGS satisfies both constraint types.
 
@@ -213,7 +231,7 @@ Prints `FEASIBLE` or detailed violation messages to stderr.
 
 ---
 
-## Stage 8: Output
+## Stage 9: Output
 
 Prints start times for activities 1 through n (one integer per line) to stdout. Dummy activities 0 and n+1 are not included in the output.
 
@@ -221,6 +239,6 @@ Prints start times for activities 1 through n (one integer per line) to stdout. 
 
 ---
 
-## What's Not Yet Implemented
+## All Implementation Steps Complete
 
-- **Step 5:** Forward-backward improvement (double justification)
+The solver pipeline is fully implemented: Parse → Graph Cleanup → Priority Rules → GA with SSGS + Forward-Backward Improvement → Validate → Output.
