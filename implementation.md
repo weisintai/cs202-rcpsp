@@ -61,6 +61,15 @@
 - Compare against known optimal/best-known values from PSPLIB
 - Compute average deviation from optimal
 
+## Step 8: Experiments for Report
+
+- See `experiments.md` for full experiment plan with goals, metrics, and success criteria
+- **Experiment 1:** Algorithm component ablation (baseline vs priority vs GA vs full)
+- **Experiment 2:** Scaling across instance sizes (J30/J60/J90/J120)
+- **Experiment 3:** Time budget sensitivity (1s/3s/10s/28s)
+- **Experiment 4:** Priority rule comparison (LFT/MTS/GRD/SPT vs random)
+- Scripts in `experiments/`, results in `experiments/results/`
+
 ---
 
 ## Complexity Analysis

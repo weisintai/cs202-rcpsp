@@ -1,6 +1,6 @@
 # Current Project State
 
-## Status: Step 5 Complete — Forward-Backward Improvement Working
+## Status: Step 7 Complete — Benchmarked on J30/J60/J90/J120
 
 ## What's Done
 
@@ -51,8 +51,14 @@
   - All tested instances: 0 violations
 
 ## What's Next
-- **Step 6:** Output formatting and feasibility validation
-- **Step 7:** Test on J10/J20 benchmarks and compare against known optima
+- **Step 8:** Run experiments 1-4 (see `experiments.md` for full plan)
+  - Experiment 1: Algorithm component ablation
+  - Experiment 2: Scaling across instance sizes (partially done — 3s results collected)
+  - Experiment 3: Time budget sensitivity
+  - Experiment 4: Priority rule comparison
+- **Report:** Write 6-10 page report using experiment results (35% of grade)
+- **Slides:** Create 8-12 slide presentation (25% of grade)
+- **README:** Write README with run command
 
 ## Key Files
 
@@ -78,7 +84,26 @@
 | `src/improvement.h/.cpp` | Forward-backward improvement (double justification) |
 | `src/main.cpp` | Entry point |
 | `Makefile` | Build config: `make` for optimised, `make debug` for sanitizer |
+| `experiments.md` | Experiment plan with goals, metrics, success criteria |
+| `experiments/` | Experiment scripts and results |
 | `programFlow.md` | End-to-end walkthrough of how the solver works |
+
+## Benchmark Results (5s timeout, --time 3)
+
+All instances produce feasible schedules (0 violations across all datasets).
+
+| Dataset | Instances | Valid | Optimal | Optimal % | Mean Gap | Max Gap | Mean Quality |
+|---------|-----------|-------|---------|-----------|----------|---------|--------------|
+| J30     | 480       | 480   | 374     | 77.9%     | 0.72%    | 9.52%   | 99.31%       |
+| J60     | 480       | 480   | 329     | 68.5%     | 1.91%    | 15.28%  | 98.22%       |
+| J90     | 480       | 480   | 339     | 70.6%     | 2.20%    | 15.53%  | 97.98%       |
+| J120    | 600       | 600   | 158     | 26.3%     | 6.25%    | 20.77%  | 94.32%       |
+
+**Notes:**
+- Solver uses `--time 3` (3s GA budget) within a 5s wall-clock timeout
+- "Optimal" means matching the best known solution from PSPLIB
+- Mean gap = average percentage above best known makespan
+- Quality degrades gracefully with instance size, as expected for GA on NP-hard problems
 
 ## Open Issues
 
