@@ -2,41 +2,41 @@
   {
     "dataset": "j30",
     "instances": 480,
-    "optimal": 374,
-    "optimal_pct": 77.9,
-    "mean_gap_pct": 0.72,
-    "max_gap_pct": 9.52,
-    "mean_quality_pct": 99.31,
-    "mean_wall_time_s": 3.0
+    "optimal": 373,
+    "optimal_pct": 77.7,
+    "mean_gap_pct": 0.6,
+    "max_gap_pct": 8.62,
+    "mean_quality_pct": 99.42,
+    "mean_wall_time_s": 3.01
   },
   {
     "dataset": "j60",
     "instances": 480,
-    "optimal": 329,
-    "optimal_pct": 68.5,
-    "mean_gap_pct": 1.91,
-    "max_gap_pct": 15.28,
-    "mean_quality_pct": 98.22,
-    "mean_wall_time_s": 3.0
+    "optimal": 338,
+    "optimal_pct": 70.4,
+    "mean_gap_pct": 1.71,
+    "max_gap_pct": 14.12,
+    "mean_quality_pct": 98.4,
+    "mean_wall_time_s": 3.01
   },
   {
     "dataset": "j90",
     "instances": 480,
-    "optimal": 339,
-    "optimal_pct": 70.6,
-    "mean_gap_pct": 2.2,
-    "max_gap_pct": 15.53,
-    "mean_quality_pct": 97.98,
-    "mean_wall_time_s": 3.0
+    "optimal": 340,
+    "optimal_pct": 70.8,
+    "mean_gap_pct": 2.18,
+    "max_gap_pct": 15.65,
+    "mean_quality_pct": 98.0,
+    "mean_wall_time_s": 3.01
   },
   {
     "dataset": "j120",
     "instances": 600,
-    "optimal": 158,
-    "optimal_pct": 26.3,
-    "mean_gap_pct": 6.25,
-    "max_gap_pct": 20.77,
-    "mean_quality_pct": 94.32,
+    "optimal": 160,
+    "optimal_pct": 26.7,
+    "mean_gap_pct": 6.06,
+    "max_gap_pct": 16.3,
+    "mean_quality_pct": 94.48,
     "mean_wall_time_s": 3.01
   }
 ]

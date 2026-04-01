@@ -138,9 +138,16 @@ After topological sort places 4 before 6, `remove_back_edges` removes the `6→4
 
 **How it works:** Modified Kahn's algorithm using a min-heap. Among all activities with in-degree 0 (precedence-eligible), the one with the lowest priority value is dequeued first. This biases the topological order without violating precedence.
 
-**Random permutations:** Additionally generates N random feasible orderings using Kahn's with random tie-breaking. These add diversity for the GA population.
+**Randomized biased sort:** A variant that samples uniformly from the top N eligible activities (candidate pool size 3) instead of always taking the single best. This produces diverse orderings that are still guided by the priority heuristic.
 
-**In main:** 4 rule-based + 20 random = 24 candidate orderings. Each is decoded via SSGS; the schedule with the lowest makespan is kept.
+**Biased seeding:** Of the 20 additional seeds beyond the 4 deterministic rules:
+- 10 use randomized LFT-biased sort (50%)
+- 6 use randomized MTS-biased sort (33%)
+- 4 use pure random sort (17%)
+
+This allocation is motivated by experiment results showing LFT and MTS are the strongest priority rules across PSPLIB benchmarks.
+
+**In main:** 4 rule-based + 20 biased/random = 24 candidate orderings. Each is decoded via SSGS; the schedule with the lowest makespan is kept.
 
 **Reference:** `src/priority.h`, `src/priority.cpp`
 

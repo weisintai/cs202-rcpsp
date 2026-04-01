@@ -7,7 +7,7 @@ A solver for the Resource Constrained Project Scheduling Problem (RCPSP) built f
 The solver uses a Genetic Algorithm with a Serial Schedule Generation Scheme (SSGS) decoder. The pipeline:
 
 1. **Parse** input file (`.sm` or `.SCH` format)
-2. **Generate initial solutions** using priority rules (LFT, MTS, GRD, SPT) and random permutations
+2. **Generate initial solutions** using priority rules (LFT, MTS, GRD, SPT) and biased randomized permutations (LFT/MTS-weighted seeding)
 3. **Evolve** the population using tournament selection, one-point crossover, and swap/shift mutations
 4. **Improve** the best solution with forward-backward double justification
 5. **Output** start times for each activity

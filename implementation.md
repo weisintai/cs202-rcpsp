@@ -30,6 +30,7 @@
   - Random feasible permutations
 - Generate topological orderings biased by each priority rule
 - These provide diverse, high-quality individuals for the initial population
+- **Biased seeding enhancement:** Randomized priority-biased topological sort that samples from a candidate pool of the top N eligible activities (instead of always picking the single best). Initial population uses a weighted mix: 50% LFT-biased, 33% MTS-biased, 17% pure random (motivated by experiment 4 showing LFT and MTS are the strongest rules)
 
 ## Step 4: Genetic Algorithm
 
