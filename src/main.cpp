@@ -6,11 +6,22 @@
 #include "ga.h"
 #include <iostream>
 #include <random>
+#include <cstring>
+#include <cstdlib>
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Usage: solver <instance_file>" << std::endl;
+        std::cerr << "Usage: solver <instance_file> [--time <seconds>]" << std::endl;
         return 1;
+    }
+
+    // Parse command-line arguments
+    double time_limit = 28.0;
+    for (int i = 2; i < argc; i++) {
+        if (std::strcmp(argv[i], "--time") == 0 && i + 1 < argc) {
+            time_limit = std::atof(argv[i + 1]);
+            i++;
+        }
     }
 
     Problem prob = parse(argv[1]);
@@ -25,6 +36,7 @@ int main(int argc, char* argv[]) {
 
     // Run genetic algorithm
     GAConfig config;
+    config.time_limit_seconds = time_limit;
     Schedule best = run_ga(prob, initial, config, rng);
 
     validate(prob, best);

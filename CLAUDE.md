@@ -38,9 +38,8 @@ All test datasets live under `./datasets/`. Within each dataset folder, the
 ```bash
 make                              # compile (optimised)
 make debug                        # compile (debug + sanitizer)
-./solver <instance_file>          # run on a single instance
-./solver sm_j10/PSP1.SCH          # example: J10 .SCH instance
-./solver datasets/psplib/j30/instances/j3010_1.sm  # example: J30 .sm instance
+./solver <instance_file>          # run (default 28s GA budget)
+./solver <instance_file> --time 5 # run with 5s GA budget
 make bench-j30                    # benchmark all J30 instances
 make bench-j60                    # benchmark all J60 instances
 make bench-j120                   # benchmark all J120 instances
