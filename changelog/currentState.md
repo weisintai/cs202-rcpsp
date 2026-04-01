@@ -84,6 +84,7 @@
 | `src/improvement.h/.cpp` | Forward-backward improvement (double justification) |
 | `src/main.cpp` | Entry point |
 | `Makefile` | Build config: `make` for optimised, `make debug` for sanitizer |
+| `reportFormat.md` | Report structure and section breakdown |
 | `experiments.md` | Experiment plan with goals, metrics, success criteria |
 | `experiments/` | Experiment scripts and results |
 | `programFlow.md` | End-to-end walkthrough of how the solver works |

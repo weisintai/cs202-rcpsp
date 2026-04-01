@@ -29,6 +29,7 @@ Do not proceed with any work until this is complete.
   - j90/instances/: 480 files (90 activities)
   - j120/instances/: 600 files (120 activities)
 - scripts/benchmark_rcpsp.py: benchmarking script
+- reportFormat.md: report structure and section breakdown
 - experiments.md: experiment plan (goals, metrics, success criteria)
 - experiments/experiment{1-4}/: each contains scripts/, results/, and README.md
 
