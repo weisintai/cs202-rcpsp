@@ -1,6 +1,6 @@
 # Current Project State
 
-## Status: Step 8 In Progress — Experiment 1 (Ablation) Complete
+## Status: Step 8 In Progress — Experiments 1-2 Complete, 3-4 Implemented
 
 ## What's Done
 

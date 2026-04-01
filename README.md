@@ -34,6 +34,7 @@ make clean        # remove binaries
 |------|-------------|---------|
 | `--time <seconds>` | GA time budget in seconds | `28` |
 | `--mode <mode>` | Algorithm mode (see below) | `full` |
+| `--rule <rule>` | Run a single priority rule + SSGS (see below) | not set |
 
 ### Modes
 
@@ -43,6 +44,18 @@ make clean        # remove binaries
 | `baseline` | Random topological order + SSGS only |
 | `priority` | Best of priority rules + random permutations, no GA |
 | `ga` | Random initial population + GA, no forward-backward improvement |
+
+### Rules
+
+When `--rule` is set, the solver ignores `--mode` and `--time`, and produces a single solution using the specified priority rule + SSGS.
+
+| Rule | Priority value |
+|------|---------------|
+| `lft` | Latest Finish Time (CPM backward pass) |
+| `mts` | Most Total Successors (transitive count) |
+| `grd` | Greatest Resource Demand (sum across all types) |
+| `spt` | Shortest Processing Time (duration) |
+| `random` | Random tie-breaking |
 
 ### Examples
 
@@ -55,6 +68,9 @@ make clean        # remove binaries
 
 # Run in priority-only mode (no GA)
 ./solver datasets/psplib/j30/instances/j301_1.sm --mode priority
+
+# Run a single priority rule (LFT)
+./solver datasets/psplib/j30/instances/j301_1.sm --rule lft
 ```
 
 ### Output
