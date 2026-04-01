@@ -1,0 +1,42 @@
+[
+  {
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 374,
+    "optimal_pct": 77.9,
+    "mean_gap_pct": 0.72,
+    "max_gap_pct": 9.52,
+    "mean_quality_pct": 99.31,
+    "mean_wall_time_s": 3.0
+  },
+  {
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 329,
+    "optimal_pct": 68.5,
+    "mean_gap_pct": 1.91,
+    "max_gap_pct": 15.28,
+    "mean_quality_pct": 98.22,
+    "mean_wall_time_s": 3.0
+  },
+  {
+    "dataset": "j90",
+    "instances": 480,
+    "optimal": 339,
+    "optimal_pct": 70.6,
+    "mean_gap_pct": 2.2,
+    "max_gap_pct": 15.53,
+    "mean_quality_pct": 97.98,
+    "mean_wall_time_s": 3.0
+  },
+  {
+    "dataset": "j120",
+    "instances": 600,
+    "optimal": 158,
+    "optimal_pct": 26.3,
+    "mean_gap_pct": 6.25,
+    "max_gap_pct": 20.77,
+    "mean_quality_pct": 94.32,
+    "mean_wall_time_s": 3.01
+  }
+]
