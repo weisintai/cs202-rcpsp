@@ -101,8 +101,26 @@ Four experiments to evaluate the solver's performance and justify design decisio
 
 ---
 
-## Results Storage
+## Folder Structure
 
-All experiment scripts live in `experiments/`.
-Benchmark results are stored in `benchmark_results/` (per-dataset subdirectories with `results.csv` and `summary.json`).
-Experiment-specific results will be stored in `experiments/results/`.
+```
+experiments/
+├── experiment1/          # Algorithm Component Ablation
+│   ├── scripts/          # Wrapper scripts and run script
+│   ├── results/          # Benchmark output (summary.json, results.csv)
+│   └── README.md         # Experiment description
+├── experiment2/          # Scaling Across Instance Sizes
+│   ├── scripts/
+│   ├── results/
+│   └── README.md
+├── experiment3/          # Time Budget Sensitivity
+│   ├── scripts/
+│   ├── results/
+│   └── README.md
+└── experiment4/          # Priority Rule Comparison
+    ├── scripts/
+    ├── results/
+    └── README.md
+```
+
+General benchmark results (non-experiment) are stored in `benchmark_results/`.

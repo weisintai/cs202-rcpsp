@@ -30,7 +30,7 @@ Do not proceed with any work until this is complete.
   - j120/instances/: 600 files (120 activities)
 - scripts/benchmark_rcpsp.py: benchmarking script
 - experiments.md: experiment plan (goals, metrics, success criteria)
-- experiments/: experiment scripts and results
+- experiments/experiment{1-4}/: each contains scripts/, results/, and README.md
 
 ## Datasets
 All test datasets live under `./datasets/`. Within each dataset folder, the

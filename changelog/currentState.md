@@ -1,6 +1,6 @@
 # Current Project State
 
-## Status: Step 7 Complete — Benchmarked on J30/J60/J90/J120
+## Status: Step 8 In Progress — Experiment 1 (Ablation) Complete
 
 ## What's Done
 
@@ -87,6 +87,28 @@
 | `experiments.md` | Experiment plan with goals, metrics, success criteria |
 | `experiments/` | Experiment scripts and results |
 | `programFlow.md` | End-to-end walkthrough of how the solver works |
+
+## Experiment 1: Algorithm Component Ablation (5s timeout, --time 3)
+
+**J30 (480 instances):**
+
+| Config | Optimal | Optimal % | Mean Gap | Mean Quality |
+|--------|---------|-----------|----------|--------------|
+| Baseline | 153 | 31.9% | 12.46% | 89.85% |
+| Priority | 277 | 57.7% | 3.03% | 97.24% |
+| GA only | 342 | 71.2% | 1.06% | 98.99% |
+| Full | 373 | 77.7% | 0.73% | 99.30% |
+
+**J60 (480 instances):**
+
+| Config | Optimal | Optimal % | Mean Gap | Mean Quality |
+|--------|---------|-----------|----------|--------------|
+| Baseline | 136 | 28.3% | 15.11% | 88.10% |
+| Priority | 285 | 59.4% | 4.73% | 95.89% |
+| GA only | 289 | 60.2% | 2.91% | 97.33% |
+| Full | 329 | 68.5% | 1.92% | 98.22% |
+
+**Key findings:** Priority rules provide the largest single improvement (~10pp gap reduction). GA adds ~2pp. Forward-backward improvement adds ~0.3-1pp.
 
 ## Benchmark Results (5s timeout, --time 3)
 
