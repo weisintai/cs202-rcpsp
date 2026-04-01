@@ -1,0 +1,82 @@
+[
+  {
+    "ga_time_s": 1,
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 362,
+    "optimal_pct": 75.4,
+    "mean_gap_pct": 0.78,
+    "max_gap_pct": 10.34,
+    "mean_quality_pct": 99.25
+  },
+  {
+    "ga_time_s": 1,
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 333,
+    "optimal_pct": 69.4,
+    "mean_gap_pct": 1.94,
+    "max_gap_pct": 13.27,
+    "mean_quality_pct": 98.2
+  },
+  {
+    "ga_time_s": 3,
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 362,
+    "optimal_pct": 75.4,
+    "mean_gap_pct": 0.78,
+    "max_gap_pct": 10.34,
+    "mean_quality_pct": 99.26
+  },
+  {
+    "ga_time_s": 3,
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 333,
+    "optimal_pct": 69.4,
+    "mean_gap_pct": 1.92,
+    "max_gap_pct": 12.64,
+    "mean_quality_pct": 98.22
+  },
+  {
+    "ga_time_s": 10,
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 362,
+    "optimal_pct": 75.4,
+    "mean_gap_pct": 0.78,
+    "max_gap_pct": 10.34,
+    "mean_quality_pct": 99.26
+  },
+  {
+    "ga_time_s": 10,
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 334,
+    "optimal_pct": 69.6,
+    "mean_gap_pct": 1.9,
+    "max_gap_pct": 12.64,
+    "mean_quality_pct": 98.24
+  },
+  {
+    "ga_time_s": 28,
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 362,
+    "optimal_pct": 75.4,
+    "mean_gap_pct": 0.78,
+    "max_gap_pct": 10.34,
+    "mean_quality_pct": 99.26
+  },
+  {
+    "ga_time_s": 28,
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 335,
+    "optimal_pct": 69.8,
+    "mean_gap_pct": 1.89,
+    "max_gap_pct": 12.64,
+    "mean_quality_pct": 98.24
+  }
+]
