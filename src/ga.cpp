@@ -121,7 +121,8 @@ static void mutate_shift(const Problem& p, std::vector<int>& list, std::mt19937&
 Schedule run_ga(const Problem& p,
                const std::vector<std::vector<int>>& initial_solutions,
                const GAConfig& config,
-               std::mt19937& rng) {
+               std::mt19937& rng,
+               bool use_improvement) {
     auto start_time = std::chrono::steady_clock::now();
 
     int pop_size = config.population_size;
@@ -171,7 +172,7 @@ Schedule run_ga(const Problem& p,
         if (elapsed >= config.time_limit_seconds) break;
 
         // Periodically apply forward-backward improvement to best individual
-        if (generations - last_improve_gen >= 50000) {
+        if (use_improvement && generations - last_improve_gen >= 50000) {
             Schedule improved = forward_backward_improve(p, schedules[best_idx]);
             if (improved.makespan < fitness[best_idx]) {
                 schedules[best_idx] = improved;
@@ -246,10 +247,12 @@ Schedule run_ga(const Problem& p,
     }
 
     // Final forward-backward improvement on the best solution
-    Schedule final_sched = forward_backward_improve(p, schedules[best_idx]);
-    if (final_sched.makespan < fitness[best_idx]) {
-        schedules[best_idx] = final_sched;
-        fitness[best_idx] = final_sched.makespan;
+    if (use_improvement) {
+        Schedule final_sched = forward_backward_improve(p, schedules[best_idx]);
+        if (final_sched.makespan < fitness[best_idx]) {
+            schedules[best_idx] = final_sched;
+            fitness[best_idx] = final_sched.makespan;
+        }
     }
 
     std::cerr << "GA: " << generations << " generations, best makespan: "

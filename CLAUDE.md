@@ -8,6 +8,7 @@ At the start of every session:
 Do not proceed with any work until this is complete.
 
 ## File Structure
+- README.md: project overview, build/run instructions, CLI flags, benchmarking guide
 - implementation.md: implementation plan and algorithm decisions
 - changelog/currentState.md: running log of progress, next steps, and decisions
 - programFlow.md: end-to-end walkthrough of how the solver works
@@ -49,7 +50,7 @@ make bench-j120                   # benchmark all J120 instances
 
 ## Status Updates
 After every implementation step, decision, or meaningful change, immediately
-update changelog/currentState.md before continuing to the next step. Update programFlow.md accordingly if any changes or updates were made to the algorithm.
+update changelog/currentState.md before continuing to the next step. Update programFlow.md accordingly if any changes or updates were made to the algorithm. Update README.md if any changes affect how the code is built, run, or benchmarked (new CLI flags, new modes, new build targets, etc.).
 Do not batch updates. Write to changelog/currentState.md after each discrete action.
 
 

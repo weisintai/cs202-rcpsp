@@ -3,23 +3,29 @@
 #include "ssgs.h"
 #include "validator.h"
 #include "priority.h"
+#include "improvement.h"
 #include "ga.h"
 #include <iostream>
 #include <random>
 #include <cstring>
 #include <cstdlib>
+#include <string>
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Usage: solver <instance_file> [--time <seconds>]" << std::endl;
+        std::cerr << "Usage: solver <instance_file> [--time <seconds>] [--mode baseline|priority|ga|full]" << std::endl;
         return 1;
     }
 
     // Parse command-line arguments
     double time_limit = 28.0;
+    std::string mode = "full";
     for (int i = 2; i < argc; i++) {
         if (std::strcmp(argv[i], "--time") == 0 && i + 1 < argc) {
             time_limit = std::atof(argv[i + 1]);
+            i++;
+        } else if (std::strcmp(argv[i], "--mode") == 0 && i + 1 < argc) {
+            mode = argv[i + 1];
             i++;
         }
     }
@@ -30,14 +36,41 @@ int main(int argc, char* argv[]) {
     std::vector<int> topo = topological_sort(prob);
     remove_back_edges(prob, topo);
 
-    // Generate initial solutions using priority rules + random permutations
     std::mt19937 rng(42);
-    auto initial = generate_initial_solutions(prob, 20, rng);
+    Schedule best;
 
-    // Run genetic algorithm
-    GAConfig config;
-    config.time_limit_seconds = time_limit;
-    Schedule best = run_ga(prob, initial, config, rng);
+    if (mode == "baseline") {
+        // Random topological order + SSGS, no priority rules, no GA, no improvement
+        auto order = random_sort(prob, rng);
+        best = ssgs(prob, order);
+
+    } else if (mode == "priority") {
+        // Best of priority rules + random permutations, no GA, no improvement
+        auto initial = generate_initial_solutions(prob, 20, rng);
+        best = ssgs(prob, initial[0]);
+        for (size_t i = 1; i < initial.size(); i++) {
+            Schedule s = ssgs(prob, initial[i]);
+            if (s.makespan < best.makespan) best = s;
+        }
+
+    } else if (mode == "ga") {
+        // Random initial population + GA, no forward-backward improvement
+        // Seed with random permutations only (no priority rules)
+        std::vector<std::vector<int>> initial;
+        for (int i = 0; i < 20; i++) {
+            initial.push_back(random_sort(prob, rng));
+        }
+        GAConfig config;
+        config.time_limit_seconds = time_limit;
+        best = run_ga(prob, initial, config, rng, false);
+
+    } else {
+        // Full pipeline: priority rules + GA + forward-backward improvement
+        auto initial = generate_initial_solutions(prob, 20, rng);
+        GAConfig config;
+        config.time_limit_seconds = time_limit;
+        best = run_ga(prob, initial, config, rng, true);
+    }
 
     validate(prob, best);
     std::cerr << "Makespan: " << best.makespan << std::endl;

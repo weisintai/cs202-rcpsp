@@ -1,74 +1,117 @@
 # RCPSP Solver
 
-This repository contains a C++ solver for the resource-constrained project scheduling problem (RCPSP).
+A solver for the Resource Constrained Project Scheduling Problem (RCPSP) built for CS202. Given a set of activities with durations, resource demands, and precedence constraints, the solver minimises the project makespan while ensuring resource capacity is never exceeded at any timestep.
+
+## Algorithm
+
+The solver uses a Genetic Algorithm with a Serial Schedule Generation Scheme (SSGS) decoder. The pipeline:
+
+1. **Parse** input file (`.sm` or `.SCH` format)
+2. **Generate initial solutions** using priority rules (LFT, MTS, GRD, SPT) and random permutations
+3. **Evolve** the population using tournament selection, one-point crossover, and swap/shift mutations
+4. **Improve** the best solution with forward-backward double justification
+5. **Output** start times for each activity
 
 ## Build
 
-```bash
-make clean
-make
-```
-
-## Run One Instance
+Requires a C++17 compiler (g++ or clang++).
 
 ```bash
-./solver datasets/psplib/j30/instances/j3010_1.sm
+make              # optimised build
+make debug        # debug build with AddressSanitizer
+make clean        # remove binaries
 ```
 
-The solver prints one start time per real activity to `stdout`. It prints validation details and the makespan to `stderr`.
-
-## Included PSPLIB Datasets
-
-The repo now includes the official standard single-mode RCPSP datasets and reference files for:
-
-- `j30`
-- `j60`
-- `j90`
-- `j120`
-
-These live under `datasets/psplib/`.
-
-The repo also includes the assignment-provided local benchmark folders:
-
-- `j10` from `sm_j10/`
-- `j20` from `sm_j20/`
-
-## Benchmark Your Solver
-
-Run the full `j30` benchmark:
+## Usage
 
 ```bash
-make bench-j10
-make bench-j20
-make bench-j30
+./solver <instance_file> [options]
 ```
 
-Run the larger official datasets:
+### Options
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--time <seconds>` | GA time budget in seconds | `28` |
+| `--mode <mode>` | Algorithm mode (see below) | `full` |
+
+### Modes
+
+| Mode | Description |
+|------|-------------|
+| `full` | Full pipeline: priority rules + GA + forward-backward improvement |
+| `baseline` | Random topological order + SSGS only |
+| `priority` | Best of priority rules + random permutations, no GA |
+| `ga` | Random initial population + GA, no forward-backward improvement |
+
+### Examples
 
 ```bash
-make bench-j60
-make bench-j90
-make bench-j120
+# Run with default settings (full pipeline, 28s GA budget)
+./solver datasets/psplib/j30/instances/j301_1.sm
+
+# Run with a 5-second GA budget
+./solver datasets/psplib/j30/instances/j301_1.sm --time 5
+
+# Run in priority-only mode (no GA)
+./solver datasets/psplib/j30/instances/j301_1.sm --mode priority
 ```
 
-The harness writes dataset-specific outputs under `benchmark_results/<dataset>/`:
+### Output
 
-- per-instance results to `results.csv`
-- aggregate summary to `summary.json`
-- failure artifacts to `failures/`
+- **stdout:** Start times for activities 1 through n, one integer per line
+- **stderr:** Feasibility check result and makespan
 
-The summary includes two comparison styles against PSPLIB references:
+## Benchmarking
 
-- `gap_to_best_known_pct`: how far your makespan is above the best known value
-- `quality_vs_best_known_pct`: a normalized score where `100%` means you matched the reference exactly
-
-For `j10` and `j20`, the harness still validates runtime and feasibility, but it does not report reference-gap metrics because those local `.SCH` sets do not currently have a comparable standard RCPSP reference table in this repo.
-
-You can also call the harness directly:
+Benchmark against PSPLIB instances with known optimal/best-known values:
 
 ```bash
-python3 scripts/benchmark_rcpsp.py run --dataset j10 --solver ./solver --build-cmd make
-python3 scripts/benchmark_rcpsp.py run --dataset j20 --solver ./solver --build-cmd make
-python3 scripts/benchmark_rcpsp.py run --dataset j30 --solver ./solver --build-cmd make
-python3 scripts/benchmark_rcpsp.py run --dataset j60 --solver ./solver --build-cmd make
+make bench-j30     # benchmark all J30 instances (480 files, 30 activities)
+make bench-j60     # benchmark all J60 instances (480 files, 60 activities)
+make bench-j90     # benchmark all J90 instances (480 files, 90 activities)
+make bench-j120    # benchmark all J120 instances (600 files, 120 activities)
 ```
+
+The benchmark script supports additional options when called directly:
+
+```bash
+python3 scripts/benchmark_rcpsp.py run \
+    --dataset j30 \
+    --solver ./solver \
+    --timeout 5 \
+    --limit 10 \
+    --output-dir results/
+```
+
+| Flag | Description |
+|------|-------------|
+| `--dataset` | Dataset to benchmark: `j10`, `j20`, `j30`, `j60`, `j90`, `j120` |
+| `--solver` | Path to solver executable or wrapper script |
+| `--timeout` | Per-instance wall-clock timeout in seconds |
+| `--limit` | Only run the first N instances |
+| `--match` | Only run instances whose filename contains this substring |
+| `--output-dir` | Directory for results (CSV + JSON summary) |
+| `--build-cmd` | Shell command to build the solver before benchmarking |
+
+Results are written to the output directory as `results.csv` (per-instance) and `summary.json` (aggregate). Key metrics in the summary:
+
+- `gap_to_best_known_pct` — how far the makespan is above the best known value
+- `quality_vs_best_known_pct` — normalised score where 100% means matching the reference exactly
+
+## Datasets
+
+| Dataset | Instances | Activities | Format |
+|---------|-----------|------------|--------|
+| J10 | 270 | 10 | `.SCH` (ProGenMax) |
+| J20 | 270 | 20 | `.SCH` (ProGenMax) |
+| J30 | 480 | 30 | `.sm` (PSPLIB) |
+| J60 | 480 | 60 | `.sm` (PSPLIB) |
+| J90 | 480 | 90 | `.sm` (PSPLIB) |
+| J120 | 600 | 120 | `.sm` (PSPLIB) |
+
+Datasets live under `datasets/psplib/` (`.sm` format) and `sm_j10/`, `sm_j20/` (`.SCH` format).
+
+## Team
+
+- [Member names and student IDs to be added]

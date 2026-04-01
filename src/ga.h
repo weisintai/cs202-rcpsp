@@ -16,9 +16,11 @@ struct GAConfig {
 
 // Run the genetic algorithm and return the best schedule found.
 // initial_solutions: seed population from priority rules + random.
+// use_improvement: if true, apply forward-backward improvement periodically and at the end.
 Schedule run_ga(const Problem& p,
                const std::vector<std::vector<int>>& initial_solutions,
                const GAConfig& config,
-               std::mt19937& rng);
+               std::mt19937& rng,
+               bool use_improvement = true);
 
 #endif
