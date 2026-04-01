@@ -1,6 +1,6 @@
 # Current Project State
 
-## Status: Step 3 Complete — Priority Rules Working
+## Status: Step 4 Complete — Genetic Algorithm Working
 
 ## What's Done
 
@@ -33,9 +33,17 @@
   - Sample: PSP1 J10 went from 33 (plain topo) to 25, PSP2 J10 from 51 to 46
   - All 540 .SCH + 480 J30 .sm instances: 0 violations
 
-## What's Next
+- **Step 4 complete:** Genetic Algorithm
+  - Activity-list representation with SSGS decoder
+  - Population size 100, tournament selection (size 5)
+  - One-point crossover (preserves precedence feasibility)
+  - Two mutation operators: adjacent swap + shift-to-earlier-position
+  - Steady-state replacement (replace worst if offspring is better)
+  - 28-second time budget, ~8-17M generations on J10-J30
+  - Improvements over Step 3: e.g. PSP100 J10: 43→39, PSP1 J20: 50→47
+  - All tested instances: 0 violations
 
-- **Step 4:** Implement Genetic Algorithm (selection, crossover, mutation, replacement)
+## What's Next
 - **Step 5:** Implement forward-backward improvement
 - **Step 6:** Output formatting and feasibility validation
 - **Step 7:** Test on J10/J20 benchmarks and compare against known optima
@@ -60,6 +68,7 @@
 | `src/ssgs.h/.cpp` | Serial Schedule Generation Scheme decoder |
 | `src/validator.h/.cpp` | Feasibility checker (precedence + resource) |
 | `src/priority.h/.cpp` | Priority rules (LFT, MTS, GRD, SPT) + random permutations |
+| `src/ga.h/.cpp` | Genetic algorithm (selection, crossover, mutation, replacement) |
 | `src/main.cpp` | Entry point |
 | `Makefile` | Build config: `make` for optimised, `make debug` for sanitizer |
 | `programFlow.md` | End-to-end walkthrough of how the solver works |

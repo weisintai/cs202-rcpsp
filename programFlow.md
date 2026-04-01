@@ -30,9 +30,9 @@ Input File (.sm or .SCH)
    └────┬─────────────────┘
         │
         ▼
-   ┌──────────────────────────┐
-   │ SSGS Decode + Best Pick  │  Decode each candidate, keep lowest makespan
-   └────┬─────────────────────┘
+   ┌─────────────────────┐
+   │  Genetic Algorithm  │  Evolve population for 28s using SSGS decoder
+   └────┬────────────────┘
         │
         ▼
    ┌────────────┐
@@ -168,7 +168,38 @@ For each activity in list order:
 
 ---
 
-## Stage 6: Validate — `validate()`
+## Stage 6: Genetic Algorithm — `run_ga()`
+
+**Purpose:** Evolve a population of activity lists over many generations to minimise makespan. Uses SSGS as the decoder for each individual.
+
+**Initialization:** Population of 100 individuals seeded from:
+- 4 priority-rule solutions (LFT, MTS, GRD, SPT) from Stage 4
+- 20 random feasible permutations from Stage 4
+- Remaining slots filled with additional random permutations
+
+**Selection:** Tournament selection (size 5). Pick 5 random individuals, return the one with the lowest makespan.
+
+**Crossover (one-point):**
+1. Pick a random cut point in parent 1's activity list
+2. Copy the prefix (before cut) from parent 1
+3. Fill remaining positions from parent 2, in parent 2's order, skipping activities already in the child
+4. The result is always a valid permutation. Precedence feasibility is preserved because parent 2's relative order respects precedence.
+
+**Mutation (two operators, chosen randomly):**
+- **Adjacent swap:** Pick a random position i. If swapping `list[i]` and `list[i+1]` doesn't violate precedence (neither is a predecessor of the other), swap them. Tries up to 3 positions.
+- **Shift:** Pick a random activity, find the latest predecessor position, and shift the activity to a random earlier valid position.
+
+**Replacement:** Steady-state. If the offspring's makespan is better than the worst individual in the population, replace the worst. The best individual is always tracked (elitism).
+
+**Termination:** 28-second wall-clock budget (2s margin before the 30s hard cutoff). The GA has an anytime property — a valid schedule exists from generation 0.
+
+**Throughput:** ~8-17M generations in 28 seconds depending on instance size (J10-J30).
+
+**Reference:** `src/ga.h`, `src/ga.cpp`
+
+---
+
+## Stage 7: Validate — `validate()`
 
 **Purpose:** Independent correctness check. Verifies the schedule produced by SSGS satisfies both constraint types.
 
@@ -182,7 +213,7 @@ Prints `FEASIBLE` or detailed violation messages to stderr.
 
 ---
 
-## Stage 7: Output
+## Stage 8: Output
 
 Prints start times for activities 1 through n (one integer per line) to stdout. Dummy activities 0 and n+1 are not included in the output.
 
@@ -192,5 +223,4 @@ Prints start times for activities 1 through n (one integer per line) to stdout. 
 
 ## What's Not Yet Implemented
 
-- **Step 4:** Genetic Algorithm (selection, crossover, mutation)
 - **Step 5:** Forward-backward improvement (double justification)

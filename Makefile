@@ -5,7 +5,8 @@ PYTHON = python3
 SRCDIR = src
 
 SRCS = $(SRCDIR)/main.cpp $(SRCDIR)/parser.cpp $(SRCDIR)/graph.cpp \
-       $(SRCDIR)/ssgs.cpp $(SRCDIR)/validator.cpp $(SRCDIR)/priority.cpp
+       $(SRCDIR)/ssgs.cpp $(SRCDIR)/validator.cpp $(SRCDIR)/priority.cpp \
+       $(SRCDIR)/ga.cpp
 
 $(TARGET): $(SRCS) $(wildcard $(SRCDIR)/*.h)
 	$(CXX) $(CXXFLAGS) -I$(SRCDIR) -o $(TARGET) $(SRCS)
