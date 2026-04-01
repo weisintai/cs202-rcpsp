@@ -48,8 +48,8 @@ make bench-j120                   # benchmark all J120 instances
 
 ## Status Updates
 After every implementation step, decision, or meaningful change, immediately
-update changelog/currentState.md before continuing to the next step. Do not
-batch updates. Write to changelog/currentState.md after each discrete action.
+update changelog/currentState.md before continuing to the next step. Update programFlow.md accordingly if any changes or updates were made to the algorithm 
+Do not batch updates. Write to changelog/currentState.md after each discrete action.
 
 At the end of every session, append a session summary to changelog/currentState.md containing:
 - What was implemented or changed this session

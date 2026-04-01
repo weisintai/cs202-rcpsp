@@ -2,7 +2,9 @@
 #include "graph.h"
 #include "ssgs.h"
 #include "validator.h"
+#include "priority.h"
 #include <iostream>
+#include <random>
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -12,17 +14,31 @@ int main(int argc, char* argv[]) {
 
     Problem prob = parse(argv[1]);
 
-    // Generate a topological order, clean up any cycles, and decode via SSGS
-    std::vector<int> order = topological_sort(prob);
-    remove_back_edges(prob, order);
-    Schedule sched = ssgs(prob, order);
+    // Clean up any cycles in the precedence graph (.SCH files only)
+    std::vector<int> topo = topological_sort(prob);
+    remove_back_edges(prob, topo);
 
-    validate(prob, sched);
-    std::cerr << "Makespan: " << sched.makespan << std::endl;
+    // Generate initial solutions using priority rules + random permutations
+    std::mt19937 rng(42);
+    auto solutions = generate_initial_solutions(prob, 20, rng);
+
+    // Decode each via SSGS and keep the best
+    Schedule best_sched;
+    best_sched.makespan = INT32_MAX;
+
+    for (const auto& order : solutions) {
+        Schedule sched = ssgs(prob, order);
+        if (sched.makespan < best_sched.makespan) {
+            best_sched = sched;
+        }
+    }
+
+    validate(prob, best_sched);
+    std::cerr << "Makespan: " << best_sched.makespan << std::endl;
 
     // Output start times for activities 1..n
     for (int i = 1; i <= prob.n; i++) {
-        std::cout << sched.start_time[i] << "\n";
+        std::cout << best_sched.start_time[i] << "\n";
     }
 
     return 0;

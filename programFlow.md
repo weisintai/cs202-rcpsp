@@ -25,9 +25,14 @@ Input File (.sm or .SCH)
    └────┬───────────────┘
         │
         ▼
-   ┌────────┐
-   │  SSGS  │  Decode activity order into a feasible schedule
-   └────┬───┘
+   ┌──────────────────────┐
+   │ Generate Candidates  │  Priority rules (LFT, MTS, GRD, SPT) + random
+   └────┬─────────────────┘
+        │
+        ▼
+   ┌──────────────────────────┐
+   │ SSGS Decode + Best Pick  │  Decode each candidate, keep lowest makespan
+   └────┬─────────────────────┘
         │
         ▼
    ┌────────────┐
@@ -118,7 +123,30 @@ After topological sort places 4 before 6, `remove_back_edges` removes the `6→4
 
 ---
 
-## Stage 4: SSGS — `ssgs()`
+## Stage 4: Generate Candidates — `generate_initial_solutions()`
+
+**Purpose:** Produce multiple precedence-feasible activity orderings using different heuristics. Each ordering will be decoded by SSGS, and the best schedule is kept.
+
+**Priority rules** (each produces one topological order biased by a different criterion):
+
+| Rule | Priority value | Intuition |
+|---|---|---|
+| **LFT** (Latest Finish Time) | CPM backward-pass latest finish time | Activities with tighter deadlines should go first |
+| **MTS** (Most Total Successors) | Count of all transitive successors | Activities blocking the most downstream work go first |
+| **GRD** (Greatest Resource Demand) | Sum of resource demands across all types | Heavy activities go first while resources are plentiful |
+| **SPT** (Shortest Processing Time) | Duration | Short activities go first to free up resources quickly |
+
+**How it works:** Modified Kahn's algorithm using a min-heap. Among all activities with in-degree 0 (precedence-eligible), the one with the lowest priority value is dequeued first. This biases the topological order without violating precedence.
+
+**Random permutations:** Additionally generates N random feasible orderings using Kahn's with random tie-breaking. These add diversity for the GA population.
+
+**In main:** 4 rule-based + 20 random = 24 candidate orderings. Each is decoded via SSGS; the schedule with the lowest makespan is kept.
+
+**Reference:** `src/priority.h`, `src/priority.cpp`
+
+---
+
+## Stage 5: SSGS — `ssgs()`
 
 **Purpose:** Convert an activity list (topological order) into a concrete schedule with start times.
 
@@ -140,7 +168,7 @@ For each activity in list order:
 
 ---
 
-## Stage 5: Validate — `validate()`
+## Stage 6: Validate — `validate()`
 
 **Purpose:** Independent correctness check. Verifies the schedule produced by SSGS satisfies both constraint types.
 
@@ -154,7 +182,7 @@ Prints `FEASIBLE` or detailed violation messages to stderr.
 
 ---
 
-## Stage 6: Output
+## Stage 7: Output
 
 Prints start times for activities 1 through n (one integer per line) to stdout. Dummy activities 0 and n+1 are not included in the output.
 
@@ -164,6 +192,5 @@ Prints start times for activities 1 through n (one integer per line) to stdout. 
 
 ## What's Not Yet Implemented
 
-- **Step 3:** Priority-rule initial solutions (LFT, MTS, GRD, SPT) to seed GA population
 - **Step 4:** Genetic Algorithm (selection, crossover, mutation)
 - **Step 5:** Forward-backward improvement (double justification)

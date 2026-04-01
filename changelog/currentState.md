@@ -1,6 +1,6 @@
 # Current Project State
 
-## Status: Step 2 Complete — SSGS Working
+## Status: Step 3 Complete — Priority Rules Working
 
 ## What's Done
 
@@ -24,9 +24,17 @@
   - `types.h`, `parser.h/.cpp`, `graph.h/.cpp`, `ssgs.h/.cpp`, `validator.h/.cpp`, `main.cpp`
   - Validated: all 540 .SCH + 480 J30 .sm instances pass (0 violations)
 
+- **Step 3 complete:** Priority-rule initial solution generators
+  - 4 priority rules: LFT (latest finish time), MTS (most total successors), GRD (greatest resource demand), SPT (shortest processing time)
+  - Priority-biased topological sort using min-heap to pick best eligible activity
+  - Random feasible permutation generator (random tie-breaking in Kahn's)
+  - `generate_initial_solutions()` produces 4 rule-based + N random solutions
+  - Main picks best of 24 candidates (4 rules + 20 random), significant makespan improvement
+  - Sample: PSP1 J10 went from 33 (plain topo) to 25, PSP2 J10 from 51 to 46
+  - All 540 .SCH + 480 J30 .sm instances: 0 violations
+
 ## What's Next
 
-- **Step 3:** Implement priority-rule initial solution generators
 - **Step 4:** Implement Genetic Algorithm (selection, crossover, mutation, replacement)
 - **Step 5:** Implement forward-backward improvement
 - **Step 6:** Output formatting and feasibility validation
@@ -51,6 +59,7 @@
 | `src/graph.h/.cpp` | Topological sort + cycle-breaking cleanup |
 | `src/ssgs.h/.cpp` | Serial Schedule Generation Scheme decoder |
 | `src/validator.h/.cpp` | Feasibility checker (precedence + resource) |
+| `src/priority.h/.cpp` | Priority rules (LFT, MTS, GRD, SPT) + random permutations |
 | `src/main.cpp` | Entry point |
 | `Makefile` | Build config: `make` for optimised, `make debug` for sanitizer |
 | `programFlow.md` | End-to-end walkthrough of how the solver works |
