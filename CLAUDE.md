@@ -10,20 +10,40 @@ Do not proceed with any work until this is complete.
 ## File Structure
 - implementation.md: implementation plan and algorithm decisions
 - changelog/currentState.md: running log of progress, next steps, and decisions
-- programFlow.md: end-to-end walkthrough of how solver.cpp works
+- programFlow.md: end-to-end walkthrough of how the solver works
 - cpp_performance.md: C++ optimisation strategy and Python comparison
-- solver.cpp: main solver implementation (C++17, single file)
 - Makefile: build config
-- sm_j10/: J10 benchmark instances (270 .SCH files)
-- sm_j20/: J20 benchmark instances (270 .SCH files)
+- src/: solver source code (C++17, multi-file)
+  - types.h: Problem and Schedule structs
+  - parser.h/.cpp: format detection + .sm and .SCH parsers
+  - graph.h/.cpp: topological sort + cycle-breaking cleanup
+  - ssgs.h/.cpp: Serial Schedule Generation Scheme decoder
+  - validator.h/.cpp: feasibility checker (precedence + resource)
+  - main.cpp: entry point
+- sm_j10/: J10 benchmark instances (270 .SCH files, ProGenMax format)
+- sm_j20/: J20 benchmark instances (270 .SCH files, ProGenMax format)
+- datasets/psplib/: standard PSPLIB benchmark instances (.sm format)
+  - j30/instances/: 480 files (30 activities)
+  - j60/instances/: 480 files (60 activities)
+  - j90/instances/: 480 files (90 activities)
+  - j120/instances/: 600 files (120 activities)
+- scripts/benchmark_rcpsp.py: benchmarking script
+
+## Datasets
+All test datasets live under `./datasets/`. Within each dataset folder, the
+`instances/` subfolder contains the actual instance files. For example:
+`./datasets/psplib/j30/instances/j3010_1.sm`
 
 ## Run Command
 ```bash
 make                              # compile (optimised)
 make debug                        # compile (debug + sanitizer)
 ./solver <instance_file>          # run on a single instance
-./solver sm_j10/PSP1.SCH          # example: J10 instance 1
-./solver sm_j20/PSP1.SCH          # example: J20 instance 1
+./solver sm_j10/PSP1.SCH          # example: J10 .SCH instance
+./solver datasets/psplib/j30/instances/j3010_1.sm  # example: J30 .sm instance
+make bench-j30                    # benchmark all J30 instances
+make bench-j60                    # benchmark all J60 instances
+make bench-j120                   # benchmark all J120 instances
 ```
 
 ## Status Updates
@@ -31,7 +51,7 @@ After every implementation step, decision, or meaningful change, immediately
 update changelog/currentState.md before continuing to the next step. Do not
 batch updates. Write to changelog/currentState.md after each discrete action.
 
-At the end of every session, append a session summary to status.md containing:
+At the end of every session, append a session summary to changelog/currentState.md containing:
 - What was implemented or changed this session
 - Any decisions made that deviate from plan.md
 - Next steps for the following session

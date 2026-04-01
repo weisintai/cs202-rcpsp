@@ -1,6 +1,6 @@
 # Program Flow
 
-How `solver.cpp` works, end to end.
+How the solver works, end to end. Source code lives in `src/`.
 
 ---
 
@@ -68,7 +68,7 @@ Example from `PSP2.SCH`:
             successors: 1, 10
 ```
 
-**Reference:** `solver.cpp` lines 36-233
+**Reference:** `src/parser.h`, `src/parser.cpp`
 
 ---
 
@@ -91,7 +91,7 @@ This breaks the cycle by arbitrarily choosing which direction the precedence goe
 
 Does not affect `.sm` files — they are DAGs by definition.
 
-**Reference:** `solver.cpp` lines 235-286
+**Reference:** `src/graph.h`, `src/graph.cpp` — `topological_sort()`
 
 ---
 
@@ -114,7 +114,7 @@ Activity 6 → Activity 4   lag [0]  ← passes lag filter (non-negative)
 
 After topological sort places 4 before 6, `remove_back_edges` removes the `6→4` edge.
 
-**Reference:** `solver.cpp` lines 288-312
+**Reference:** `src/graph.h`, `src/graph.cpp` — `remove_back_edges()`
 
 ---
 
@@ -136,7 +136,7 @@ For each activity in list order:
 
 **Output:** A `Schedule` struct containing start times for all activities and the makespan (`start_time[n+1]`).
 
-**Reference:** `solver.cpp` lines 314-387
+**Reference:** `src/ssgs.h`, `src/ssgs.cpp`
 
 ---
 
@@ -150,7 +150,7 @@ For each activity in list order:
 
 Prints `FEASIBLE` or detailed violation messages to stderr.
 
-**Reference:** `solver.cpp` lines 389-430
+**Reference:** `src/validator.h`, `src/validator.cpp`
 
 ---
 
@@ -158,7 +158,7 @@ Prints `FEASIBLE` or detailed violation messages to stderr.
 
 Prints start times for activities 1 through n (one integer per line) to stdout. Dummy activities 0 and n+1 are not included in the output.
 
-**Reference:** `solver.cpp` lines 478-481
+**Reference:** `src/main.cpp`
 
 ---
 

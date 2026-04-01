@@ -20,10 +20,12 @@
   - SSGS decodes an activity list into a schedule: flat resource profile `usage[t*K + k]`, early-break on resource conflict
   - `validate()` checks both precedence and resource constraints independently of SSGS
   - All 540 instances produce feasible schedules (0 violations)
+- **Refactor:** Split monolithic `solver.cpp` into `src/` with separate files per concern
+  - `types.h`, `parser.h/.cpp`, `graph.h/.cpp`, `ssgs.h/.cpp`, `validator.h/.cpp`, `main.cpp`
+  - Validated: all 540 .SCH + 480 J30 .sm instances pass (0 violations)
 
 ## What's Next
 
-- **Step 3:** Implement priority-rule initial solution generators
 - **Step 3:** Implement priority-rule initial solution generators
 - **Step 4:** Implement Genetic Algorithm (selection, crossover, mutation, replacement)
 - **Step 5:** Implement forward-backward improvement
@@ -37,11 +39,21 @@
 | `implementation.md` | Implementation plan and algorithm spec |
 | `cpp_performance.md` | C++ optimisation strategy and rationale |
 | `changelog/currentState.md` | This file — tracks where we are |
-| `sm_j10/` | J10 benchmark instances (270 files) |
-| `sm_j20/` | J20 benchmark instances (270 files) |
-| `solver.cpp` | Main solver source (single-file) |
+| `sm_j10/` | J10 benchmark instances (270 .SCH files, ProGenMax format) |
+| `sm_j20/` | J20 benchmark instances (270 .SCH files, ProGenMax format) |
+| `datasets/psplib/j30/instances/` | J30 benchmark instances (480 .sm files) |
+| `datasets/psplib/j60/instances/` | J60 benchmark instances (480 .sm files) |
+| `datasets/psplib/j90/instances/` | J90 benchmark instances (480 .sm files) |
+| `datasets/psplib/j120/instances/` | J120 benchmark instances (600 .sm files) |
+| `scripts/benchmark_rcpsp.py` | Benchmarking script (invoked via `make bench-*`) |
+| `src/types.h` | Problem and Schedule structs |
+| `src/parser.h/.cpp` | Format detection + .sm and .SCH parsers |
+| `src/graph.h/.cpp` | Topological sort + cycle-breaking cleanup |
+| `src/ssgs.h/.cpp` | Serial Schedule Generation Scheme decoder |
+| `src/validator.h/.cpp` | Feasibility checker (precedence + resource) |
+| `src/main.cpp` | Entry point |
 | `Makefile` | Build config: `make` for optimised, `make debug` for sanitizer |
-| `programFlow.md` | End-to-end walkthrough of how solver.cpp works |
+| `programFlow.md` | End-to-end walkthrough of how the solver works |
 
 ## Open Issues
 

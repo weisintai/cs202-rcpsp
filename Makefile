@@ -2,12 +2,16 @@ CXX = g++
 CXXFLAGS = -std=c++17 -O2 -march=native -flto -Wall -Wextra
 TARGET = solver
 PYTHON = python3
+SRCDIR = src
 
-$(TARGET): solver.cpp
-	$(CXX) $(CXXFLAGS) -o $(TARGET) solver.cpp
+SRCS = $(SRCDIR)/main.cpp $(SRCDIR)/parser.cpp $(SRCDIR)/graph.cpp \
+       $(SRCDIR)/ssgs.cpp $(SRCDIR)/validator.cpp
 
-debug: solver.cpp
-	$(CXX) -std=c++17 -g -O0 -Wall -Wextra -fsanitize=address -o solver_debug solver.cpp
+$(TARGET): $(SRCS) $(wildcard $(SRCDIR)/*.h)
+	$(CXX) $(CXXFLAGS) -I$(SRCDIR) -o $(TARGET) $(SRCS)
+
+debug: $(SRCS) $(wildcard $(SRCDIR)/*.h)
+	$(CXX) -std=c++17 -g -O0 -Wall -Wextra -fsanitize=address -I$(SRCDIR) -o solver_debug $(SRCS)
 
 bench-j10: $(TARGET)
 	$(PYTHON) scripts/benchmark_rcpsp.py run --dataset j10 --solver ./solver --build-cmd "make"
