@@ -1,0 +1,82 @@
+[
+  {
+    "mode": "baseline",
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 153,
+    "optimal_pct": 31.9,
+    "mean_gap_pct": 12.46,
+    "max_gap_pct": 55.07,
+    "mean_quality_pct": 89.85
+  },
+  {
+    "mode": "baseline",
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 136,
+    "optimal_pct": 28.3,
+    "mean_gap_pct": 15.11,
+    "max_gap_pct": 58.95,
+    "mean_quality_pct": 88.1
+  },
+  {
+    "mode": "priority",
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 277,
+    "optimal_pct": 57.7,
+    "mean_gap_pct": 3.03,
+    "max_gap_pct": 20.62,
+    "mean_quality_pct": 97.24
+  },
+  {
+    "mode": "priority",
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 285,
+    "optimal_pct": 59.4,
+    "mean_gap_pct": 4.73,
+    "max_gap_pct": 25.88,
+    "mean_quality_pct": 95.89
+  },
+  {
+    "mode": "ga",
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 342,
+    "optimal_pct": 71.2,
+    "mean_gap_pct": 1.06,
+    "max_gap_pct": 15.0,
+    "mean_quality_pct": 98.99
+  },
+  {
+    "mode": "ga",
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 289,
+    "optimal_pct": 60.2,
+    "mean_gap_pct": 2.91,
+    "max_gap_pct": 16.47,
+    "mean_quality_pct": 97.33
+  },
+  {
+    "mode": "full",
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 373,
+    "optimal_pct": 77.7,
+    "mean_gap_pct": 0.73,
+    "max_gap_pct": 9.52,
+    "mean_quality_pct": 99.3
+  },
+  {
+    "mode": "full",
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 329,
+    "optimal_pct": 68.5,
+    "mean_gap_pct": 1.92,
+    "max_gap_pct": 15.28,
+    "mean_quality_pct": 98.22
+  }
+]

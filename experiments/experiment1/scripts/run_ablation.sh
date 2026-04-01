@@ -33,4 +33,7 @@ for mode in $MODES; do
     done
 done
 
+# Generate comparison summary
+python3 "$SCRIPT_DIR/summarise_ablation.py" "$RESULTS_DIR"
+
 echo "All ablation runs complete. Results in $RESULTS_DIR/"
