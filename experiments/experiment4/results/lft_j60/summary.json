@@ -1,0 +1,19 @@
+{
+  "best_known_match_count": 271,
+  "exact_reference_match_count": 236,
+  "instance_count": 480,
+  "invalid_count": 0,
+  "max_gap_to_best_known_pct": 33.333333,
+  "max_gap_to_lower_bound_pct": 38.202247,
+  "max_wall_time_seconds": 0.014587,
+  "mean_gap_to_best_known_pct": 5.677968339583333,
+  "mean_gap_to_lower_bound_pct": 6.2177367,
+  "mean_quality_vs_best_known_pct": 95.15827395208333,
+  "mean_quality_vs_exact_reference_pct": 96.07906903141361,
+  "mean_wall_time_seconds": 0.00691151875,
+  "median_quality_vs_best_known_pct": 100.0,
+  "median_quality_vs_exact_reference_pct": 100.0,
+  "min_quality_vs_best_known_pct": 75.0,
+  "ok_count": 480,
+  "timeout_count": 0
+}

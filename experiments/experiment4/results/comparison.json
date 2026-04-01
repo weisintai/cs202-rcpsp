@@ -1,0 +1,112 @@
+[
+  {
+    "rule": "random",
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 154,
+    "optimal_pct": 32.1,
+    "mean_gap_pct": 13.56,
+    "max_gap_pct": 60.47,
+    "mean_quality_pct": 89.1,
+    "times_best": 170
+  },
+  {
+    "rule": "random",
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 141,
+    "optimal_pct": 29.4,
+    "mean_gap_pct": 15.77,
+    "max_gap_pct": 63.86,
+    "mean_quality_pct": 87.73,
+    "times_best": 149
+  },
+  {
+    "rule": "lft",
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 238,
+    "optimal_pct": 49.6,
+    "mean_gap_pct": 5.39,
+    "max_gap_pct": 33.85,
+    "mean_quality_pct": 95.29,
+    "times_best": 366
+  },
+  {
+    "rule": "lft",
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 271,
+    "optimal_pct": 56.5,
+    "mean_gap_pct": 5.68,
+    "max_gap_pct": 33.33,
+    "mean_quality_pct": 95.16,
+    "times_best": 403
+  },
+  {
+    "rule": "mts",
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 202,
+    "optimal_pct": 42.1,
+    "mean_gap_pct": 6.87,
+    "max_gap_pct": 38.18,
+    "mean_quality_pct": 94.05,
+    "times_best": 279
+  },
+  {
+    "rule": "mts",
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 224,
+    "optimal_pct": 46.7,
+    "mean_gap_pct": 7.11,
+    "max_gap_pct": 33.0,
+    "mean_quality_pct": 93.96,
+    "times_best": 301
+  },
+  {
+    "rule": "grd",
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 158,
+    "optimal_pct": 32.9,
+    "mean_gap_pct": 11.67,
+    "max_gap_pct": 51.11,
+    "mean_quality_pct": 90.42,
+    "times_best": 191
+  },
+  {
+    "rule": "grd",
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 139,
+    "optimal_pct": 29.0,
+    "mean_gap_pct": 15.05,
+    "max_gap_pct": 54.17,
+    "mean_quality_pct": 88.11,
+    "times_best": 142
+  },
+  {
+    "rule": "spt",
+    "dataset": "j30",
+    "instances": 480,
+    "optimal": 137,
+    "optimal_pct": 28.5,
+    "mean_gap_pct": 17.63,
+    "max_gap_pct": 65.52,
+    "mean_quality_pct": 86.47,
+    "times_best": 143
+  },
+  {
+    "rule": "spt",
+    "dataset": "j60",
+    "instances": 480,
+    "optimal": 125,
+    "optimal_pct": 26.0,
+    "mean_gap_pct": 19.99,
+    "max_gap_pct": 78.12,
+    "mean_quality_pct": 85.16,
+    "times_best": 125
+  }
+]

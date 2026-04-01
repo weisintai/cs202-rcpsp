@@ -23,7 +23,13 @@ def load_makespans(results_dir: Path, rule: str, dataset: str) -> dict[str, int]
     with open(path) as f:
         reader = csv.DictReader(f)
         for row in reader:
-            makespans[row["instance"]] = int(row["makespan"])
+            # Benchmark output stores both solver-reported and recomputed makespans.
+            # Prefer the recomputed value when present so "best" counts are based on
+            # the validated schedule rather than a possibly stale reported field.
+            value = row.get("computed_makespan") or row.get("reported_makespan")
+            if not value:
+                continue
+            makespans[row["file"]] = int(value)
     return makespans
 
 
