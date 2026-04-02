@@ -7,6 +7,7 @@
 struct Problem {
     int n;  // number of real activities (excluding dummies 0 and n+1)
     int K;  // number of renewable resource types
+    int horizon = 0;  // sum of durations, reused by SSGS as a safe schedule horizon
     // Indexed 0..n+1 (0 = super-source, n+1 = super-sink)
     std::vector<int> duration;
     std::vector<std::vector<int>> resource;    // resource[i][k]
@@ -18,7 +19,7 @@ struct Problem {
 // ── Schedule result ─────────────────────────────────────────────────────────
 struct Schedule {
     std::vector<int> start_time;  // start_time[i] for activity i
-    int makespan;                 // = start_time[n+1]
+    int makespan;                 // true project finish time
 };
 
 #endif

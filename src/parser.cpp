@@ -27,6 +27,29 @@ static bool is_sm_format(const std::string& first_line) {
     return !t.empty() && t[0] == '*';
 }
 
+static Problem finalize_problem(Problem p) {
+    p.horizon = 0;
+    for (int dur : p.duration) {
+        p.horizon += dur;
+    }
+    p.horizon = std::max(p.horizon, 1);
+
+    for (int act = 0; act < p.n + 2; act++) {
+        for (int k = 0; k < p.K; k++) {
+            if (p.resource[act][k] > p.capacity[k]) {
+                std::cerr << "INFEASIBLE: activity " << act
+                          << " requires " << p.resource[act][k]
+                          << " units of resource " << k
+                          << " but capacity is only " << p.capacity[k]
+                          << std::endl;
+                std::exit(1);
+            }
+        }
+    }
+
+    return p;
+}
+
 // ── Parse standard PSPLIB .sm format ────────────────────────────────────────
 static Problem parse_sm(std::ifstream& fin, const std::string& first_line) {
     Problem p;
@@ -125,7 +148,7 @@ static Problem parse_sm(std::ifstream& fin, const std::string& first_line) {
         }
     }
 
-    return p;
+    return finalize_problem(std::move(p));
 }
 
 // ── Parse ProGenMax .SCH format ─────────────────────────────────────────────
@@ -265,7 +288,7 @@ static Problem parse_sch(std::ifstream& fin, const std::string& first_line) {
         }
     }
 
-    return p;
+    return finalize_problem(std::move(p));
 }
 
 // ── Unified parse entry point ───────────────────────────────────────────────

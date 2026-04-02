@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <numeric>
 #include <iostream>
+#include <unordered_set>
 
 static bool schedule_budget_exhausted(long long schedule_count, long long schedule_limit) {
     return schedule_limit > 0 && schedule_count >= schedule_limit;
@@ -22,6 +23,15 @@ static Schedule counted_ssgs(const Problem& p,
                              long long& schedule_count) {
     schedule_count++;
     return ssgs(p, activity_list);
+}
+
+static uint64_t activity_list_fingerprint(const std::vector<int>& list) {
+    uint64_t hash = 1469598103934665603ULL;  // FNV-1a offset basis
+    for (int act : list) {
+        hash ^= static_cast<uint64_t>(act + 1);
+        hash *= 1099511628211ULL;
+    }
+    return hash;
 }
 
 // ── Validate that an activity list is precedence-feasible ───────────────────
@@ -213,6 +223,24 @@ static void perturb_once(const Problem& p, std::vector<int>& list, std::mt19937&
     }
 }
 
+static void build_population_keys(const std::vector<std::vector<int>>& population,
+                                  std::unordered_set<uint64_t>& keys) {
+    keys.clear();
+    keys.reserve(population.size() * 2);
+    for (const auto& individual : population) {
+        keys.insert(activity_list_fingerprint(individual));
+    }
+}
+
+static void add_unique_population_member(std::vector<std::vector<int>>& population,
+                                         std::unordered_set<uint64_t>& keys,
+                                         std::vector<int> candidate) {
+    uint64_t key = activity_list_fingerprint(candidate);
+    if (keys.insert(key).second) {
+        population.push_back(std::move(candidate));
+    }
+}
+
 // ── Refresh non-elite population members after long stagnation ──────────────
 static void restart_population(const Problem& p,
                                std::vector<std::vector<int>>& population,
@@ -225,6 +253,8 @@ static void restart_population(const Problem& p,
                                int& worst_idx) {
     int pop_size = (int)population.size();
     int elite_count = std::min(config.restart_elite_count, pop_size);
+    std::unordered_set<uint64_t> keys;
+    keys.reserve(pop_size * 2);
 
     std::vector<int> order(pop_size);
     std::iota(order.begin(), order.end(), 0);
@@ -242,6 +272,8 @@ static void restart_population(const Problem& p,
 
     for (int i = 0; i < elite_count; i++) {
         int idx = order[i];
+        uint64_t key = activity_list_fingerprint(population[idx]);
+        if (!keys.insert(key).second) continue;
         new_population.push_back(population[idx]);
         new_schedules.push_back(schedules[idx]);
         new_fitness.push_back(fitness[idx]);
@@ -256,6 +288,8 @@ static void restart_population(const Problem& p,
         } else {
             candidate = random_sort(p, rng);
         }
+        uint64_t key = activity_list_fingerprint(candidate);
+        if (!keys.insert(key).second) continue;
         new_population.push_back(candidate);
         new_schedules.push_back(counted_ssgs(p, candidate, schedule_count));
         new_fitness.push_back(new_schedules.back().makespan);
@@ -287,16 +321,18 @@ Schedule run_ga(const Problem& p,
     // Initialize population
     std::vector<std::vector<int>> population;
     population.reserve(pop_size);
+    std::unordered_set<uint64_t> population_keys;
+    population_keys.reserve(pop_size * 2);
 
     // Add initial solutions
     for (const auto& sol : initial_solutions) {
         if ((int)population.size() >= pop_size) break;
-        population.push_back(sol);
+        add_unique_population_member(population, population_keys, sol);
     }
 
     // Fill remaining with random permutations
     while ((int)population.size() < pop_size) {
-        population.push_back(random_sort(p, rng));
+        add_unique_population_member(population, population_keys, random_sort(p, rng));
     }
 
     // Evaluate initial population
@@ -333,6 +369,7 @@ Schedule run_ga(const Problem& p,
             restart_population(
                 p, population, schedules, fitness, config, rng,
                 schedule_count, best_idx, worst_idx);
+            build_population_keys(population, population_keys);
             last_improve_gen = generations;
             restart_count++;
             if (schedule_budget_exhausted(schedule_count, config.schedule_limit)) break;
@@ -380,6 +417,23 @@ Schedule run_ga(const Problem& p,
             perturb_once(p, offspring, rng);
         }
 
+        uint64_t child_key = activity_list_fingerprint(offspring);
+        if (population_keys.count(child_key)) {
+            bool escaped_duplicate = false;
+            for (int attempt = 0; attempt < 3; attempt++) {
+                perturb_once(p, offspring, rng);
+                child_key = activity_list_fingerprint(offspring);
+                if (!population_keys.count(child_key)) {
+                    escaped_duplicate = true;
+                    break;
+                }
+            }
+            if (!escaped_duplicate) {
+                generations++;
+                continue;
+            }
+        }
+
         // Evaluate offspring
         if (schedule_budget_exhausted(schedule_count, config.schedule_limit)) break;
         Schedule child_sched = counted_ssgs(p, offspring, schedule_count);
@@ -387,7 +441,9 @@ Schedule run_ga(const Problem& p,
 
         // Replace worst if offspring is better
         if (child_fitness < fitness[worst_idx]) {
+            population_keys.erase(activity_list_fingerprint(population[worst_idx]));
             population[worst_idx] = std::move(offspring);
+            population_keys.insert(child_key);
             schedules[worst_idx] = std::move(child_sched);
             fitness[worst_idx] = child_fitness;
 

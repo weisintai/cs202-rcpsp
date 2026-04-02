@@ -5,11 +5,7 @@
 
 Schedule ssgs(const Problem& p, const std::vector<int>& activity_list) {
     int total = p.n + 2;
-
-    // Upper bound on horizon: sum of all durations
-    int horizon = 0;
-    for (int i = 0; i < total; i++) horizon += p.duration[i];
-    horizon = std::max(horizon, 1);
+    int horizon = p.horizon;
 
     // Resource usage profile: usage[t * K + k] = units of resource k used at time t
     std::vector<int> usage(horizon * p.K, 0);
@@ -19,17 +15,6 @@ Schedule ssgs(const Problem& p, const std::vector<int>& activity_list) {
 
     for (int act : activity_list) {
         int dur = p.duration[act];
-
-        for (int k = 0; k < p.K; k++) {
-            if (p.resource[act][k] > p.capacity[k]) {
-                std::cerr << "INFEASIBLE: activity " << act
-                          << " requires " << p.resource[act][k]
-                          << " units of resource " << k
-                          << " but capacity is only " << p.capacity[k]
-                          << std::endl;
-                std::exit(1);
-            }
-        }
 
         // Earliest start from precedence: max of all predecessor finish times
         int es = 0;
