@@ -120,22 +120,6 @@ References:
 - Kolisch and Hartmann benchmark protocol update: <https://www.om-db.wi.tum.de/psplib/files/KH-18-2-05.pdf>
 - Scatter-search paper discussing repeated runs and schedule limits: <https://www.cirrelt.ca/documentstravail/cirrelt-2014-50.pdf>
 
-### 5. VNS is a legitimate direction, but not automatically stronger than GA
-
-What it says:
-- variable neighborhood search is one of the established strong RCPSP metaheuristics
-- the literature does not support the blanket claim that VNS always beats GA
-- several top-performing RCPSP methods are hybrid population methods, scatter-search variants, or local-search-heavy methods on the same activity-list + serial SGS backbone
-
-Why it matters for us:
-- if we pivot toward a VNS-centered solver, that is a literature-backed move
-- but we should treat it as a competing search shell to test, not as a guaranteed upgrade
-- our own experiments only show that stronger neighborhoods matter; they do not yet prove that GA should be abandoned
-
-References:
-- Fleszar and Hindi VNS paper (cited in later RCPSP reviews): <https://www.cirrelt.ca/documentstravail/cirrelt-2014-50.pdf>
-- Heuristic update / comparative literature: <https://www.hsba.de/fileadmin/user_upload/bereiche/_dokumente/6-forschung/profs-publikationen/Hartmann_2006_Experimental_investigation_of_Heuristics.pdf>
-
 ## Candidate Improvements
 
 ## Experimental Protocol We Should Use
@@ -199,7 +183,6 @@ Run the current solver and the modified solver with the same `--schedules` budge
 
 Use this when:
 - comparing search logic
-- comparing GA vs VNS-lite
 - checking whether a change is algorithmically better rather than just faster
 
 Good first targets:
@@ -256,7 +239,7 @@ That likely explains why the GA plateaus quickly.
 
 ### Why it matches RCPSP practice
 
-RCPSP local search and VNS-style methods commonly rely on:
+RCPSP local search methods commonly rely on:
 - swap
 - shift / insertion
 - neighborhood search on activity lists
@@ -282,54 +265,6 @@ Safe first version:
 
 **Highest**
 
-## Alternative Direction: VNS-Centered Solver
-
-### What this means
-
-Instead of spending most of the runtime evolving a large population, we would:
-- start from one or a few strong activity lists
-- repeatedly apply neighborhoods such as insertion and swap
-- change neighborhood size or type when improvement stalls
-
-The backbone would stay the same:
-- activity list
-- serial SSGS
-
-Only the search shell changes.
-
-### Why it is attractive
-
-Our current experiments suggest:
-- the representation is not the bottleneck
-- stronger neighborhoods help
-- the GA shell saturates early
-
-That makes a neighborhood-driven method a reasonable candidate.
-
-### Why it is not guaranteed to be stronger
-
-The literature supports VNS as a strong option, but not as a universally dominant one.
-The right conclusion from our experiments is:
-- a VNS-centered solver is worth testing
-- but it should be tested head-to-head against the current GA under the same protocol
-
-### Best way to evaluate it
-
-If we try this direction, do not compare it only by one `3s` wall-clock sweep.
-Compare:
-- current GA-based solver
-- a simple VNS-lite solver
-
-under:
-- the same schedule budget
-- the same instance subsets
-- several random seeds
-
-### Priority
-
-**Medium**
-
-This is a strategic alternative, not the next incremental patch.
 
 ## 2. Elite Local Search
 
