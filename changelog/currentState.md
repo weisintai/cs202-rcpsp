@@ -48,6 +48,7 @@
   - All tested feasible instances: 0 violations
   - **Enhancement (weisintai):** Optional schedule-budget stopping rule via `--schedules <count>` for internal A/B experiments. This counts `SSGS` schedule generations in the GA so algorithm comparisons are less tied to raw machine speed.
   - **Enhancement (weisintai):** Restart-on-stagnation diversification. After long stagnation, the GA keeps a small elite set and refreshes the rest of the population with fresh guided/random seeds.
+  - **Tuning (weisintai):** Restart stagnation threshold tuned from `200k` to `100k` generations. The `100k` setting improved the J90 regression subset under the `1m` schedule-budget protocol and also improved aggregate `3s` wall-clock results on J30, J60, J90, and J120.
 
 - **Step 5 complete:** Forward-backward improvement (double justification)
   - Backward SSGS: schedules activities as late as possible (latest-start times)
@@ -64,7 +65,7 @@
   - Experiment 4: Priority rule comparison
 - **Re-benchmark:** Re-run experiments 1-4 with biased seeding to get before/after comparison
 - **Tighter internal protocol:** Add an optional schedule-budget stopping rule so algorithm comparisons can be made by number of generated schedules, not only wall-clock
-- **Next search direction decision:** Tune the current GA line further (for example restart threshold / elite count) using the schedule-budget workflow on targeted subsets before any full-sweep rerun
+- **Next search direction decision:** Tune the current GA line further (for example elite count / mutation rate) using the schedule-budget workflow on targeted subsets before any full-sweep rerun
 - **Report:** Write 6-10 page report using experiment results (35% of grade)
 - **Slides:** Create 8-12 slide presentation (25% of grade)
 
@@ -217,6 +218,36 @@ The restart-on-stagnation change was first checked under the schedule-budget pro
 | J60 | `341 → 342` | `1.5941% → 1.5077%` | `11.24% → 10.53%` | improvement |
 | J90 | `342 → 342` | `2.1246% → 2.0838%` | `15.75% → 14.96%` | slight recovery |
 | J120 | `162 → 161` | `5.8255% → 5.8226%` | `16.56% → 17.58%` | roughly neutral |
+
+## Restart Threshold Tuning (`100k` vs `200k` vs `300k`)
+
+The initial restart version used a stagnation threshold of `200k` generations. We then tuned this under the schedule-budget protocol and confirmed the best candidate with a normal `3s` wall-clock sweep.
+
+### J90 regression subset (55 instances, 1,000,000 schedules)
+
+- `100k`: improved vs GA `1m` on `17/55`, recovered to old baseline-or-better on `8/55`
+- `200k`: improved vs GA `1m` on `10/55`, recovered on `5/55`
+- `300k`: improved vs GA `1m` on `9/55`, recovered on `6/55`
+
+### J60 full (480 instances, 1,000,000 schedules)
+
+- `100k` vs old `1m` schedule-budget reference:
+  - improved: `48/480`
+  - matched: `424/480`
+  - worse: `8/480`
+  - best-known matches: `341 → 346`
+  - mean gap: `1.5982% → 1.4212%`
+
+### 3-second wall-clock comparison (`100k` vs `200k`)
+
+| Dataset | Best-known matches | Mean gap | Interpretation |
+|---------|--------------------|----------|----------------|
+| J30 | `405 → 418` | `0.3576% → 0.2883%` | clear improvement |
+| J60 | `342 → 346` | `1.5077% → 1.4262%` | improvement |
+| J90 | `342 → 345` | `2.0838% → 2.0458%` | improvement |
+| J120 | `161 → 164` | `5.8226% → 5.7153%` | improvement |
+
+This made `100k` the new default restart threshold.
 
 This is the first post-neighborhood refinement that remained positive under both schedule-budget and wall-clock benchmarking, so it is the current solver line to keep.
 

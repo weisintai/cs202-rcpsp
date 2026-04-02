@@ -31,6 +31,7 @@ So the right next step is to add stronger **hybridization**, **local search**, a
 - **Restart on stagnation**
   - keeps a small elite set and refreshes the rest of the population with fresh guided/random seeds after long stagnation
   - kept because it improved `J30`, `J60`, and slightly recovered `J90`, while leaving `J120` roughly neutral at `3s`
+  - tuned further: `100k` stagnation threshold beat `200k` and `300k`, so `100k` is now the default
 
 ### Tried and rejected
 
@@ -47,7 +48,7 @@ So the right next step is to add stronger **hybridization**, **local search**, a
 ### Next candidate to test
 
 - **Mutation-rate / restart-parameter tuning**
-  - tune restart threshold and elite count rather than adding a new search branch
+  - tune elite count and mutation rate rather than adding a new search branch
   - compare first under schedule budget, then confirm at `3s`
 
 ## TL;DR
