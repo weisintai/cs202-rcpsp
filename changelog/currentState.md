@@ -1,6 +1,6 @@
 # Current Project State
 
-## Status: Step 8 In Progress — Experiments 1-4 Implemented, Biased Seeding Added, Neighborhood Upgrade Added, Updated J10/J20 Support Added
+## Status: Step 8 In Progress — Experiments 1-4 Implemented, Biased Seeding Added, Neighborhood Upgrade Added, Restart-on-Stagnation Added, Updated J10/J20 Support Added
 
 ## What's Done
 
@@ -47,6 +47,7 @@
   - Improvements over Step 3: e.g. PSP100 J10: 43→39, PSP1 J20: 50→47
   - All tested feasible instances: 0 violations
   - **Enhancement (weisintai):** Optional schedule-budget stopping rule via `--schedules <count>` for internal A/B experiments. This counts `SSGS` schedule generations in the GA so algorithm comparisons are less tied to raw machine speed.
+  - **Enhancement (weisintai):** Restart-on-stagnation diversification. After long stagnation, the GA keeps a small elite set and refreshes the rest of the population with fresh guided/random seeds.
 
 - **Step 5 complete:** Forward-backward improvement (double justification)
   - Backward SSGS: schedules activities as late as possible (latest-start times)
@@ -63,7 +64,7 @@
   - Experiment 4: Priority rule comparison
 - **Re-benchmark:** Re-run experiments 1-4 with biased seeding to get before/after comparison
 - **Tighter internal protocol:** Add an optional schedule-budget stopping rule so algorithm comparisons can be made by number of generated schedules, not only wall-clock
-- **Next search direction decision:** Use the schedule-budget workflow to compare future GA refinements on targeted subsets before any full-sweep rerun
+- **Next search direction decision:** Tune the current GA line further (for example restart threshold / elite count) using the schedule-budget workflow on targeted subsets before any full-sweep rerun
 - **Report:** Write 6-10 page report using experiment results (35% of grade)
 - **Slides:** Create 8-12 slide presentation (25% of grade)
 
@@ -191,6 +192,33 @@ Representative outputs are written under:
 - `benchmark_results/safety_3s/j60/`
 - `benchmark_results/safety_3s/j90/`
 - `benchmark_results/safety_3s/j120/`
+
+## Restart-On-Stagnation Benchmark Results
+
+The restart-on-stagnation change was first checked under the schedule-budget protocol, then confirmed under the normal `3s` wall-clock benchmark.
+
+### Schedule-budget checks
+
+- **J90 regression subset (55 instances, 1,000,000 schedules):**
+  - improved vs GA `1m` baseline: `10/55`
+  - worse vs GA `1m` baseline: `1/55`
+  - recovered to old baseline-or-better: `5/55`
+
+- **J60 full (480 instances, 1,000,000 schedules):**
+  - improved vs GA `1m` baseline: `30/480`
+  - matched baseline: `438/480`
+  - worse than baseline: `12/480`
+
+### 3-second wall-clock comparison vs neighborhood-upgrade baseline
+
+| Dataset | Best-known matches | Mean gap | Max gap | Interpretation |
+|---------|--------------------|----------|---------|----------------|
+| J30 | `391 → 405` | `0.5071% → 0.3576%` | `6.90% → 6.78%` | clear improvement |
+| J60 | `341 → 342` | `1.5941% → 1.5077%` | `11.24% → 10.53%` | improvement |
+| J90 | `342 → 342` | `2.1246% → 2.0838%` | `15.75% → 14.96%` | slight recovery |
+| J120 | `162 → 161` | `5.8255% → 5.8226%` | `16.56% → 17.58%` | roughly neutral |
+
+This is the first post-neighborhood refinement that remained positive under both schedule-budget and wall-clock benchmarking, so it is the current solver line to keep.
 
 ## Updated Local J10/J20 Benchmark Status (5s timeout, --time 3, full pipeline)
 

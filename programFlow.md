@@ -26,12 +26,12 @@ Input File (.sm or .SCH)
         │
         ▼
    ┌──────────────────────┐
-   │ Generate Candidates  │  Priority rules (LFT, MTS, GRD, SPT) + random
+   │ Generate Candidates  │  Priority rules + biased randomized seeds
    └────┬─────────────────┘
         │
         ▼
    ┌─────────────────────┐
-   │  Genetic Algorithm  │  Evolve population for 28s using SSGS decoder
+   │  Genetic Algorithm  │  Evolve population with SSGS, diversification, FBI
    └────┬────────────────┘
         │
         ▼
@@ -51,7 +51,7 @@ Input File (.sm or .SCH)
 
 **Format detection:** The first line of the file determines the parser.
 - Starts with `*` → standard PSPLIB `.sm` format → `parse_sm()`
-- Starts with integers → ProGenMax `.SCH` format → `parse_sch()`
+- Starts with integers → `.SCH` format → `parse_sch()`
 
 **What gets extracted:**
 - `n` — number of real activities (excluding dummy source 0 and dummy sink n+1)
@@ -62,7 +62,11 @@ Input File (.sm or .SCH)
 - `predecessors[i]` — list of activities that must come before i
 - `capacity[k]` — maximum available units of resource k at any timestep
 
-**SCH-specific handling:** The `.SCH` format includes time lags in brackets after each successor (e.g., `[0]`, `[-3]`). These come from the RCPSP/max formulation. We only keep edges with **non-negative** lags. Negative lags represent maximum time lag constraints (backward edges) that don't apply to standard RCPSP.
+**SCH-specific handling:** This repo now contains two `.SCH` variants:
+- an older lag-bearing variant where successors may be followed by bracketed lags (e.g. `[0]`, `[-3]`)
+- a newer compact RCPSP-style variant used in the updated local `J10` and `J20` sets
+
+For the lag-bearing variant, the parser keeps only **non-negative** lag edges. Negative lags represent RCPSP/max constraints and are filtered out so the solver can work on a standard RCPSP precedence graph.
 
 Example from `PSP2.SCH`:
 ```
@@ -147,7 +151,14 @@ After topological sort places 4 before 6, `remove_back_edges` removes the `6→4
 
 This allocation is motivated by experiment results showing LFT and MTS are the strongest priority rules across PSPLIB benchmarks.
 
-**In main:** 4 rule-based + 20 biased/random = 24 candidate orderings. Each is decoded via SSGS; the schedule with the lowest makespan is kept.
+**In main:** `generate_initial_solutions()` returns:
+- 4 deterministic rule-based seeds
+- plus a guided tail of 20 extra seeds:
+  - 10 randomized `LFT`
+  - 6 randomized `MTS`
+  - 4 pure random
+
+These same seeds are also used to initialize the GA population in `full` mode.
 
 **Reference:** `src/priority.h`, `src/priority.cpp`
 
@@ -169,7 +180,9 @@ For each activity in list order:
 
 **Early break optimisation:** When checking resource feasibility at timestep `tau`, if any single resource k exceeds capacity, immediately break and jump to `tau + 1` as the next candidate start time. No need to check remaining resources or remaining timesteps in that window.
 
-**Output:** A `Schedule` struct containing start times for all activities and the makespan (`start_time[n+1]`).
+**Output:** A `Schedule` struct containing start times for all activities and the makespan.
+
+**Makespan definition:** The solver now uses the **true project finish time**, i.e. the maximum finish time over all activities, rather than assuming the dummy sink always captures every terminal job. On clean PSPLIB `.sm` instances these are equivalent, but the explicit finish-time definition is safer for the local `.SCH` sets.
 
 **Reference:** `src/ssgs.h`, `src/ssgs.cpp`
 
@@ -180,9 +193,8 @@ For each activity in list order:
 **Purpose:** Evolve a population of activity lists over many generations to minimise makespan. Uses SSGS as the decoder for each individual.
 
 **Initialization:** Population of 100 individuals seeded from:
-- 4 priority-rule solutions (LFT, MTS, GRD, SPT) from Stage 4
-- 20 random feasible permutations from Stage 4
-- Remaining slots filled with additional random permutations
+- the 24 Stage-4 seeds (4 deterministic + 20 guided/randomized)
+- remaining slots filled with additional random feasible permutations
 
 **Selection:** Tournament selection (size 5). Pick 5 random individuals, return the one with the lowest makespan.
 
@@ -192,17 +204,24 @@ For each activity in list order:
 3. Fill remaining positions from parent 2, in parent 2's order, skipping activities already in the child
 4. The result is always a valid permutation. Precedence feasibility is preserved because parent 2's relative order respects precedence.
 
-**Mutation (two operators, chosen randomly):**
-- **Adjacent swap:** Pick a random position i. If swapping `list[i]` and `list[i+1]` doesn't violate precedence (neither is a predecessor of the other), swap them. Tries up to 3 positions.
-- **Shift:** Pick a random activity, find the latest predecessor position, and shift the activity to a random earlier valid position.
+**Mutation neighborhood** (one random move per mutation):
+- **Adjacent swap:** swap neighboring activities if the resulting list still respects precedence
+- **Non-adjacent feasible swap:** swap two non-neighboring activities if the resulting list is still precedence-feasible
+- **Bidirectional insertion:** move one activity earlier or later within its precedence-feasible insertion interval
 
 **Replacement:** Steady-state. If the offspring's makespan is better than the worst individual in the population, replace the worst. The best individual is always tracked (elitism).
 
 **Forward-backward improvement (integrated):** Every 50,000 generations, the GA applies forward-backward improvement to the best individual. If the makespan improves, the improved schedule replaces the best individual and its activity list is updated. A final forward-backward pass is applied before returning.
 
-**Termination:** 28-second wall-clock budget (2s margin before the 30s hard cutoff). The GA has an anytime property — a valid schedule exists from generation 0.
+**Restart-on-stagnation:** If the GA goes too many generations without improving the best individual, it keeps a small elite set and refreshes the rest of the population with fresh guided/random seeds. This is a diversification mechanism to reduce early plateauing.
 
-**Throughput:** ~8-17M generations in 28 seconds depending on instance size (J10-J30).
+**Termination:** The GA can stop on either:
+- wall-clock time (`--time`)
+- schedule-generation budget (`--schedules`)
+
+The schedule-budget mode counts `SSGS` decodes and is mainly used for internal A/B testing.
+
+**Throughput:** depends on instance size and stopping rule. Under wall-clock mode the solver is anytime: a valid schedule exists from generation 0 and improves as search continues.
 
 **Reference:** `src/ga.h`, `src/ga.cpp`
 
@@ -248,4 +267,4 @@ Prints start times for activities 1 through n (one integer per line) to stdout. 
 
 ## All Implementation Steps Complete
 
-The solver pipeline is fully implemented: Parse → Graph Cleanup → Priority Rules → GA with SSGS + Forward-Backward Improvement → Validate → Output.
+The current solver pipeline is: Parse → Graph Cleanup → Guided Seed Generation → GA with SSGS + Forward-Backward Improvement + Restart-on-Stagnation → Validate → Output.

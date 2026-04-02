@@ -8,9 +8,10 @@ The solver uses a Genetic Algorithm with a Serial Schedule Generation Scheme (SS
 
 1. **Parse** input file (`.sm` or `.SCH` format)
 2. **Generate initial solutions** using priority rules (LFT, MTS, GRD, SPT) and biased randomized permutations (LFT/MTS-weighted seeding)
-3. **Evolve** the population using tournament selection, one-point crossover, and swap/shift mutations
-4. **Improve** the best solution with forward-backward double justification
-5. **Output** start times for each activity
+3. **Evolve** the population using tournament selection, one-point crossover, and a richer activity-list mutation neighborhood
+4. **Diversify** with restart-on-stagnation when the GA plateaus
+5. **Improve** the best solution with forward-backward double justification
+6. **Output** start times for each activity
 
 ## Build
 
@@ -41,7 +42,7 @@ make clean        # remove binaries
 
 | Mode | Description |
 |------|-------------|
-| `full` | Full pipeline: priority rules + GA + forward-backward improvement |
+| `full` | Full pipeline: guided seeds + GA + restart-on-stagnation + forward-backward improvement |
 | `baseline` | Random topological order + SSGS only |
 | `priority` | Best of priority rules + random permutations, no GA |
 | `ga` | Random initial population + GA, no forward-backward improvement |

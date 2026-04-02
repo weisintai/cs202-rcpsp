@@ -28,6 +28,9 @@ So the right next step is to add stronger **hybridization**, **local search**, a
 - **Schedule-budget protocol**
   - `--schedules <count>` now limits the number of `SSGS` schedule generations in the GA
   - kept for internal A/B experiments
+- **Restart on stagnation**
+  - keeps a small elite set and refreshes the rest of the population with fresh guided/random seeds after long stagnation
+  - kept because it improved `J30`, `J60`, and slightly recovered `J90`, while leaving `J120` roughly neutral at `3s`
 
 ### Tried and rejected
 
@@ -37,12 +40,15 @@ So the right next step is to add stronger **hybridization**, **local search**, a
 - **VNS-lite side branch**
   - tested briefly under the same schedule-budget protocol
   - rejected because it did not beat the current GA baseline and added unnecessary parallel complexity
+- **Deterministic improving insertion polish**
+  - tested as a final-best cleanup pass
+  - rejected because it made no measurable difference under the schedule-budget comparison
 
 ### Next candidate to test
 
-- **Deterministic improving insertion polish**
-  - apply a small improving-only insertion pass to the final best solution
-  - compare first under schedule budget on `J90` regressions and `J60`
+- **Mutation-rate / restart-parameter tuning**
+  - tune restart threshold and elite count rather than adding a new search branch
+  - compare first under schedule budget, then confirm at `3s`
 
 ## TL;DR
 
