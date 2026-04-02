@@ -6,20 +6,50 @@
 #include <numeric>
 #include <iostream>
 
-// ── Check if activity list respects precedence at position i ────────────────
-// Returns true if swapping positions i and i+1 would preserve precedence.
-static bool can_swap(const Problem& p, const std::vector<int>& list, int i) {
-    int a = list[i];
-    int b = list[i + 1];
-    // Can't swap if a is a predecessor of b (b depends on a)
-    for (int pred : p.predecessors[b]) {
-        if (pred == a) return false;
-    }
-    // Can't swap if b is a predecessor of a (a depends on b)
-    for (int pred : p.predecessors[a]) {
-        if (pred == b) return false;
+// ── Validate that an activity list is precedence-feasible ───────────────────
+static bool respects_precedence(const Problem& p, const std::vector<int>& list) {
+    int total = (int)list.size();
+    std::vector<int> pos(total, -1);
+    for (int i = 0; i < total; i++) pos[list[i]] = i;
+
+    for (int u = 0; u < total; u++) {
+        for (int v : p.successors[u]) {
+            if (pos[u] >= pos[v]) return false;
+        }
     }
     return true;
+}
+
+// ── Valid insertion interval for one activity in a precedence-feasible list ─
+// Returns [lo, hi] in the list after removing list[from].
+static std::pair<int, int> insertion_bounds(const Problem& p,
+                                            const std::vector<int>& list,
+                                            int from) {
+    int n = (int)list.size();
+    int act = list[from];
+
+    std::vector<int> pos(n, -1);
+    for (int i = 0; i < n; i++) pos[list[i]] = i;
+
+    int lo = 0;
+    int hi = n - 1;
+
+    for (int pred : p.predecessors[act]) {
+        int pred_pos = pos[pred];
+        if (pred_pos > from) pred_pos--;
+        lo = std::max(lo, pred_pos + 1);
+    }
+
+    for (int succ : p.successors[act]) {
+        int succ_pos = pos[succ];
+        if (succ_pos > from) succ_pos--;
+        hi = std::min(hi, succ_pos);
+    }
+
+    lo = std::max(lo, 1);
+    hi = std::min(hi, n - 2);
+
+    return {lo, hi};
 }
 
 // ── Tournament selection ────────────────────────────────────────────────────
@@ -79,42 +109,76 @@ static void mutate_swap(const Problem& p, std::vector<int>& list, std::mt19937& 
     std::uniform_int_distribution<int> dist(0, n - 2);
     for (int attempt = 0; attempt < 3; attempt++) {
         int i = dist(rng);
-        if (can_swap(p, list, i)) {
-            std::swap(list[i], list[i + 1]);
+        std::swap(list[i], list[i + 1]);
+        if (respects_precedence(p, list)) {
             return;
         }
+        std::swap(list[i], list[i + 1]);
     }
 }
 
-// ── Mutation: shift an activity to an earlier valid position ────────────────
-static void mutate_shift(const Problem& p, std::vector<int>& list, std::mt19937& rng) {
+// ── Mutation: swap two non-adjacent activities if precedence allows ─────────
+static void mutate_long_swap(const Problem& p, std::vector<int>& list, std::mt19937& rng) {
+    int n = (int)list.size();
+    if (n <= 4) return;
+
+    std::uniform_int_distribution<int> dist(1, n - 2);  // keep dummy source/sink fixed
+    for (int attempt = 0; attempt < 5; attempt++) {
+        int i = dist(rng);
+        int j = dist(rng);
+        if (i == j) continue;
+        if (i > j) std::swap(i, j);
+        if (j == i + 1) continue;  // leave adjacent swaps to mutate_swap
+
+        std::swap(list[i], list[j]);
+        if (respects_precedence(p, list)) {
+            return;
+        }
+        std::swap(list[i], list[j]);
+    }
+}
+
+// ── Mutation: move an activity earlier or later within valid bounds ─────────
+static void mutate_insert(const Problem& p, std::vector<int>& list, std::mt19937& rng) {
     int n = (int)list.size();
     if (n <= 2) return;
 
     std::uniform_int_distribution<int> dist(1, n - 2);  // skip dummies at ends
-    int from = dist(rng);
-    int act = list[from];
+    for (int attempt = 0; attempt < 5; attempt++) {
+        int from = dist(rng);
+        auto [lo, hi] = insertion_bounds(p, list, from);
+        if (lo > hi) continue;
 
-    // Find the latest position of any predecessor of act in the list
-    int earliest_pos = 0;
-    for (int pred : p.predecessors[act]) {
-        for (int j = 0; j < from; j++) {
-            if (list[j] == pred && j + 1 > earliest_pos) {
-                earliest_pos = j + 1;
-            }
+        std::vector<int> targets;
+        targets.reserve(hi - lo + 1);
+        for (int to = lo; to <= hi; to++) {
+            if (to != from) targets.push_back(to);
         }
+        if (targets.empty()) continue;
+
+        std::uniform_int_distribution<int> target_dist(0, (int)targets.size() - 1);
+        int to = targets[target_dist(rng)];
+
+        int act = list[from];
+        list.erase(list.begin() + from);
+        list.insert(list.begin() + to, act);
+        if (respects_precedence(p, list)) return;
+        list.erase(list.begin() + to);
+        list.insert(list.begin() + from, act);
     }
+}
 
-    if (earliest_pos >= from) return;  // can't move earlier
-
-    // Pick a random position between earliest_pos and from-1
-    std::uniform_int_distribution<int> pos_dist(earliest_pos, from - 1);
-    int to = pos_dist(rng);
-
-    // Shift: remove from 'from', insert at 'to'
-    int val = list[from];
-    list.erase(list.begin() + from);
-    list.insert(list.begin() + to, val);
+// ── Apply one random neighborhood move ──────────────────────────────────────
+static void perturb_once(const Problem& p, std::vector<int>& list, std::mt19937& rng) {
+    std::uniform_real_distribution<double> prob(0.0, 1.0);
+    double move = prob(rng);
+    if (move < 1.0 / 3.0) {
+        mutate_swap(p, list, rng);
+    } else if (move < 2.0 / 3.0) {
+        mutate_long_swap(p, list, rng);
+    } else {
+        mutate_insert(p, list, rng);
+    }
 }
 
 // ── Run GA ──────────────────────────────────────────────────────────────────
@@ -214,11 +278,7 @@ Schedule run_ga(const Problem& p,
 
         // Mutation
         if (prob(rng) < config.mutation_rate) {
-            if (prob(rng) < 0.5) {
-                mutate_swap(p, offspring, rng);
-            } else {
-                mutate_shift(p, offspring, rng);
-            }
+            perturb_once(p, offspring, rng);
         }
 
         // Evaluate offspring
