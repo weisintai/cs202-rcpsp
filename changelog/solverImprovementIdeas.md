@@ -14,6 +14,36 @@ Our experiments suggest that the current solver saturates early:
 
 So the right next step is to add stronger **hybridization**, **local search**, and **diversification** on top of the current architecture.
 
+## Status Snapshot
+
+### Implemented and kept
+
+- **Biased seeding**
+  - randomized `LFT`/`MTS`-biased initial seeds
+  - kept because experiments showed aggregate improvement
+- **Stronger mutation neighborhood**
+  - non-adjacent feasible swap
+  - bidirectional insertion
+  - kept because it improved `J30`, `J60`, and `J120`, with only a slight regression on `J90`
+- **Schedule-budget protocol**
+  - `--schedules <count>` now limits the number of `SSGS` schedule generations in the GA
+  - kept for internal A/B experiments
+
+### Tried and rejected
+
+- **Random elite local search**
+  - tested as a bounded random hill-climbing layer on top of the GA
+  - rejected because it was too noisy and did not reliably fix the `J90` regressions
+- **VNS-lite side branch**
+  - tested briefly under the same schedule-budget protocol
+  - rejected because it did not beat the current GA baseline and added unnecessary parallel complexity
+
+### Next candidate to test
+
+- **Deterministic improving insertion polish**
+  - apply a small improving-only insertion pass to the final best solution
+  - compare first under schedule budget on `J90` regressions and `J60`
+
 ## TL;DR
 
 If we only add a few things, the most promising order is:
