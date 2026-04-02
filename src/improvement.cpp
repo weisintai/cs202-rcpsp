@@ -3,6 +3,20 @@
 #include <algorithm>
 #include <numeric>
 
+static bool schedule_budget_exhausted(long long* schedule_counter, long long schedule_limit) {
+    return schedule_counter != nullptr && schedule_limit > 0 && *schedule_counter >= schedule_limit;
+}
+
+static Schedule counted_ssgs(const Problem& p,
+                             const std::vector<int>& order,
+                             long long* schedule_counter,
+                             long long /*schedule_limit*/) {
+    if (schedule_counter != nullptr) {
+        (*schedule_counter)++;
+    }
+    return ssgs(p, order);
+}
+
 // ── Backward SSGS ──────────────────────────────────────────────────────────
 // Schedules activities as late as possible while respecting precedence and
 // resource constraints. Processes activities in reverse order of their start
@@ -95,7 +109,10 @@ static std::vector<int> order_from_schedule(const Problem& p, const Schedule& sc
 }
 
 // ── Public: forward-backward improvement ────────────────────────────────────
-Schedule forward_backward_improve(const Problem& p, const Schedule& initial) {
+Schedule forward_backward_improve(const Problem& p,
+                                  const Schedule& initial,
+                                  long long* schedule_counter,
+                                  long long schedule_limit) {
     Schedule best = initial;
 
     for (int iter = 0; iter < 10; iter++) {
@@ -106,7 +123,8 @@ Schedule forward_backward_improve(const Problem& p, const Schedule& initial) {
         std::vector<int> new_order = order_from_schedule(p, bwd);
 
         // Forward pass: re-schedule with the new order
-        Schedule fwd = ssgs(p, new_order);
+        if (schedule_budget_exhausted(schedule_counter, schedule_limit)) break;
+        Schedule fwd = counted_ssgs(p, new_order, schedule_counter, schedule_limit);
 
         if (fwd.makespan < best.makespan) {
             best = fwd;

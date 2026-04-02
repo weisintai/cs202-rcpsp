@@ -12,6 +12,7 @@ struct GAConfig {
     double crossover_rate = 0.9;
     double mutation_rate = 0.3;
     double time_limit_seconds = 28.0;
+    long long schedule_limit = 0;  // 0 means disabled
 };
 
 // Run the genetic algorithm and return the best schedule found.

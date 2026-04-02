@@ -6,6 +6,17 @@
 #include <numeric>
 #include <iostream>
 
+static bool schedule_budget_exhausted(long long schedule_count, long long schedule_limit) {
+    return schedule_limit > 0 && schedule_count >= schedule_limit;
+}
+
+static Schedule counted_ssgs(const Problem& p,
+                             const std::vector<int>& activity_list,
+                             long long& schedule_count) {
+    schedule_count++;
+    return ssgs(p, activity_list);
+}
+
 // ── Validate that an activity list is precedence-feasible ───────────────────
 static bool respects_precedence(const Problem& p, const std::vector<int>& list) {
     int total = (int)list.size();
@@ -188,6 +199,7 @@ Schedule run_ga(const Problem& p,
                std::mt19937& rng,
                bool use_improvement) {
     auto start_time = std::chrono::steady_clock::now();
+    long long schedule_count = 0;
 
     int pop_size = config.population_size;
 
@@ -212,7 +224,7 @@ Schedule run_ga(const Problem& p,
     int best_idx = 0;
 
     for (int i = 0; i < pop_size; i++) {
-        schedules[i] = ssgs(p, population[i]);
+        schedules[i] = counted_ssgs(p, population[i], schedule_count);
         fitness[i] = schedules[i].makespan;
         if (fitness[i] < fitness[best_idx]) {
             best_idx = i;
@@ -234,10 +246,12 @@ Schedule run_ga(const Problem& p,
         auto now = std::chrono::steady_clock::now();
         double elapsed = std::chrono::duration<double>(now - start_time).count();
         if (elapsed >= config.time_limit_seconds) break;
+        if (schedule_budget_exhausted(schedule_count, config.schedule_limit)) break;
 
         // Periodically apply forward-backward improvement to best individual
         if (use_improvement && generations - last_improve_gen >= 50000) {
-            Schedule improved = forward_backward_improve(p, schedules[best_idx]);
+            Schedule improved = forward_backward_improve(
+                p, schedules[best_idx], &schedule_count, config.schedule_limit);
             if (improved.makespan < fitness[best_idx]) {
                 schedules[best_idx] = improved;
                 fitness[best_idx] = improved.makespan;
@@ -282,7 +296,8 @@ Schedule run_ga(const Problem& p,
         }
 
         // Evaluate offspring
-        Schedule child_sched = ssgs(p, offspring);
+        if (schedule_budget_exhausted(schedule_count, config.schedule_limit)) break;
+        Schedule child_sched = counted_ssgs(p, offspring, schedule_count);
         int child_fitness = child_sched.makespan;
 
         // Replace worst if offspring is better
@@ -307,16 +322,17 @@ Schedule run_ga(const Problem& p,
     }
 
     // Final forward-backward improvement on the best solution
-    if (use_improvement) {
-        Schedule final_sched = forward_backward_improve(p, schedules[best_idx]);
+    if (use_improvement && !schedule_budget_exhausted(schedule_count, config.schedule_limit)) {
+        Schedule final_sched = forward_backward_improve(
+            p, schedules[best_idx], &schedule_count, config.schedule_limit);
         if (final_sched.makespan < fitness[best_idx]) {
             schedules[best_idx] = final_sched;
             fitness[best_idx] = final_sched.makespan;
         }
     }
 
-    std::cerr << "GA: " << generations << " generations, best makespan: "
-              << fitness[best_idx] << std::endl;
+    std::cerr << "GA: " << generations << " generations, " << schedule_count
+              << " schedules, best makespan: " << fitness[best_idx] << std::endl;
 
     return schedules[best_idx];
 }

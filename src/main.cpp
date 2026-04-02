@@ -13,17 +13,21 @@
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Usage: solver <instance_file> [--time <seconds>] [--mode baseline|priority|ga|full] [--rule lft|mts|grd|spt|random]" << std::endl;
+        std::cerr << "Usage: solver <instance_file> [--time <seconds>] [--schedules <count>] [--mode baseline|priority|ga|full] [--rule lft|mts|grd|spt|random]" << std::endl;
         return 1;
     }
 
     // Parse command-line arguments
     double time_limit = 28.0;
+    long long schedule_limit = 0;
     std::string mode = "full";
     std::string rule = "";
     for (int i = 2; i < argc; i++) {
         if (std::strcmp(argv[i], "--time") == 0 && i + 1 < argc) {
             time_limit = std::atof(argv[i + 1]);
+            i++;
+        } else if (std::strcmp(argv[i], "--schedules") == 0 && i + 1 < argc) {
+            schedule_limit = std::atoll(argv[i + 1]);
             i++;
         } else if (std::strcmp(argv[i], "--mode") == 0 && i + 1 < argc) {
             mode = argv[i + 1];
@@ -76,6 +80,7 @@ int main(int argc, char* argv[]) {
         }
         GAConfig config;
         config.time_limit_seconds = time_limit;
+        config.schedule_limit = schedule_limit;
         best = run_ga(prob, initial, config, rng, false);
 
     } else {
@@ -83,6 +88,7 @@ int main(int argc, char* argv[]) {
         auto initial = generate_initial_solutions(prob, 20, rng);
         GAConfig config;
         config.time_limit_seconds = time_limit;
+        config.schedule_limit = schedule_limit;
         best = run_ga(prob, initial, config, rng, true);
     }
 
