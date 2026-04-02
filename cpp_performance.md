@@ -1,5 +1,20 @@
 # C++ Performance Optimisations for RCPSP Solver
 
+## Implemented
+
+- **Flat resource profile in `SSGS`:** resource usage is already stored as one contiguous `usage[t * K + k]` array, which keeps the hottest loop cache-friendly.
+- **Precomputed scheduling horizon:** the worst-case horizon is now computed once during parsing and reused in every `SSGS` decode.
+- **Move impossible-demand checks out of the hot loop:** single-activity infeasibility is now rejected once during parsing instead of being rechecked in every decode.
+- **Compact duplicate fingerprints:** duplicate-aware diversity control now uses 64-bit fingerprints instead of string keys. This removed repeated string construction and hashing from the GA loop.
+
+These changes are all capability-preserving: they are meant to increase search throughput without changing the solver's intended behaviour.
+
+## Good Next Optimisations
+
+- **Reuse `SSGS` scratch buffers:** avoid reallocating `usage`, `start_time`, and `finish_time` every decode.
+- **Reduce mutation bookkeeping overhead:** if profiling shows it matters, optimise repeated position-array construction in precedence checks and insertion-bound computation.
+- **Profile-guided optimisation (PGO):** if we want a final throughput push, PGO is a realistic last-mile option after algorithm changes settle.
+
 ## Memory Layout & Cache Efficiency
 
 - **Flat arrays over nested containers:** store the resource usage profile as a contiguous `int usage[T_max * K]` instead of `vector<vector<int>>`. This keeps data in a single cache line during SSGS inner loops, avoiding pointer chasing.
@@ -30,6 +45,11 @@
 - **Parallel population evaluation:** split the population across `std::thread` workers. Each thread decodes its assigned individuals via SSGS independently — no shared mutable state needed, just read-only problem data.
 - **Thread pool, not thread-per-generation:** spawn threads once at startup and reuse them via a simple work queue to avoid thread creation overhead each generation.
 - Unlike Python (GIL-limited), C++ threads achieve true parallelism. On a 4-core grading machine, this can ~4x the number of GA generations per second.
+
+## Lower Priority / Higher-Risk Ideas
+
+- **Avoid copying activity lists entirely:** probably useful, but a much bigger refactor than the changes above.
+- **Threading:** can increase throughput, but adds complexity and is unnecessary unless single-threaded improvements stop paying off.
 
 ## Quantified Impact vs Python
 

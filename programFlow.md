@@ -31,7 +31,7 @@ Input File (.sm or .SCH)
         │
         ▼
    ┌─────────────────────┐
-   │  Genetic Algorithm  │  Evolve population with SSGS, diversification, FBI
+   │  Genetic Algorithm  │  Evolve population with SSGS, diversification, duplicate control, FBI
    └────┬────────────────┘
         │
         ▼
@@ -215,11 +215,15 @@ For each activity in list order:
 
 **Restart-on-stagnation:** If the GA goes too many generations without improving the best individual, it keeps a small elite set and refreshes the rest of the population with fresh guided/random seeds. This is a diversification mechanism to reduce early plateauing.
 
+**Duplicate-aware diversity control:** The population is kept mostly unique at initialization and restart. During search, exact-duplicate offspring are rejected unless a few extra perturbation attempts can shake them into a distinct activity list. This reduces wasted population slots and worked particularly well on `J90` and `J120`.
+
 **Termination:** The GA can stop on either:
 - wall-clock time (`--time`)
 - schedule-generation budget (`--schedules`)
 
 The schedule-budget mode counts `SSGS` decodes and is mainly used for internal A/B testing.
+
+**Performance notes:** The current implementation also precomputes a safe scheduling horizon once during parsing, moves single-activity infeasibility checks out of the `SSGS` hot loop, and uses compact 64-bit fingerprints instead of strings for duplicate detection. These changes improve throughput without changing solver behavior.
 
 **Throughput:** depends on instance size and stopping rule. Under wall-clock mode the solver is anytime: a valid schedule exists from generation 0 and improves as search continues.
 

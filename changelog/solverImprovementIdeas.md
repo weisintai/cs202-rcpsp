@@ -32,6 +32,14 @@ So the right next step is to add stronger **hybridization**, **local search**, a
   - keeps a small elite set and refreshes the rest of the population with fresh guided/random seeds after long stagnation
   - kept because it improved `J30`, `J60`, and slightly recovered `J90`, while leaving `J120` roughly neutral at `3s`
   - tuned further: `100k` stagnation threshold beat `200k` and `300k`, so `100k` is now the default
+- **Duplicate-aware diversity control**
+  - keeps the population mostly unique and rejects exact-duplicate offspring unless a few extra perturbations can escape the duplicate
+  - kept because it improved all four `3s` datasets after restart tuning, especially `J90` and `J120`
+- **Hot-path performance refactors**
+  - precomputed schedule horizon at parse time
+  - moved impossible single-activity resource checks out of the `SSGS` hot loop
+  - replaced string duplicate keys with 64-bit fingerprints
+  - kept because they preserved solution quality while noticeably reducing schedule-budget runtime
 
 ### Tried and rejected
 
@@ -47,9 +55,12 @@ So the right next step is to add stronger **hybridization**, **local search**, a
 
 ### Next candidate to test
 
-- **Mutation-rate / restart-parameter tuning**
+- **Mutation-rate / restart-elite tuning**
   - tune elite count and mutation rate rather than adding a new search branch
   - compare first under schedule budget, then confirm at `3s`
+- **Further low-risk C++ optimisation**
+  - reuse `SSGS` scratch buffers rather than reallocating `usage/start/finish` every decode
+  - optimise precedence-position bookkeeping in mutation helpers if profiling shows it matters
 
 ## TL;DR
 
@@ -60,12 +71,12 @@ If we only add a few things, the most promising order is:
    - bidirectional insertion, not just earlier-shift
 2. **Local search on elites / new bests**
    - turn the GA into a small memetic GA
-3. **Apply justification more aggressively**
-   - on every new best, not just occasionally
-4. **Restart on stagnation**
+3. **Restart on stagnation**
    - keep elites, refresh the rest with randomized biased seeds
+4. **Duplicate-aware diversity control**
+   - avoid wasting population slots on identical activity lists
 
-These fit standard RCPSP practice and are the most likely to make `10s` and `28s` actually outperform `3s`.
+These fit standard RCPSP practice and are the changes that have actually held up best in our experiments.
 
 For future experiments, we should also tighten the evaluation protocol:
 

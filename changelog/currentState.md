@@ -1,6 +1,6 @@
 # Current Project State
 
-## Status: Step 8 In Progress — Experiments 1-4 Implemented, Biased Seeding Added, Neighborhood Upgrade Added, Restart-on-Stagnation Added, Updated J10/J20 Support Added
+## Status: Step 8 In Progress — Experiments 1-4 Implemented, Biased Seeding Added, Neighborhood Upgrade Added, Restart-on-Stagnation Added, Duplicate-Aware Diversity Control Added, Updated J10/J20 Support Added
 
 ## What's Done
 
@@ -49,6 +49,7 @@
   - **Enhancement (weisintai):** Optional schedule-budget stopping rule via `--schedules <count>` for internal A/B experiments. This counts `SSGS` schedule generations in the GA so algorithm comparisons are less tied to raw machine speed.
   - **Enhancement (weisintai):** Restart-on-stagnation diversification. After long stagnation, the GA keeps a small elite set and refreshes the rest of the population with fresh guided/random seeds.
   - **Tuning (weisintai):** Restart stagnation threshold tuned from `200k` to `100k` generations. The `100k` setting improved the J90 regression subset under the `1m` schedule-budget protocol and also improved aggregate `3s` wall-clock results on J30, J60, J90, and J120.
+  - **Enhancement (weisintai):** Duplicate-aware diversity control. The initial population and restart refills are kept mostly unique, and exact-duplicate offspring are rejected unless a few extra perturbation attempts produce a distinct activity list.
 
 - **Step 5 complete:** Forward-backward improvement (double justification)
   - Backward SSGS: schedules activities as late as possible (latest-start times)
@@ -56,6 +57,12 @@
   - Iterates up to 10 times until no improvement
   - Integrated into GA: applied to best individual every 50K generations + final pass
   - All tested feasible instances: 0 violations
+
+- **Performance refinements kept:**
+  - precompute the safe scheduling horizon once during parsing and reuse it in every `SSGS` decode
+  - move impossible single-activity resource-demand checks from the `SSGS` hot loop to parse time
+  - replace string-based duplicate keys with compact 64-bit fingerprints
+  - these optimisations improved the diversity-control `J90` schedule-budget run by roughly `20%` to `25%` wall-clock while preserving the same strong quality pattern
 
 ## What's Next
 - **Step 8:** Run experiments 1-4 (see `experiments.md` for full plan)
@@ -177,22 +184,22 @@
 
 **Key findings:** LFT is the strongest rule overall (best in 366/480 J30, 403/480 J60). MTS is second. GRD and SPT perform close to or worse than random. This motivated the biased seeding enhancement.
 
-## Latest Benchmark Results (3s safety sweep, biased seeding)
+## Latest Benchmark Results (Current 3s Solver)
 
-The final `3s` safety sweep confirmed that the parser and makespan fixes do not change the main PSPLIB benchmark results.
+The current best solver line combines biased seeding, the stronger mutation neighborhood, restart-on-stagnation at `100k`, duplicate-aware diversity control, and the recent hot-path optimisations.
 
-| Dataset | Instances | Valid | Best-known Matches | Match % | Mean Gap | Max Gap | Mean Quality |
-|---------|-----------|-------|--------------------|---------|----------|---------|--------------|
-| J30     | 480       | 480   | 373                | 77.7%   | 0.67%    | 8.16%   | 99.35%       |
-| J60     | 480       | 480   | 334                | 69.6%   | 1.73%    | 11.36%  | 98.39%       |
-| J90     | 480       | 480   | 345                | 71.9%   | 2.08%    | 13.01%  | 98.09%       |
-| J120    | 600       | 600   | 161                | 26.8%   | 6.04%    | 21.43%  | 94.49%       |
+| Dataset | Instances | Best-known Matches | Match % | Mean Gap |
+|---------|-----------|--------------------|---------|----------|
+| J30     | 480       | 427                | 89.0%   | 0.2394%  |
+| J60     | 480       | 351                | 73.1%   | 1.2718%  |
+| J90     | 480       | 350                | 72.9%   | 1.7914%  |
+| J120    | 600       | 167                | 27.8%   | 5.3772%  |
 
 Representative outputs are written under:
-- `benchmark_results/safety_3s/j30/`
-- `benchmark_results/safety_3s/j60/`
-- `benchmark_results/safety_3s/j90/`
-- `benchmark_results/safety_3s/j120/`
+- `benchmark_results/restart_tuning_3s/j30/`
+- `benchmark_results/restart_tuning_3s/j60/`
+- `benchmark_results/restart_tuning_3s/j90/`
+- `benchmark_results/restart_tuning_3s/j120/`
 
 ## Restart-On-Stagnation Benchmark Results
 
@@ -248,6 +255,36 @@ The initial restart version used a stagnation threshold of `200k` generations. W
 | J120 | `161 → 164` | `5.8226% → 5.7153%` | improvement |
 
 This made `100k` the new default restart threshold.
+
+## Duplicate-Aware Diversity Control Results
+
+After restart tuning, we added a duplicate-aware population filter and then reduced its overhead with two hot-path optimisations.
+
+### Schedule-budget checks
+
+- **J90 regression subset (55 instances, 1,000,000 schedules):**
+  - improved vs GA `1m`: `48/55`
+  - matched GA `1m`: `5/55`
+  - worse vs GA `1m`: `2/55`
+  - recovered to baseline-or-better: `35/55`
+
+- **J60 full (480 instances, 1,000,000 schedules):**
+  - improved vs reference: `78/480`
+  - matched reference: `376/480`
+  - worse than reference: `26/480`
+  - best-known matches: `346 → 350`
+  - mean gap: `1.4212% → 1.2811%`
+
+### 3-second wall-clock comparison vs restart-only baseline
+
+| Dataset | Best-known matches | Mean gap |
+|---------|--------------------|----------|
+| J30 | `405 → 427` | `0.3576% → 0.2394%` |
+| J60 | `342 → 351` | `1.5077% → 1.2718%` |
+| J90 | `342 → 350` | `2.0838% → 1.7914%` |
+| J120 | `161 → 167` | `5.8226% → 5.3772%` |
+
+This is the strongest solver line so far and is the current default.
 
 This is the first post-neighborhood refinement that remained positive under both schedule-budget and wall-clock benchmarking, so it is the current solver line to keep.
 
