@@ -177,6 +177,66 @@ This gives us:
 - cheaper iteration
 - less risk of drawing conclusions from noisy one-off wall-clock runs
 
+## What To Run After A Solver Change
+
+Use this as the default test sequence for future solver modifications.
+
+### 1. Smoke test
+
+Run 1 to 3 direct solver invocations first:
+- one easy PSPLIB instance
+- one harder PSPLIB instance
+- if parser/input code changed, one local `.SCH` file too
+
+Purpose:
+- catch crashes
+- confirm logging and output format
+- confirm feasibility still holds
+
+### 2. Internal A/B test under schedule budget
+
+Run the current solver and the modified solver with the same `--schedules` budget.
+
+Use this when:
+- comparing search logic
+- comparing GA vs VNS-lite
+- checking whether a change is algorithmically better rather than just faster
+
+Good first targets:
+- `J60`
+- `J90` regression subset
+
+### 3. Targeted regression subset
+
+Before any full sweep:
+- run only the instances where the previous experiment regressed
+- or a known difficult cluster
+
+This is the cheapest high-signal check.
+
+### 4. Full `3s` wall-clock sweep
+
+Only if the targeted result looks promising:
+- run the normal `3s` benchmark on the affected datasets
+
+Current default:
+- `J30` and `J60` if the change is broad
+- `J90` / `J120` if the change is meant to help larger instances
+
+### 5. Longer wall-clock confirmation
+
+Only for changes we may keep:
+- run `10s` or `28s`
+- use this to check whether the change helps once there is more time to exploit it
+
+### Decision rule
+
+- **Fail at smoke test**: fix immediately
+- **Fail at schedule-budget A/B**: do not run a full sweep yet
+- **Mixed targeted result**: tune or rethink before broader benchmarking
+- **Pass targeted + `3s` sweep**: keep as a candidate improvement
+- **Pass longer wall-clock too**: strong candidate for final report
+
 ## 1. Stronger Mutation Neighborhood
 
 ### What to add

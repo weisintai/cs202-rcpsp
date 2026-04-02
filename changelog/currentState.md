@@ -1,6 +1,6 @@
 # Current Project State
 
-## Status: Step 8 In Progress — Experiments 1-4 Implemented, Biased Seeding Added, Updated J10/J20 Support Added
+## Status: Step 8 In Progress — Experiments 1-4 Implemented, Biased Seeding Added, Neighborhood Upgrade Added, Updated J10/J20 Support Added
 
 ## What's Done
 
@@ -41,11 +41,12 @@
   - Activity-list representation with SSGS decoder
   - Population size 100, tournament selection (size 5)
   - One-point crossover (preserves precedence feasibility)
-  - Two mutation operators: adjacent swap + shift-to-earlier-position
+  - Mutation neighborhood now includes adjacent swap, non-adjacent feasible swap, and bidirectional insertion within precedence-feasible bounds
   - Steady-state replacement (replace worst if offspring is better)
   - 28-second time budget, ~8-17M generations on J10-J30
   - Improvements over Step 3: e.g. PSP100 J10: 43→39, PSP1 J20: 50→47
   - All tested feasible instances: 0 violations
+  - **Enhancement (weisintai):** Optional schedule-budget stopping rule via `--schedules <count>` for internal A/B experiments. This counts `SSGS` schedule generations in the GA so algorithm comparisons are less tied to raw machine speed.
 
 - **Step 5 complete:** Forward-backward improvement (double justification)
   - Backward SSGS: schedules activities as late as possible (latest-start times)

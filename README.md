@@ -33,6 +33,7 @@ make clean        # remove binaries
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--time <seconds>` | GA time budget in seconds | `28` |
+| `--schedules <count>` | Optional GA schedule-generation budget for internal A/B tests | disabled |
 | `--mode <mode>` | Algorithm mode (see below) | `full` |
 | `--rule <rule>` | Run a single priority rule + SSGS (see below) | not set |
 
@@ -65,6 +66,9 @@ When `--rule` is set, the solver ignores `--mode` and `--time`, and produces a s
 
 # Run with a 5-second GA budget
 ./solver datasets/psplib/j30/instances/j301_1.sm --time 5
+
+# Run with a schedule-generation budget instead of relying on wall-clock only
+./solver datasets/psplib/j30/instances/j301_1.sm --time 999 --schedules 5000
 
 # Run in priority-only mode (no GA)
 ./solver datasets/psplib/j30/instances/j301_1.sm --mode priority
@@ -118,6 +122,28 @@ Results are written to the output directory as `results.csv` (per-instance) and 
 - `quality_vs_best_known_pct` — normalised score where 100% means matching the reference exactly
 
 For the local `j10` and `j20` datasets, the benchmark harness does not currently include best-known reference tables, so those runs are mainly used for feasibility, runtime, and raw makespan checking.
+
+For internal solver development, the binary also supports `--schedules <count>` as an alternative stopping rule. This counts `SSGS` schedule generations inside the GA and is useful for algorithm-to-algorithm comparison because it is less sensitive to machine speed than wall-clock time. The final project report should still use wall-clock budgets because the assignment itself has a time requirement.
+
+### Recommended workflow after solver changes
+
+Use this order when testing a new solver idea:
+
+1. **Smoke test locally**
+   - run one or two instances directly to check correctness and logging
+2. **Internal A/B test with schedule budget**
+   - use `--schedules <count>` to compare search quality without mixing in machine-speed effects
+   - start with targeted subsets such as known regressions before running large sweeps
+3. **Targeted subset benchmark**
+   - prefer regression subsets or one difficult dataset first
+4. **Full `3s` wall-clock sweep**
+   - only if the targeted/internal result looks promising
+5. **Longer wall-clock confirmation**
+   - run `10s` or `28s` only for changes that survive the `3s` comparison
+
+Rule of thumb:
+- use **schedule budget** to compare algorithm ideas
+- use **wall-clock** to report assignment-facing results
 
 ## Datasets
 
