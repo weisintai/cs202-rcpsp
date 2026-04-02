@@ -52,6 +52,9 @@ So the right next step is to add stronger **hybridization**, **local search**, a
 - **Deterministic improving insertion polish**
   - tested as a final-best cleanup pass
   - rejected because it made no measurable difference under the schedule-budget comparison
+- **`SSGS` scratch-buffer reuse**
+  - tested as a low-risk hot-path optimisation
+  - rejected because it showed no measurable improvement on the J90 regression-subset `1m` schedule-budget run
 
 ### Next candidate to test
 

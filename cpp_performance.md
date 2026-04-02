@@ -9,9 +9,12 @@
 
 These changes are all capability-preserving: they are meant to increase search throughput without changing the solver's intended behaviour.
 
+## Tried But Neutral
+
+- **Reuse `SSGS` scratch buffers:** we tested reusing `usage`, `start_time`, and `finish_time` across decodes. It was safe, but on the `J90` regression-subset `1m` schedule-budget run it produced no measurable improvement, so it is not part of the current solver line.
+
 ## Good Next Optimisations
 
-- **Reuse `SSGS` scratch buffers:** avoid reallocating `usage`, `start_time`, and `finish_time` every decode.
 - **Reduce mutation bookkeeping overhead:** if profiling shows it matters, optimise repeated position-array construction in precedence checks and insertion-bound computation.
 - **Profile-guided optimisation (PGO):** if we want a final throughput push, PGO is a realistic last-mile option after algorithm changes settle.
 
