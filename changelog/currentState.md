@@ -61,6 +61,8 @@
   - Experiment 3: Time budget sensitivity
   - Experiment 4: Priority rule comparison
 - **Re-benchmark:** Re-run experiments 1-4 with biased seeding to get before/after comparison
+- **Tighter internal protocol:** Add an optional schedule-budget stopping rule so algorithm comparisons can be made by number of generated schedules, not only wall-clock
+- **Next search direction decision:** Compare continued GA refinement against a possible VNS-centered alternative using targeted subsets before any full-sweep pivot
 - **Report:** Write 6-10 page report using experiment results (35% of grade)
 - **Slides:** Create 8-12 slide presentation (25% of grade)
 
@@ -206,6 +208,8 @@ Representative outputs are written under:
 
 - **Cycle detection (partially resolved):** The lag-bearing `.SCH` parser filters out negative-lag edges, and the topological sort now has a cycle-resilient fallback that breaks remaining cycles. `remove_back_edges()` cleans up the graph afterwards. However, there is no user-facing warning when cycles are detected and broken — consider adding a stderr warning. Does not affect `.sm` files (DAGs by definition).
 - **Updated J10/J20 data quality:** 17 J10 files and 4 J20 files are infeasible as provided because an activity's demand exceeds the declared capacity. These are now reported cleanly as input errors rather than causing a crash.
+- **Experimental protocol is still mostly wall-clock based:** This is fine for the final project requirement, but weak for internal algorithm comparison. The RCPSP literature commonly also uses fixed schedule-generation limits and several independent runs for randomized methods. See `changelog/solverImprovementIdeas.md`.
+- **VNS remains an open strategic alternative:** The current evidence shows that stronger neighborhoods matter, but it does not yet prove that a VNS-centered solver would outperform the current GA shell. This should be tested, not assumed.
 
 ## Decisions Log
 
@@ -215,3 +219,5 @@ Representative outputs are written under:
 | C++17 | ~200-500x more schedule evaluations than Python in 30s; true multithreading |
 | 28s time budget (2s margin) | Ensures output before the 30s hard cutoff |
 | Biased seeding (LFT/MTS) | Experiment 4 showed LFT and MTS dominate other rules; concentrate initial population near strong heuristic regions |
+| Keep wall-clock for report, add schedule-budget for internal A/B tests | Separates search quality from implementation speed; aligns better with RCPSP benchmark protocol literature |
+| Treat VNS as a candidate direction, not a guaranteed upgrade | Literature supports VNS as a strong RCPSP method, but our experiments only prove that neighborhood quality matters |
