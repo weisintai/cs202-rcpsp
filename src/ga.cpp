@@ -10,6 +10,13 @@ static bool schedule_budget_exhausted(long long schedule_count, long long schedu
     return schedule_limit > 0 && schedule_count >= schedule_limit;
 }
 
+static bool time_budget_exhausted(const std::chrono::steady_clock::time_point& start_time,
+                                  double time_limit_seconds) {
+    auto now = std::chrono::steady_clock::now();
+    double elapsed = std::chrono::duration<double>(now - start_time).count();
+    return elapsed >= time_limit_seconds;
+}
+
 static Schedule counted_ssgs(const Problem& p,
                              const std::vector<int>& activity_list,
                              long long& schedule_count) {
@@ -61,6 +68,20 @@ static std::pair<int, int> insertion_bounds(const Problem& p,
     hi = std::min(hi, n - 2);
 
     return {lo, hi};
+}
+
+// ── Extract activity order from a schedule ──────────────────────────────────
+static std::vector<int> order_from_schedule(const Problem& p, const Schedule& sched) {
+    int total = p.n + 2;
+    std::vector<int> order(total);
+    std::iota(order.begin(), order.end(), 0);
+    std::sort(order.begin(), order.end(), [&](int a, int b) {
+        if (sched.start_time[a] != sched.start_time[b]) {
+            return sched.start_time[a] < sched.start_time[b];
+        }
+        return a < b;
+    });
+    return order;
 }
 
 // ── Tournament selection ────────────────────────────────────────────────────
@@ -192,6 +213,66 @@ static void perturb_once(const Problem& p, std::vector<int>& list, std::mt19937&
     }
 }
 
+// ── Refresh non-elite population members after long stagnation ──────────────
+static void restart_population(const Problem& p,
+                               std::vector<std::vector<int>>& population,
+                               std::vector<Schedule>& schedules,
+                               std::vector<int>& fitness,
+                               const GAConfig& config,
+                               std::mt19937& rng,
+                               long long& schedule_count,
+                               int& best_idx,
+                               int& worst_idx) {
+    int pop_size = (int)population.size();
+    int elite_count = std::min(config.restart_elite_count, pop_size);
+
+    std::vector<int> order(pop_size);
+    std::iota(order.begin(), order.end(), 0);
+    std::sort(order.begin(), order.end(), [&](int a, int b) {
+        if (fitness[a] != fitness[b]) return fitness[a] < fitness[b];
+        return a < b;
+    });
+
+    std::vector<std::vector<int>> new_population;
+    std::vector<Schedule> new_schedules;
+    std::vector<int> new_fitness;
+    new_population.reserve(pop_size);
+    new_schedules.reserve(pop_size);
+    new_fitness.reserve(pop_size);
+
+    for (int i = 0; i < elite_count; i++) {
+        int idx = order[i];
+        new_population.push_back(population[idx]);
+        new_schedules.push_back(schedules[idx]);
+        new_fitness.push_back(fitness[idx]);
+    }
+
+    auto fresh_seeds = generate_initial_solutions(p, 20, rng);
+    int seed_idx = 0;
+    while ((int)new_population.size() < pop_size) {
+        std::vector<int> candidate;
+        if (seed_idx < (int)fresh_seeds.size()) {
+            candidate = fresh_seeds[seed_idx++];
+        } else {
+            candidate = random_sort(p, rng);
+        }
+        new_population.push_back(candidate);
+        new_schedules.push_back(counted_ssgs(p, candidate, schedule_count));
+        new_fitness.push_back(new_schedules.back().makespan);
+    }
+
+    population = std::move(new_population);
+    schedules = std::move(new_schedules);
+    fitness = std::move(new_fitness);
+
+    best_idx = 0;
+    worst_idx = 0;
+    for (int i = 1; i < pop_size; i++) {
+        if (fitness[i] < fitness[best_idx]) best_idx = i;
+        if (fitness[i] > fitness[worst_idx]) worst_idx = i;
+    }
+}
+
 // ── Run GA ──────────────────────────────────────────────────────────────────
 Schedule run_ga(const Problem& p,
                const std::vector<std::vector<int>>& initial_solutions,
@@ -239,14 +320,24 @@ Schedule run_ga(const Problem& p,
 
     int generations = 0;
     int last_improve_gen = 0;  // track when we last applied forward-backward
+    int restart_count = 0;
 
     // Main GA loop
     while (true) {
         // Check time budget
-        auto now = std::chrono::steady_clock::now();
-        double elapsed = std::chrono::duration<double>(now - start_time).count();
-        if (elapsed >= config.time_limit_seconds) break;
+        if (time_budget_exhausted(start_time, config.time_limit_seconds)) break;
         if (schedule_budget_exhausted(schedule_count, config.schedule_limit)) break;
+
+        if (config.restart_stagnation_generations > 0 &&
+            generations - last_improve_gen >= config.restart_stagnation_generations) {
+            restart_population(
+                p, population, schedules, fitness, config, rng,
+                schedule_count, best_idx, worst_idx);
+            last_improve_gen = generations;
+            restart_count++;
+            if (schedule_budget_exhausted(schedule_count, config.schedule_limit)) break;
+            if (time_budget_exhausted(start_time, config.time_limit_seconds)) break;
+        }
 
         // Periodically apply forward-backward improvement to best individual
         if (use_improvement && generations - last_improve_gen >= 50000) {
@@ -256,13 +347,7 @@ Schedule run_ga(const Problem& p,
                 schedules[best_idx] = improved;
                 fitness[best_idx] = improved.makespan;
                 // Update the activity list from the improved schedule
-                std::vector<int> new_order(p.n + 2);
-                std::iota(new_order.begin(), new_order.end(), 0);
-                std::sort(new_order.begin(), new_order.end(), [&](int a, int b) {
-                    if (improved.start_time[a] != improved.start_time[b])
-                        return improved.start_time[a] < improved.start_time[b];
-                    return a < b;
-                });
+                std::vector<int> new_order = order_from_schedule(p, improved);
                 population[best_idx] = std::move(new_order);
 
                 // Re-find worst
@@ -270,8 +355,8 @@ Schedule run_ga(const Problem& p,
                 for (int i = 1; i < pop_size; i++) {
                     if (fitness[i] > fitness[worst_idx]) worst_idx = i;
                 }
+                last_improve_gen = generations;
             }
-            last_improve_gen = generations;
         }
 
         // Select two parents
@@ -309,6 +394,7 @@ Schedule run_ga(const Problem& p,
             // Update best
             if (child_fitness < fitness[best_idx]) {
                 best_idx = worst_idx;
+                last_improve_gen = generations;
             }
 
             // Find new worst
@@ -332,7 +418,8 @@ Schedule run_ga(const Problem& p,
     }
 
     std::cerr << "GA: " << generations << " generations, " << schedule_count
-              << " schedules, best makespan: " << fitness[best_idx] << std::endl;
+              << " schedules, " << restart_count
+              << " restarts, best makespan: " << fitness[best_idx] << std::endl;
 
     return schedules[best_idx];
 }
