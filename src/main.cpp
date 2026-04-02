@@ -13,13 +13,19 @@
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Usage: solver <instance_file> [--time <seconds>] [--schedules <count>] [--mode baseline|priority|ga|full] [--rule lft|mts|grd|spt|random]" << std::endl;
+        std::cerr << "Usage: solver <instance_file> [--time <seconds>] [--schedules <count>] "
+                  << "[--restart-stagnation <gens>] [--restart-elites <count>] "
+                  << "[--mutation-rate <rate>] [--mode baseline|priority|ga|full] "
+                  << "[--rule lft|mts|grd|spt|random]" << std::endl;
         return 1;
     }
 
     // Parse command-line arguments
     double time_limit = 28.0;
     long long schedule_limit = 0;
+    int restart_stagnation = 100000;
+    int restart_elites = 10;
+    double mutation_rate = 0.3;
     std::string mode = "full";
     std::string rule = "";
     for (int i = 2; i < argc; i++) {
@@ -28,6 +34,15 @@ int main(int argc, char* argv[]) {
             i++;
         } else if (std::strcmp(argv[i], "--schedules") == 0 && i + 1 < argc) {
             schedule_limit = std::atoll(argv[i + 1]);
+            i++;
+        } else if (std::strcmp(argv[i], "--restart-stagnation") == 0 && i + 1 < argc) {
+            restart_stagnation = std::atoi(argv[i + 1]);
+            i++;
+        } else if (std::strcmp(argv[i], "--restart-elites") == 0 && i + 1 < argc) {
+            restart_elites = std::atoi(argv[i + 1]);
+            i++;
+        } else if (std::strcmp(argv[i], "--mutation-rate") == 0 && i + 1 < argc) {
+            mutation_rate = std::atof(argv[i + 1]);
             i++;
         } else if (std::strcmp(argv[i], "--mode") == 0 && i + 1 < argc) {
             mode = argv[i + 1];
@@ -81,6 +96,9 @@ int main(int argc, char* argv[]) {
         GAConfig config;
         config.time_limit_seconds = time_limit;
         config.schedule_limit = schedule_limit;
+        config.restart_stagnation_generations = restart_stagnation;
+        config.restart_elite_count = restart_elites;
+        config.mutation_rate = mutation_rate;
         best = run_ga(prob, initial, config, rng, false);
 
     } else {
@@ -89,6 +107,9 @@ int main(int argc, char* argv[]) {
         GAConfig config;
         config.time_limit_seconds = time_limit;
         config.schedule_limit = schedule_limit;
+        config.restart_stagnation_generations = restart_stagnation;
+        config.restart_elite_count = restart_elites;
+        config.mutation_rate = mutation_rate;
         best = run_ga(prob, initial, config, rng, true);
     }
 

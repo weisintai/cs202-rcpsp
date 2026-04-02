@@ -13,7 +13,7 @@ struct GAConfig {
     double mutation_rate = 0.3;
     double time_limit_seconds = 28.0;
     long long schedule_limit = 0;  // 0 means disabled
-    int restart_stagnation_generations = 200000;
+    int restart_stagnation_generations = 100000;
     int restart_elite_count = 10;
 };
 
