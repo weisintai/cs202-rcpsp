@@ -191,7 +191,7 @@ Representative outputs are written under:
 
 ## Updated Local J10/J20 Benchmark Status (5s timeout, --time 3, full pipeline)
 
-The instructor-updated local J10/J20 `.SCH` files now use a compact RCPSP-style format rather than the earlier lag-bearing assumption. A subset of them is infeasible as provided because at least one activity demand exceeds the declared capacity.
+The instructor-updated local J10/J20 `.SCH` files now use a compact RCPSP-style format rather than the earlier lag-bearing assumption. A subset of them is infeasible as provided because at least one activity demand exceeds the declared capacity; the benchmark harness now records these cases as `infeasible_input`.
 
 | Dataset | Instances | OK | Infeasible Input Files | Timeouts |
 |---------|-----------|----|------------------------|----------|

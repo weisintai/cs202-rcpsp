@@ -22,7 +22,7 @@ Schedule ssgs(const Problem& p, const std::vector<int>& activity_list) {
 
         for (int k = 0; k < p.K; k++) {
             if (p.resource[act][k] > p.capacity[k]) {
-                std::cerr << "Error: activity " << act
+                std::cerr << "INFEASIBLE: activity " << act
                           << " requires " << p.resource[act][k]
                           << " units of resource " << k
                           << " but capacity is only " << p.capacity[k]
@@ -49,7 +49,7 @@ Schedule ssgs(const Problem& p, const std::vector<int>& activity_list) {
         int t = es;
         while (true) {
             if (t + dur > horizon) {
-                std::cerr << "Error: no feasible placement found for activity "
+                std::cerr << "INFEASIBLE: no feasible placement found for activity "
                           << act << " within scheduling horizon" << std::endl;
                 std::exit(1);
             }

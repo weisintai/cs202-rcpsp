@@ -647,8 +647,12 @@ def benchmark_solver(args: argparse.Namespace) -> None:
             status = "timeout"
             status_detail = f"exceeded {args.timeout:.2f}s"
         elif return_code != 0:
-            status = "run_error"
-            status_detail = f"solver exited with code {return_code}"
+            if "INFEASIBLE:" in stderr_text:
+                status = "infeasible_input"
+                status_detail = stderr_text.strip().splitlines()[-1]
+            else:
+                status = "run_error"
+                status_detail = f"solver exited with code {return_code}"
         else:
             start_times, parse_error = parse_solver_output(instance, stdout_text)
             if start_times is None:

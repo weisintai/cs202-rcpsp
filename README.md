@@ -134,7 +134,7 @@ Datasets live under `datasets/psplib/` (`.sm` format) and `sm_j10/`, `sm_j20/` (
 
 Notes on the updated local `j10`/`j20` sets:
 - the solver supports both the older lag-bearing `.SCH` layout and the newer compact `.SCH` layout now present in this repo
-- some updated local `.SCH` instances are infeasible as provided because an activity demand exceeds the declared capacity
+- some updated local `.SCH` instances are infeasible as provided because an activity demand exceeds the declared capacity; the benchmark harness records these as `infeasible_input`
 - current `3s` full-pipeline benchmark status on the updated sets:
   - J10: `253/270` feasible runs, `17` infeasible input files
   - J20: `266/270` feasible runs, `4` infeasible input files
