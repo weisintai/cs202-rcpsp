@@ -75,7 +75,7 @@ static Schedule backward_ssgs(const Problem& p, const Schedule& fwd) {
 
     Schedule bwd;
     bwd.start_time = std::move(start_time);
-    bwd.makespan = bwd.start_time[p.n + 1];
+    bwd.makespan = makespan;
     return bwd;
 }
 

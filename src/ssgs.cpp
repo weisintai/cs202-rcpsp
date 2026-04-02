@@ -1,5 +1,7 @@
 #include "ssgs.h"
 #include <algorithm>
+#include <cstdlib>
+#include <iostream>
 
 Schedule ssgs(const Problem& p, const std::vector<int>& activity_list) {
     int total = p.n + 2;
@@ -18,6 +20,17 @@ Schedule ssgs(const Problem& p, const std::vector<int>& activity_list) {
     for (int act : activity_list) {
         int dur = p.duration[act];
 
+        for (int k = 0; k < p.K; k++) {
+            if (p.resource[act][k] > p.capacity[k]) {
+                std::cerr << "Error: activity " << act
+                          << " requires " << p.resource[act][k]
+                          << " units of resource " << k
+                          << " but capacity is only " << p.capacity[k]
+                          << std::endl;
+                std::exit(1);
+            }
+        }
+
         // Earliest start from precedence: max of all predecessor finish times
         int es = 0;
         for (int pred : p.predecessors[act]) {
@@ -35,6 +48,12 @@ Schedule ssgs(const Problem& p, const std::vector<int>& activity_list) {
         // for the entire duration [t, t + dur)
         int t = es;
         while (true) {
+            if (t + dur > horizon) {
+                std::cerr << "Error: no feasible placement found for activity "
+                          << act << " within scheduling horizon" << std::endl;
+                std::exit(1);
+            }
+
             bool feasible = true;
             for (int tau = t; tau < t + dur; tau++) {
                 for (int k = 0; k < p.K; k++) {
@@ -64,6 +83,9 @@ Schedule ssgs(const Problem& p, const std::vector<int>& activity_list) {
 
     Schedule sched;
     sched.start_time = std::move(start_time);
-    sched.makespan = sched.start_time[p.n + 1];
+    sched.makespan = 0;
+    for (int i = 0; i < total; i++) {
+        sched.makespan = std::max(sched.makespan, finish_time[i]);
+    }
     return sched;
 }

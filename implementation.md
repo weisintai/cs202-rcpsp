@@ -8,7 +8,10 @@
 
 ## Step 1: PSPLIB Parser
 
-- Parse both `.sm` (standard PSPLIB) and `.SCH` (ProGenMax) formats
+- Parse both `.sm` (standard PSPLIB) and `.SCH` formats
+- Support both `.SCH` variants seen in this project:
+  - older lag-bearing format with bracketed time lags
+  - updated compact RCPSP-style format used by the local J10/J20 sets
 - Extract: n, K, durations, resource requirements, successor lists, resource capacities
 - Build predecessor/successor adjacency lists
 - Handle dummy activities 0 and n+1 (zero duration, zero resources)
@@ -19,6 +22,7 @@
 - For each activity in list order: schedule at the earliest time where all predecessors are finished AND resource capacity is not exceeded at any timestep during the activity's execution
 - Track resource usage via a time-indexed array `usage[t][k]`
 - Output: start times for all activities, and the makespan
+- Define makespan as the true project finish time `max_i(start[i] + duration[i])`
 
 ## Step 3: Priority-Rule Initial Solutions
 
@@ -59,8 +63,8 @@
 ## Step 7: Testing & Benchmarking
 
 - Run on all 270 J10 instances and 270 J20 instances
-- Compare against known optimal/best-known values from PSPLIB
-- Compute average deviation from optimal
+- Compare against known optimal/best-known values from PSPLIB where reference tables are available
+- For the updated local J10/J20 `.SCH` sets, use the benchmark primarily for feasibility/runtime checking because the harness does not have built-in reference tables for them
 
 ## Step 8: Experiments for Report
 
@@ -90,4 +94,3 @@
 - **Best case:** loosely constrained instances (large resource capacity) — SSGS with LFT gives near-optimal in O(n² · K)
 - **Worst case:** tightly constrained instances where the GA must explore many generations — bounded by the 30-second time budget
 - **Empirical scaling:** measure wall-clock time vs n to show sub-linear growth relative to the budget
-

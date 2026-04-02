@@ -12,6 +12,14 @@ static std::string trim(const std::string& s) {
     return s.substr(a, b - a + 1);
 }
 
+static std::vector<std::string> split_ws(const std::string& s) {
+    std::istringstream iss(s);
+    std::vector<std::string> tokens;
+    std::string token;
+    while (iss >> token) tokens.push_back(token);
+    return tokens;
+}
+
 // ── Detect format ───────────────────────────────────────────────────────────
 // .sm files start with a line of asterisks; .SCH files start with integers.
 static bool is_sm_format(const std::string& first_line) {
@@ -137,32 +145,74 @@ static Problem parse_sch(std::ifstream& fin, const std::string& first_line) {
     p.predecessors.resize(total);
     p.capacity.resize(p.K, 0);
 
-    // Precedence section: one line per activity 0..n+1
-    // Format: activity_id  1  num_successors  succ1 succ2 ...  [lag1] [lag2] ...
+    // Precedence section: one line per activity 0..n+1.
+    //
+    // Old format:
+    //   activity_id  1  num_successors  succ1 succ2 ... [lag1] [lag2] ...
+    //
+    // Updated assignment format:
+    //   activity_id  num_successors  succ1 succ2 ...
+    //
     // Negative lags are maximal time lags (backward constraints) — skip for RCPSP.
     for (int i = 0; i < total; i++) {
         std::string line;
         if (!std::getline(fin, line)) break;
-        std::istringstream iss(line);
-        int act_id, modes, nsuc;
-        iss >> act_id >> modes >> nsuc;
+        auto tokens = split_ws(line);
+        if (tokens.empty()) continue;
+
+        int act_id = std::stoi(tokens[0]);
+        bool has_bracket_lag = false;
+        for (const auto& token : tokens) {
+            if (token.size() >= 2 && token.front() == '[' && token.back() == ']') {
+                has_bracket_lag = true;
+                break;
+            }
+        }
+
+        int nsuc = 0;
+        int succ_start = 0;
+        if (has_bracket_lag) {
+            nsuc = std::stoi(tokens[2]);
+            succ_start = 3;
+        } else if ((int)tokens.size() == 2 + std::stoi(tokens[1])) {
+            // New compact format: act_id nsuc succ...
+            nsuc = std::stoi(tokens[1]);
+            succ_start = 2;
+        } else if ((int)tokens.size() == 3 + std::stoi(tokens[2])) {
+            // Old format without explicit lag tokens.
+            nsuc = std::stoi(tokens[2]);
+            succ_start = 3;
+        } else if (tokens.size() >= 3 && std::stoi(tokens[1]) == 1) {
+            // Ambiguous short lines like "11 1 0" should still be treated as old.
+            nsuc = std::stoi(tokens[2]);
+            succ_start = 3;
+        } else {
+            std::cerr << "Error: unrecognised .SCH precedence line: " << line << std::endl;
+            std::exit(1);
+        }
+
         std::vector<int> succs(nsuc);
         for (int s = 0; s < nsuc; s++) {
-            iss >> succs[s];
+            succs[s] = std::stoi(tokens[succ_start + s]);
         }
-        // Read time lags in [value] format — only keep edges with lag >= 0
-        for (int s = 0; s < nsuc; s++) {
-            std::string token;
-            if (!(iss >> token)) {
-                // No lag info — treat as standard precedence
-                p.successors[act_id].push_back(succs[s]);
-                p.predecessors[succs[s]].push_back(act_id);
-                continue;
+
+        if (!has_bracket_lag) {
+            for (int succ : succs) {
+                p.successors[act_id].push_back(succ);
+                p.predecessors[succ].push_back(act_id);
             }
-            // Parse "[value]"
+            continue;
+        }
+
+        // Old lag-bearing format: only keep edges with lag >= 0.
+        int lag_start = succ_start + nsuc;
+        for (int s = 0; s < nsuc; s++) {
             int lag = 0;
-            if (token.front() == '[' && token.back() == ']') {
-                lag = std::stoi(token.substr(1, token.size() - 2));
+            if (lag_start + s < (int)tokens.size()) {
+                const std::string& token = tokens[lag_start + s];
+                if (token.size() >= 2 && token.front() == '[' && token.back() == ']') {
+                    lag = std::stoi(token.substr(1, token.size() - 2));
+                }
             }
             if (lag >= 0) {
                 p.successors[act_id].push_back(succs[s]);
@@ -171,17 +221,36 @@ static Problem parse_sch(std::ifstream& fin, const std::string& first_line) {
         }
     }
 
-    // Duration/resource section: one line per activity 0..n+1
-    // Format: activity_id  1  duration  r1 r2 ... rK
+    // Duration/resource section: one line per activity 0..n+1.
+    //
+    // Old format:
+    //   activity_id  1  duration  r1 r2 ... rK
+    //
+    // Updated assignment format:
+    //   activity_id  duration  r1 r2 ... rK
     for (int i = 0; i < total; i++) {
         std::string line;
         if (!std::getline(fin, line)) break;
-        std::istringstream iss(line);
-        int act_id, modes;
-        iss >> act_id >> modes;
-        iss >> p.duration[act_id];
+        auto tokens = split_ws(line);
+        if (tokens.empty()) continue;
+
+        int act_id = std::stoi(tokens[0]);
+        int dur_idx = -1;
+        int res_start = -1;
+        if ((int)tokens.size() == p.K + 2) {
+            dur_idx = 1;
+            res_start = 2;
+        } else if ((int)tokens.size() == p.K + 3) {
+            dur_idx = 2;
+            res_start = 3;
+        } else {
+            std::cerr << "Error: unrecognised .SCH duration/resource line: " << line << std::endl;
+            std::exit(1);
+        }
+
+        p.duration[act_id] = std::stoi(tokens[dur_idx]);
         for (int k = 0; k < p.K; k++) {
-            iss >> p.resource[act_id][k];
+            p.resource[act_id][k] = std::stoi(tokens[res_start + k]);
         }
     }
 

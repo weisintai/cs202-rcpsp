@@ -78,6 +78,8 @@ When `--rule` is set, the solver ignores `--mode` and `--time`, and produces a s
 - **stdout:** Start times for activities 1 through n, one integer per line
 - **stderr:** Feasibility check result and makespan
 
+The reported makespan is the true project finish time, i.e. the maximum finish time over all activities. On well-formed PSPLIB instances this is the same as the dummy-sink start time, but the true finish-time definition is more robust for local `.SCH` files where some terminal jobs may not be connected to the sink.
+
 ## Benchmarking
 
 Benchmark against PSPLIB instances with known optimal/best-known values:
@@ -115,18 +117,27 @@ Results are written to the output directory as `results.csv` (per-instance) and 
 - `gap_to_best_known_pct` — how far the makespan is above the best known value
 - `quality_vs_best_known_pct` — normalised score where 100% means matching the reference exactly
 
+For the local `j10` and `j20` datasets, the benchmark harness does not currently include best-known reference tables, so those runs are mainly used for feasibility, runtime, and raw makespan checking.
+
 ## Datasets
 
 | Dataset | Instances | Activities | Format |
 |---------|-----------|------------|--------|
-| J10 | 270 | 10 | `.SCH` (ProGenMax) |
-| J20 | 270 | 20 | `.SCH` (ProGenMax) |
+| J10 | 270 | 10 | `.SCH` (local compact RCPSP-style format) |
+| J20 | 270 | 20 | `.SCH` (local compact RCPSP-style format) |
 | J30 | 480 | 30 | `.sm` (PSPLIB) |
 | J60 | 480 | 60 | `.sm` (PSPLIB) |
 | J90 | 480 | 90 | `.sm` (PSPLIB) |
 | J120 | 600 | 120 | `.sm` (PSPLIB) |
 
 Datasets live under `datasets/psplib/` (`.sm` format) and `sm_j10/`, `sm_j20/` (`.SCH` format).
+
+Notes on the updated local `j10`/`j20` sets:
+- the solver supports both the older lag-bearing `.SCH` layout and the newer compact `.SCH` layout now present in this repo
+- some updated local `.SCH` instances are infeasible as provided because an activity demand exceeds the declared capacity
+- current `3s` full-pipeline benchmark status on the updated sets:
+  - J10: `253/270` feasible runs, `17` infeasible input files
+  - J20: `266/270` feasible runs, `4` infeasible input files
 
 ## Team
 

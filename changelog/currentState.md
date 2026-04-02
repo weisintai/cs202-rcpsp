@@ -1,28 +1,31 @@
 # Current Project State
 
-## Status: Step 8 In Progress — Experiments 1-4 Implemented, Biased Seeding Added
+## Status: Step 8 In Progress — Experiments 1-4 Implemented, Biased Seeding Added, Updated J10/J20 Support Added
 
 ## What's Done
 
 - Read and understood problem specification (Project.pdf)
-- Analysed input formats: `.sm` (standard PSPLIB) and `.SCH` (ProGenMax)
+- Analysed input formats: `.sm` (standard PSPLIB) and `.SCH`
 - Evaluated 3 algorithm candidates, selected Genetic Algorithm with SSGS decoder
 - Evaluated 3 language candidates, selected C++17
 - Wrote implementation plan (`implementation.md`) with 7 steps and complexity analysis
 - Documented C++ performance strategy (`cpp_performance.md`)
-- **Step 1 complete:** Parser handles both `.sm` and `.SCH` formats, tested on all 540 instances
-  - `.SCH` parser filters out negative time lags (max time lags) to produce a clean DAG
+- **Step 1 complete:** Parser handles `.sm` plus both `.SCH` variants used in this repo
+  - lag-bearing `.SCH` parser filters out negative time lags (max time lags) to produce a clean DAG
+  - compact `.SCH` parser supports the updated local J10/J20 assignment format
   - `.sm` parser reads section headers, precedence, durations, and resource capacities
   - Debug print to stderr, output to stdout
 - **Step 2 complete:** SSGS decoder + topological sort + feasibility validator
   - Kahn's algorithm topological sort with cycle-resilient fallback (forces lowest in-degree node when stalled)
   - `remove_back_edges()` cleans up cycle edges from predecessor/successor lists after topo sort
   - SSGS decodes an activity list into a schedule: flat resource profile `usage[t*K + k]`, early-break on resource conflict
+  - Makespan is now computed as the true project finish time (`max finish time`) rather than assuming the dummy sink always captures all terminal jobs
+  - SSGS now reports impossible single-activity resource demands cleanly instead of crashing
   - `validate()` checks both precedence and resource constraints independently of SSGS
-  - All 540 instances produce feasible schedules (0 violations)
+  - Standard `.sm` datasets validate cleanly; the updated local `.SCH` sets contain a small number of infeasible files
 - **Refactor:** Split monolithic `solver.cpp` into `src/` with separate files per concern
   - `types.h`, `parser.h/.cpp`, `graph.h/.cpp`, `ssgs.h/.cpp`, `validator.h/.cpp`, `main.cpp`
-  - Validated: all 540 .SCH + 480 J30 .sm instances pass (0 violations)
+  - Validated on standard `.sm` datasets plus the updated local `.SCH` sets
 
 - **Step 3 complete:** Priority-rule initial solution generators
   - 4 priority rules: LFT (latest finish time), MTS (most total successors), GRD (greatest resource demand), SPT (shortest processing time)
@@ -31,7 +34,7 @@
   - `generate_initial_solutions()` produces 4 rule-based + N random solutions
   - Main picks best of 24 candidates (4 rules + 20 random), significant makespan improvement
   - Sample: PSP1 J10 went from 33 (plain topo) to 25, PSP2 J10 from 51 to 46
-  - All 540 .SCH + 480 J30 .sm instances: 0 violations
+  - Standard `.sm` datasets validate cleanly; updated local `.SCH` datasets include a small number of infeasible input files
   - **Enhancement (weisintai):** Randomized biased seeding — replaces most pure-random initial seeds with LFT/MTS-biased randomized topological sorts. Of 20 random seeds: 10 LFT-biased, 6 MTS-biased, 4 pure random. Uses candidate pool of 3 (sample from top-3 eligible by priority). Motivated by experiment 4 results showing LFT and MTS are the strongest rules.
 
 - **Step 4 complete:** Genetic Algorithm
@@ -42,14 +45,14 @@
   - Steady-state replacement (replace worst if offspring is better)
   - 28-second time budget, ~8-17M generations on J10-J30
   - Improvements over Step 3: e.g. PSP100 J10: 43→39, PSP1 J20: 50→47
-  - All tested instances: 0 violations
+  - All tested feasible instances: 0 violations
 
 - **Step 5 complete:** Forward-backward improvement (double justification)
   - Backward SSGS: schedules activities as late as possible (latest-start times)
   - Forward re-pass: extracts new ordering from backward schedule, re-decodes with forward SSGS
   - Iterates up to 10 times until no improvement
   - Integrated into GA: applied to best individual every 50K generations + final pass
-  - All tested instances: 0 violations
+  - All tested feasible instances: 0 violations
 
 ## What's Next
 - **Step 8:** Run experiments 1-4 (see `experiments.md` for full plan)
@@ -68,8 +71,8 @@
 | `implementation.md` | Implementation plan and algorithm spec |
 | `cpp_performance.md` | C++ optimisation strategy and rationale |
 | `changelog/currentState.md` | This file — tracks where we are |
-| `sm_j10/` | J10 benchmark instances (270 .SCH files, ProGenMax format) |
-| `sm_j20/` | J20 benchmark instances (270 .SCH files, ProGenMax format) |
+| `sm_j10/` | J10 benchmark instances (270 `.SCH` files, updated compact RCPSP-style format) |
+| `sm_j20/` | J20 benchmark instances (270 `.SCH` files, updated compact RCPSP-style format) |
 | `datasets/psplib/j30/instances/` | J30 benchmark instances (480 .sm files) |
 | `datasets/psplib/j60/instances/` | J60 benchmark instances (480 .sm files) |
 | `datasets/psplib/j90/instances/` | J90 benchmark instances (480 .sm files) |
@@ -169,20 +172,40 @@
 
 **Key findings:** LFT is the strongest rule overall (best in 366/480 J30, 403/480 J60). MTS is second. GRD and SPT perform close to or worse than random. This motivated the biased seeding enhancement.
 
-## Latest Benchmark Results (5s timeout, --time 3, with biased seeding)
+## Latest Benchmark Results (3s safety sweep, biased seeding)
 
-All instances produce feasible schedules (0 violations across all datasets).
+The final `3s` safety sweep confirmed that the parser and makespan fixes do not change the main PSPLIB benchmark results.
 
-| Dataset | Instances | Valid | Optimal | Optimal % | Mean Gap | Max Gap | Mean Quality |
-|---------|-----------|-------|---------|-----------|----------|---------|--------------|
-| J30     | 480       | 480   | 373     | 77.7%     | 0.60%    | 8.62%   | 99.42%       |
-| J60     | 480       | 480   | 338     | 70.4%     | 1.71%    | 14.12%  | 98.40%       |
-| J90     | 480       | 480   | 340     | 70.8%     | 2.18%    | 15.65%  | 98.00%       |
-| J120    | 600       | 600   | 160     | 26.7%     | 6.06%    | 16.30%  | 94.48%       |
+| Dataset | Instances | Valid | Best-known Matches | Match % | Mean Gap | Max Gap | Mean Quality |
+|---------|-----------|-------|--------------------|---------|----------|---------|--------------|
+| J30     | 480       | 480   | 373                | 77.7%   | 0.67%    | 8.16%   | 99.35%       |
+| J60     | 480       | 480   | 334                | 69.6%   | 1.73%    | 11.36%  | 98.39%       |
+| J90     | 480       | 480   | 345                | 71.9%   | 2.08%    | 13.01%  | 98.09%       |
+| J120    | 600       | 600   | 161                | 26.8%   | 6.04%    | 21.43%  | 94.49%       |
+
+Representative outputs are written under:
+- `benchmark_results/safety_3s/j30/`
+- `benchmark_results/safety_3s/j60/`
+- `benchmark_results/safety_3s/j90/`
+- `benchmark_results/safety_3s/j120/`
+
+## Updated Local J10/J20 Benchmark Status (5s timeout, --time 3, full pipeline)
+
+The instructor-updated local J10/J20 `.SCH` files now use a compact RCPSP-style format rather than the earlier lag-bearing assumption. A subset of them is infeasible as provided because at least one activity demand exceeds the declared capacity.
+
+| Dataset | Instances | OK | Infeasible Input Files | Timeouts |
+|---------|-----------|----|------------------------|----------|
+| J10     | 270       | 253 | 17 | 0 |
+| J20     | 270       | 266 | 4  | 0 |
+
+Representative outputs are written under:
+- `benchmark_results/j10_updated_3s/`
+- `benchmark_results/j20_updated_3s/`
 
 ## Open Issues
 
-- **Cycle detection (partially resolved):** The `.SCH` parser filters out negative-lag edges, and the topological sort now has a cycle-resilient fallback that breaks remaining cycles. `remove_back_edges()` cleans up the graph afterwards. This handles all 540 test instances. However, there is no user-facing warning when cycles are detected and broken — consider adding a stderr warning. Does not affect `.sm` files (DAGs by definition).
+- **Cycle detection (partially resolved):** The lag-bearing `.SCH` parser filters out negative-lag edges, and the topological sort now has a cycle-resilient fallback that breaks remaining cycles. `remove_back_edges()` cleans up the graph afterwards. However, there is no user-facing warning when cycles are detected and broken — consider adding a stderr warning. Does not affect `.sm` files (DAGs by definition).
+- **Updated J10/J20 data quality:** 17 J10 files and 4 J20 files are infeasible as provided because an activity's demand exceeds the declared capacity. These are now reported cleanly as input errors rather than causing a crash.
 
 ## Decisions Log
 

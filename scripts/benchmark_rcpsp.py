@@ -350,9 +350,25 @@ def parse_sch_instance(path: Path) -> InstanceData:
     for line in precedence_lines:
         fields = line.split()
         act_id = int(fields[0])
-        successor_count = int(fields[2])
-        successor_ids = [int(value) for value in fields[3 : 3 + successor_count]]
-        lag_tokens = fields[3 + successor_count :]
+        has_bracket_lag = any(token.startswith("[") and token.endswith("]") for token in fields)
+
+        if has_bracket_lag:
+            successor_count = int(fields[2])
+            successor_start = 3
+        elif len(fields) >= 2 and len(fields) == 2 + int(fields[1]):
+            successor_count = int(fields[1])
+            successor_start = 2
+        elif len(fields) >= 3 and len(fields) == 3 + int(fields[2]):
+            successor_count = int(fields[2])
+            successor_start = 3
+        elif len(fields) >= 3 and int(fields[1]) == 1:
+            successor_count = int(fields[2])
+            successor_start = 3
+        else:
+            raise ValueError(f"unrecognised .SCH precedence line in {path.name}: {line!r}")
+
+        successor_ids = [int(value) for value in fields[successor_start : successor_start + successor_count]]
+        lag_tokens = fields[successor_start + successor_count :]
         for index, successor_id in enumerate(successor_ids):
             if index >= len(lag_tokens):
                 lag = 0
@@ -366,8 +382,17 @@ def parse_sch_instance(path: Path) -> InstanceData:
     for line in request_lines:
         fields = line.split()
         act_id = int(fields[0])
-        durations[act_id] = int(fields[2])
-        resources[act_id] = [int(value) for value in fields[3 : 3 + resource_count]]
+        if len(fields) == resource_count + 2:
+            duration_index = 1
+            resource_start = 2
+        elif len(fields) == resource_count + 3:
+            duration_index = 2
+            resource_start = 3
+        else:
+            raise ValueError(f"unrecognised .SCH duration/resource line in {path.name}: {line!r}")
+
+        durations[act_id] = int(fields[duration_index])
+        resources[act_id] = [int(value) for value in fields[resource_start : resource_start + resource_count]]
 
     capacities = [int(value) for value in capacity_line.split()[:resource_count]]
 
