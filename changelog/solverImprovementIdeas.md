@@ -156,6 +156,39 @@ Why it matters for us:
 Reference:
 - Recent RCPSP paper discussing exploration challenges: <https://www.sciencedirect.com/science/article/pii/S0020025523007491>
 
+### 5. What the strongest RCPSP heuristics still do better
+
+What the literature suggests we are still missing is not a different backbone, but stronger hybridisation around the same backbone.
+
+Main ideas to learn from:
+
+- **Exploit more than just the single current best**
+  - strong hybrids often improve many generated schedules or selected elites, not only the current best individual
+  - this is one reason they push harder on large instances
+
+- **Use elite-guided search, not only random mutation**
+  - path relinking and related elite-to-elite search repeatedly appear in strong RCPSP methods
+  - the key idea is to move between good solutions in a structured way instead of relying only on random local moves
+
+- **Use more problem-specific recombination**
+  - very strong RCPSP methods do not stop at generic one-point crossover
+  - they preserve more useful scheduling structure when combining parents
+
+- **Adapt search behaviour when progress stalls**
+  - stronger methods often change how they search as stagnation appears
+  - in our solver this would mean adaptive restart or mutation policy rather than fixed parameters forever
+
+### If we ever want to push the solver further
+
+The highest-value next ideas from the literature would likely be:
+
+1. **Path relinking between elite schedules**
+2. **Cheap deterministic improvement on selected offspring or elites**
+3. **Adaptive restart / mutation control**
+4. **A more RCPSP-aware crossover**
+
+These are the main lessons from the strongest non-library RCPSP heuristics. They do not suggest abandoning activity lists or serial `SSGS`; they suggest building a stronger hybrid around them.
+
 ### 4. Stronger experimental protocol exists in the RCPSP literature
 
 What it says:
