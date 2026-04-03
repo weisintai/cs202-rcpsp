@@ -124,6 +124,27 @@ Activity 6 → Activity 4   lag [0]  ← passes lag filter (non-negative)
 
 After topological sort places 4 before 6, `remove_back_edges` removes the `6→4` edge.
 
+**Example:**
+
+```
+Before topological sort:
+
+    0 ──→ 1 ──→ 3 ──→ 5
+    │           ↑     │
+    └──→ 2 ──→ 4 ←───┘    ← back edge 5→4 forms cycle 4→3→5→4
+          ↑     │
+          └─────┘          ← back edge 4→2 forms cycle 2→4→2
+
+Topological sort forces an order:  [0, 1, 2, 4, 3, 5]
+
+remove_back_edges() checks each successor:
+  - edge 5→4:  pos[4]=3, pos[5]=5  →  pos[4] < pos[5]  →  KEEP
+    (wait — 5→4 means successor is 4, pos[4]=3 ≤ pos[5]=5?  No: pos[succ] ≤ pos[src] means backward)
+    Actually: pos[4]=3 < pos[5]=5  →  pos[succ] < pos[src]  →  backward  →  REMOVE
+
+After cleanup:  clean DAG, no cycles
+```
+
 **Reference:** `src/graph.h`, `src/graph.cpp` — `remove_back_edges()`
 
 ---
@@ -143,7 +164,37 @@ After topological sort places 4 before 6, `remove_back_edges` removes the `6→4
 
 **How it works:** Modified Kahn's algorithm using a min-heap. Among all activities with in-degree 0 (precedence-eligible), the one with the lowest priority value is dequeued first. This biases the topological order without violating precedence.
 
+```
+Example: LFT-biased sort on a 6-activity graph
+
+Precedence:  0 → {1,2},  1 → {3},  2 → {3,4},  3 → {5},  4 → {5},  5 → {6}
+LFT values:  0:2  1:8  2:6  3:10  4:9  5:12  6:12
+
+Step 1:  eligible = {0}           → pick 0 (only choice)
+Step 2:  eligible = {1, 2}        → pick 2 (LFT=6 < LFT=8)
+Step 3:  eligible = {1, 4}        → pick 1 (LFT=8 < LFT=9)
+Step 4:  eligible = {3, 4}        → pick 4 (LFT=9 < LFT=10)
+Step 5:  eligible = {3}           → pick 3
+Step 6:  eligible = {5}           → pick 5
+Step 7:  eligible = {6}           → pick 6
+
+Result: [0, 2, 1, 4, 3, 5, 6]  (tighter-deadline activities scheduled first)
+```
+
 **Randomized biased sort:** A variant that samples uniformly from the top N eligible activities (candidate pool size 3) instead of always taking the single best. This produces diverse orderings that are still guided by the priority heuristic.
+
+```
+Same example with candidate_pool = 3:
+
+Step 2:  eligible sorted by LFT = {2(6), 1(8)}
+         pool = top 2 (pool capped at eligible size)
+         randomly pick from {2, 1}  →  could pick either
+
+Step 3:  eligible sorted = {1(8), 4(9)}
+         randomly pick from {1, 4}  →  could pick either
+
+Each run produces a different ordering, but still biased toward low-LFT activities.
+```
 
 **Biased seeding:** Of the 20 additional seeds beyond the 4 deterministic rules:
 - 10 use randomized LFT-biased sort (50%)
@@ -163,6 +214,19 @@ This allocation is motivated by experiment results showing LFT and MTS are the s
 The priority values for LFT and MTS are computed once via `compute_priority_values()` and reused across all biased seeds.
 
 These 24 seeds are used to initialize the GA population in `full` mode (remaining 76 slots are filled with `random_sort()` permutations inside the GA).
+
+```
+GA Population (100 individuals)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ LFT│ MTS│ GRD│ SPT│  10x LFT-biased   │ 6x MTS-biased  │ 4x  │              │
+│ det│ det│ det│ det│  randomized       │ randomized     │rand │  76x random  │
+│  1 │  2 │  3 │  4 │  5 ──────── 14    │ 15 ────── 20   │21─24│  25 ─── 100  │
+├────┴────┴────┴────┼───────────────────┴────────────────┴─────┼──────────────┤
+│  4 deterministic  │       20 guided/random seeds             │  GA random   │
+│  priority rules   │    (from generate_initial_solutions)     │    fill      │
+└───────────────────┴──────────────────────────────────────────┴──────────────┘
+                    ◄─── generate_initial_solutions(p, 20) ───►◄── run_ga ──►
+```
 
 In `priority` mode, the same 24 seeds are each decoded with SSGS and the best schedule is kept (no GA).
 
@@ -187,6 +251,41 @@ For each activity in list order:
 **Early break optimisation:** When checking resource feasibility at timestep `tau`, if any single resource k exceeds capacity, immediately break and jump to `tau + 1` as the next candidate start time. No need to check remaining resources or remaining timesteps in that window.
 
 **Output:** A `Schedule` struct containing start times for all activities and the makespan.
+
+**Example:** Scheduling 3 activities with 1 resource (capacity = 5):
+
+```
+Activity list: [0, A, B, C, 5]     durations: A=3, B=2, C=2
+Resource demands:  A=3, B=3, C=2    capacity = 5
+Precedence: 0→A, 0→B, A→C, B→C
+
+Schedule A:  es=0 (pred 0 finishes at 0), resources fit → start at t=0
+  time:  0  1  2  3  4  5  6
+  usage: 3  3  3  .  .  .  .
+
+Schedule B:  es=0, but check resources:
+  t=0: usage[0]+3 = 6 > 5  ✗  → try t=1
+  t=1: usage[1]+3 = 6 > 5  ✗  → try t=2
+  t=2: usage[2]+3 = 6 > 5  ✗  → try t=3
+  t=3: usage[3]+3 = 3 ≤ 5  ✓  check t=4: 0+3 = 3 ≤ 5  ✓  → start at t=3
+  time:  0  1  2  3  4  5  6
+  usage: 3  3  3  3  3  .  .
+
+Schedule C:  es = max(finish[A], finish[B]) = max(3, 5) = 5  → start at t=5
+  time:  0  1  2  3  4  5  6
+  usage: 3  3  3  3  3  2  2
+
+  Resource profile (capacity=5):
+  5 │ ■ ■ ■ ■ ■ . .
+  4 │ ■ ■ ■ ■ ■ . .
+  3 │ A A A B B . .
+  2 │ A A A B B C C
+  1 │ A A A B B C C
+  0 ┼───────────────→ time
+    0 1 2 3 4 5 6
+
+Makespan = max(finish[C]) = 7
+```
 
 **Makespan definition:** The solver now uses the **true project finish time**, i.e. the maximum finish time over all activities, rather than assuming the dummy sink always captures every terminal job. On clean PSPLIB `.sm` instances these are equivalent, but the explicit finish-time definition is safer for the local `.SCH` sets.
 
@@ -219,6 +318,59 @@ All 100 individuals are decoded with SSGS to compute initial fitness. Best and w
 
 **Main loop** (one generation = one offspring attempt):
 
+```
+                    ┌────────────────────────-─┐
+                    │   Budget exhausted?      │──── yes ──→ Final FBI → Return best
+                    └────────┬────────────────-┘
+                             │ no
+                             ▼
+                    ┌─────────────────────────┐
+                    │ Stagnation ≥ 100k gens? │──── yes ──→ Restart population
+                    └────────┬────────────────┘            (keep elites, refresh rest)
+                             │ no
+                             ▼
+                    ┌─────────────────────────┐
+                    │ Stagnation ≥ 50k gens?  │──── yes ──→ Apply FBI to best
+                    │  (use_improvement=true) │            (reset counter if improved)
+                    └────────┬────────────────┘
+                             │
+                             ▼
+               ┌──────────────────────────────┐
+               │  Tournament select 2 parents │
+               └──────────────┬───────────────┘
+                              ▼
+               ┌──────────────────────────────┐
+               │  Crossover (rate 0.9)        │
+               │  or copy parent 1            │
+               └──────────────┬───────────────┘
+                              ▼
+               ┌──────────────────────────────┐
+               │  Mutation (rate 0.3)         │
+               │  swap / long-swap / insert   │
+               └──────────────┬───────────────┘
+                              ▼
+               ┌──────────────────────────────┐
+               │  Duplicate in population?    │──── yes ──→ Perturb up to 3x
+               └──────────────┬───────────────┘            (discard if still dup)
+                              │ unique
+                              ▼
+               ┌──────────────────────────────┐
+               │  Decode with SSGS            │
+               └──────────────┬───────────────┘
+                              ▼
+               ┌──────────────────────────────┐
+               │  Better than worst?          │──── no ──→ next generation
+               └──────────────┬───────────────┘
+                              │ yes
+                              ▼
+               ┌──────────────────────────────┐
+               │  Replace worst, update       │
+               │  best/worst indices          │
+               └──────────────┬───────────────┘
+                              │
+                              └──→ next generation
+```
+
 Each generation proceeds as follows:
 
 1. **Budget check:** Exit if wall-clock time or schedule-generation limit is exhausted.
@@ -236,10 +388,37 @@ Each generation proceeds as follows:
    - The result is always a valid permutation. Precedence feasibility is preserved because parent 2's relative order respects precedence.
    - If crossover doesn't fire, the offspring is a copy of parent 1.
 
+   ```
+   Parent 1:  [0, 2, 1, 4, 3, 5, 6]
+   Parent 2:  [0, 1, 3, 2, 4, 5, 6]
+                        ↑ cut = 3
+
+   Child prefix (from P1):   [0, 2, 1, _, _, _, _]
+   Already in child:          {0, 2, 1}
+
+   Scan P2 for remaining:     0(skip) 1(skip) 3(add) 2(skip) 4(add) 5(add) 6(add)
+
+   Child:                     [0, 2, 1, 3, 4, 5, 6]
+   ```
+
 6. **Mutation (rate 0.3):** One random neighborhood move, chosen uniformly from three operators:
    - **Adjacent swap:** pick a random adjacent pair, swap if precedence still holds (up to 3 attempts)
    - **Non-adjacent feasible swap:** pick two non-adjacent positions (skipping dummy source/sink), swap if precedence still holds (up to 5 attempts)
    - **Bidirectional insertion:** pick an activity (skipping dummies), compute its valid insertion interval via `insertion_bounds()`, move it to a random valid target position (up to 5 attempts)
+
+   ```
+   Original:           [0, 2, 1, 4, 3, 5, 6]
+
+   Adjacent swap (i=2):
+     swap pos 2 & 3:   [0, 2, 4, 1, 3, 5, 6]   ← if precedence OK
+
+   Non-adjacent swap (i=1, j=4):
+     swap pos 1 & 4:   [0, 3, 1, 4, 2, 5, 6]   ← if precedence OK
+
+   Insertion (from=4, to=2):
+     remove pos 4:     [0, 2, 1, 4, _, 5, 6]
+     insert at pos 2:  [0, 2, 3, 1, 4, 5, 6]   ← within valid bounds [lo, hi]
+   ```
 
 7. **Duplicate rejection:** Compute the offspring's fingerprint. If it already exists in the population, apply up to 3 extra `perturb_once` perturbation attempts to escape the duplicate. If all 3 fail, discard the offspring and advance to the next generation.
 
@@ -255,6 +434,23 @@ When triggered, the restart procedure:
 4. Fill remaining slots with `random_sort()` permutations
 5. All new members are deduplicated and decoded with SSGS
 6. Rebuild best/worst indices and the population fingerprint set
+
+```
+Before restart (stagnated population):
+┌─────────────────────────────────────────────────────────────-┐
+│ converged / similar individuals .... many near-duplicates    │
+│  best ◄──────── mediocre ──────────────────────► worst       │
+└──────────────────────────────────────────────────────────────┘
+
+After restart:
+┌────────────┬────────────────────┬─────────────────────────────┐
+│ 10 elites  │ 24 fresh guided    │ 66 fresh random             │
+│ (kept)     │ seeds              │ permutations                │
+├────────────┼────────────────────┼─────────────────────────────┤
+│ preserved  │ LFT/MTS-biased     │ new diversity               │
+│ best known │ + deterministic    │                             │
+└────────────┴────────────────────┴─────────────────────────────┘
+```
 
 **Final pass:** After the main loop exits, if `use_improvement` is enabled and the schedule budget is not exhausted, apply one final forward-backward improvement to the best individual.
 
@@ -286,6 +482,29 @@ The schedule-budget mode counts `SSGS` decodes (via `counted_ssgs()`) and is mai
 
 **Why it works:** The backward pass pushes activities to the right (as late as possible), then the forward pass compresses them to the left (as early as possible). This "breathing" motion closes resource gaps that the original schedule left open, often shaving 1-3 time units off the makespan.
 
+```
+Forward schedule (original):          Makespan = 10
+  A: ████░░░░░░      (t=0..3)
+  B: ░░░░████░░      (t=4..7)       ← gap at t=3 before B
+  C: ░░░░░░░░██      (t=8..9)
+     0123456789
+
+Backward pass (schedule as late as possible):
+  C: ░░░░░░░░██      (t=8..9)       ← stays
+  B: ░░░░░░████      (t=6..9)       ← pushed right
+  A: ░░░░░████░      (t=5..7)       ← pushed right
+
+Extract order from backward start times: [C, B, A] → sorted ascending: [A, B, C]
+
+Forward pass (re-decode with new order):    Makespan = 9
+  A: ████░░░░░        (t=0..3)
+  B: ░░░████░░        (t=3..6)      ← gap closed, B starts right after A
+  C: ░░░░░░███        (t=6..8)
+     012345678
+
+Improvement: 10 → 9  (saved 1 time unit)
+```
+
 **Reference:** `src/improvement.h`, `src/improvement.cpp`
 
 ---
@@ -316,4 +535,17 @@ Prints start times for activities 1 through n (one integer per line) to stdout. 
 
 The current solver pipeline is: Parse → Graph Cleanup → Guided Seed Generation (LFT/MTS-biased + random) → GA with SSGS decoder + Restart-on-Stagnation + Duplicate-Aware Diversity Control + Periodic Forward-Backward Improvement → Final FBI Pass → Validate → Output.
 
-CLI modes bypass parts of this pipeline: `baseline` uses only random sort + SSGS, `priority` uses guided seeds + SSGS (no GA), `ga` uses random seeds + GA (no FBI), and `full` runs the complete pipeline. The `--rule` flag runs a single priority sort + SSGS and exits.
+```
+CLI mode pipeline comparison:
+
+--rule <r>:   Parse → Graph → 1 priority sort → SSGS → Validate → Output
+
+--mode baseline: Parse → Graph → 1 random sort → SSGS → Validate → Output
+
+--mode priority: Parse → Graph → 24 guided seeds → SSGS each → best → Validate → Output
+
+--mode ga:    Parse → Graph → 20 random seeds → GA (no FBI) → Validate → Output
+
+--mode full:  Parse → Graph → 24 guided seeds → GA + FBI + restart → Validate → Output
+              (default)
+```
