@@ -15,9 +15,9 @@ Imagine managing a construction project where plumbing, electrical work, structu
 
 In RCPSP, each activity has a duration, a set of predecessor constraints, and a fixed demand for each renewable resource type. The goal is to assign a start time to every activity so that all precedence and resource constraints are respected while the final completion time, or makespan, is as small as possible. The assignment also adds a practical constraint: the solver must always return a valid schedule within a strict 30-second wall-clock budget per instance. That changes the nature of the task. We are not trying to prove optimality on every instance. We are trying to find strong schedules quickly and reliably.
 
-We approached the problem with a hybrid solver built around three ideas. First, we represent a candidate schedule as an activity list, then decode it with a Serial Schedule Generation Scheme (SSGS) [2]. Second, we seed the search with priority-rule heuristics instead of starting entirely from random permutations. Third, we refine those candidates with a genetic algorithm (GA) [3] and a forward-backward improvement pass. This combination gave us a solver that remained valid on all PSPLIB benchmark instances [1] we tested and produced strong makespans within short time budgets.
+We approached the problem with a hybrid solver built around three ideas. First, we represent a candidate schedule as an activity list, then decode it with a Serial Schedule Generation Scheme (SSGS) [2]. Second, we seed the search with priority-rule heuristics instead of starting entirely from random permutations. Third, we refine those candidates with a genetic algorithm (GA) [3] and a forward-backward improvement pass. This combination gave us a solver that remained valid on the provided `J10` and `J20` sets as well as the larger PSPLIB benchmark instances [1], and produced strong makespans within short time budgets.
 
-Our main quantitative result came from the 3-second benchmark sweep on the PSPLIB datasets. Using the final frozen solver line, we matched the best-known makespan on 427 of 480 `J30` instances, 351 of 480 `J60` instances, 350 of 480 `J90` instances, and 167 of 600 `J120` instances. Mean quality relative to the best-known value remained high across all four datasets: `99.767%` on `J30`, `98.798%` on `J60`, `98.336%` on `J90`, and `95.058%` on `J120`. The trend is clear: the solver handles small and medium instances very well, but the gap widens as the instances become larger and more constrained.
+We first used the provided `J10` and `J20` datasets to verify parsing, schedule validity, and runtime behaviour. Our main quantitative result then came from the 3-second benchmark sweep on the larger PSPLIB datasets. Using the final frozen solver line, we matched the best-known makespan on 427 of 480 `J30` instances, 351 of 480 `J60` instances, 350 of 480 `J90` instances, and 167 of 600 `J120` instances. Mean quality relative to the best-known value remained high across all four datasets: `99.767%` on `J30`, `98.798%` on `J60`, `98.336%` on `J90`, and `95.058%` on `J120`. The trend is clear: the solver handles small and medium instances very well, but the gap widens as the instances become larger and more constrained.
 
 ## 2. Algorithm design
 
@@ -190,7 +190,21 @@ This section follows the same structure throughout: what question we asked, how 
 
 For the final report, the main claims should come from wall-clock runs because the assignment itself is judged under a hard time limit. During development, however, we also used a fixed **schedule-generation budget** with `--schedules <count>` to compare solver changes more fairly. That reduced the noise from raw machine speed and let us ask a cleaner question: if two variants are allowed to generate the same number of schedules, which one actually searches better?
 
-### 4.1 Experiment 1: algorithm component ablation
+We also separate the role of the datasets. The provided `J10` and `J20` instances were our first validation target, as intended by the project brief: we used them to check parser support, feasibility, and basic runtime behaviour. The main quality comparisons in this report focus on `J30` to `J120`, where the benchmark harness includes consistent reference makespans and the larger instances give a stronger picture of how well the solver generalises beyond the easiest provided cases.
+
+### 4.1 Validation on the provided `J10` and `J20` sets
+
+We did not ignore the datasets provided directly in the assignment. We used `J10` first for correctness checking and `J20` next for slightly harder stress testing, which is exactly the progression suggested in the project brief.
+
+In this repository, the local updated `J10` and `J20` sets are most useful for three things:
+
+- checking that the solver supports the local `.SCH` format as well as standard `.sm`
+- confirming that the decoder and validator produce feasible schedules
+- checking that the solver behaves sensibly on small instances before we move to larger PSPLIB benchmarks
+
+Under a 3-second budget, the solver completed `253/270` feasible `J10` runs and `266/270` feasible `J20` runs. The remaining files in the updated local sets were infeasible as provided because at least one activity demanded more of a resource than the declared capacity. That is why these two datasets appear in the report mainly as validation evidence rather than as the main makespan-quality benchmark.
+
+### 4.2 Experiment 1: algorithm component ablation
 
 The first experiment asked a simple question: how much does each major component actually contribute? We compared four configurations on `J30` and `J60`:
 
@@ -214,7 +228,7 @@ Adding the GA brings another large improvement. On `J60`, the mean gap falls fro
 
 This experiment justified the main solver design. We kept components that produced a measurable gain and dropped the idea that every extra layer was automatically worth its cost.
 
-### 4.2 Experiment 2: scaling across instance sizes
+### 4.3 Experiment 2: scaling across instance sizes
 
 The second experiment measured how the final solver degrades as the instances get larger. This is the main report-facing benchmark because it uses the same 3-second wall-clock budget across `J30`, `J60`, `J90`, and `J120`.
 
@@ -233,7 +247,7 @@ The trend is exactly what we would expect from a time-budgeted heuristic solver.
 
 This tells us where the solver is actually strong. It is especially strong on small and medium instances, still competitive on `J90`, and clearly under more pressure on `J120`. That is a more honest picture than a single aggregate score would give.
 
-### 4.3 Experiment 3: time-budget sensitivity
+### 4.4 Experiment 3: time-budget sensitivity
 
 The third experiment asks whether the solver behaves like a useful anytime algorithm. We tested `1s`, `3s`, `10s`, and `28s` budgets on `J30` and `J60`.
 
@@ -252,7 +266,7 @@ The trend is clean and monotone on both datasets. On `J30`, the best-known match
 
 This is the anytime behaviour we wanted to show. More time consistently improves the average result, but the size of the gain changes. The jump from `1s` to `3s` is noticeable, and the later gains from `10s` to `28s` are smaller. That suggests the solver uses extra time productively, but also begins to flatten out once the easier improvements have already been found.
 
-### 4.4 Experiment 4: priority-rule comparison
+### 4.5 Experiment 4: priority-rule comparison
 
 The fourth experiment compares the four standalone priority rules plus a random control. This was not meant to beat the full solver. It was meant to tell us which scheduling intuitions were worth building into the initial population.
 
@@ -275,7 +289,7 @@ The result is clear. `LFT` is the strongest rule on both datasets, and `MTS` is 
 
 This experiment directly influenced the final solver. Instead of treating all rules equally, we biased the initial population toward randomized `LFT`- and `MTS`-based seeds. The goal was to keep diversity while starting the GA from stronger parts of the search space.
 
-### 4.5 Refinement history
+### 4.6 Refinement history
 
 The four experiments above explain the main architecture, but they do not show how the final frozen solver line was reached. We therefore kept a small refinement log in `benchmark_results/`.
 
@@ -289,8 +303,6 @@ One example is restart tuning on `J90` at 3 seconds:
 This shows the sort of tuning we actually trusted: changes that improved the canonical 3-second benchmark on hard instances without changing the core design. We also explored a separate multithreading branch later in the project. That branch increased schedule throughput and motivated a follow-up search-quality experiment, but we kept it out of the frozen submission because the threading and search changes landed together and were harder to attribute cleanly.
 
 Several of these tuning steps were first checked under a fixed schedule budget before we reran them under the normal wall-clock benchmark. That gave us a fairer algorithm comparison. If one version only looks better because it generates more schedules per second, that is an implementation-speed result, not necessarily a search-quality result.
-
-Finally, we checked the local updated `J10` and `J20` `.SCH` sets mainly for parser support and feasibility handling. Under a 3-second budget, the solver completed `253/270` feasible `J10` runs and `266/270` feasible `J20` runs. The remaining files in those updated sets were infeasible as provided because some activities demanded more resources than the declared capacity.
 
 ## 5. Discussion
 
