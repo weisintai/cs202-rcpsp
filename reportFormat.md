@@ -31,7 +31,7 @@
 - 4.3 Experiment 3: Time budget sensitivity — anytime property
 - 4.4 Experiment 4: Priority rule comparison — which heuristic works best
 - Each experiment includes: setup, results table/chart, brief analysis
-- J10 and J20 results to be added once details are clarified
+- J10 and J20 can be discussed briefly for parser support and feasibility/runtime status, but the main quality comparisons should focus on PSPLIB datasets where reference values are available
 
 ## 5. Discussion (1-1.5 pages)
 
@@ -51,5 +51,5 @@
 
 - Target: ~7-9 pages within the 6-10 range
 - Pseudocode required in algorithm design section
-- Experiments must include J10 and J20 vs best known values (pending)
-- Datasets: J30-J120 from PSPLIB with reference values, J10/J20 from assignment
+- Use J30-J120 as the main quantitative benchmark set because the harness includes PSPLIB reference values there
+- Use J10/J20 mainly as assignment-format support and feasibility/runtime evidence unless separate reference tables are added
