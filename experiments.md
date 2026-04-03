@@ -113,11 +113,13 @@ This is the default workflow to use when evaluating future solver changes.
    - use regression sets or difficult subsets before any full sweep
 4. **Full `3s` wall-clock run**
    - use only for changes that already look promising
+   - for cleaner report-facing numbers, run datasets sequentially rather than through a parallel convenience wrapper
 5. **Long-budget confirmation**
    - use `10s` or `28s` only for candidate changes that survive the `3s` comparison
 
 Use wall-clock runs for the report and assignment-facing claims.
 Use schedule-budget runs for internal A/B testing and search-method comparisons.
+For report-quality wall-clock numbers, prefer running datasets sequentially; the parallel helper scripts are primarily convenience wrappers for bulk reruns.
 
 ---
 

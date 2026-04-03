@@ -126,6 +126,10 @@ For the local `j10` and `j20` datasets, the benchmark harness does not currently
 
 For internal solver development, the binary also supports `--schedules <count>` as an alternative stopping rule. This counts `SSGS` schedule generations inside the GA and is useful for algorithm-to-algorithm comparison because it is less sensitive to machine speed than wall-clock time. The final project report should still use wall-clock budgets because the assignment itself has a time requirement.
 
+The convenience scripts under `experiments/` often launch multiple benchmark jobs in parallel. That is useful for throughput, but it adds noise to wall-clock-limited runs because datasets compete for CPU time. For report-quality reruns, prefer calling `scripts/benchmark_rcpsp.py run` directly and run datasets sequentially.
+
+Canonical current-best `3s` benchmark artifacts live under `benchmark_results/restart_tuning_3s/`. The per-experiment `results/` folders are working outputs and may be overwritten by later reruns.
+
 ### Recommended workflow after solver changes
 
 Use this order when testing a new solver idea:

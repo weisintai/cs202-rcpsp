@@ -37,6 +37,16 @@ make
 ./experiments/experiment2/scripts/run_scaling.sh
 ```
 
+For report-facing wall-clock numbers, a sequential run is more defensible than the parallel wrapper because it avoids cross-dataset CPU contention:
+
+```bash
+python3 scripts/benchmark_rcpsp.py run --dataset j30 --solver ./experiments/experiment2/scripts/solver_full.sh --timeout 5 --output-dir benchmark_results/seq_3s_j30
+python3 scripts/benchmark_rcpsp.py run --dataset j60 --solver ./experiments/experiment2/scripts/solver_full.sh --timeout 5 --output-dir benchmark_results/seq_3s_j60
+python3 scripts/benchmark_rcpsp.py run --dataset j90 --solver ./experiments/experiment2/scripts/solver_full.sh --timeout 5 --output-dir benchmark_results/seq_3s_j90
+python3 scripts/benchmark_rcpsp.py run --dataset j120 --solver ./experiments/experiment2/scripts/solver_full.sh --timeout 5 --output-dir benchmark_results/seq_3s_j120
+```
+
 ## Results
 
-Stored in `results/` as `<dataset>/summary.json` and `results.csv`.
+Canonical current-best `3s` wall-clock results are stored under `benchmark_results/restart_tuning_3s/`.
+The local `results/` directory is a convenient rerun target and may be overwritten during new experiments.

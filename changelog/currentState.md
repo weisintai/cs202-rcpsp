@@ -1,6 +1,6 @@
 # Current Project State
 
-## Status: Step 8 In Progress — Experiments 1-4 Implemented, Biased Seeding Added, Neighborhood Upgrade Added, Restart-on-Stagnation Added, Duplicate-Aware Diversity Control Added, Updated J10/J20 Support Added
+## Status: Implementation Complete; Report Prep and Documentation Cleanup
 
 ## What's Done
 
@@ -8,7 +8,7 @@
 - Analysed input formats: `.sm` (standard PSPLIB) and `.SCH`
 - Evaluated 3 algorithm candidates, selected Genetic Algorithm with SSGS decoder
 - Evaluated 3 language candidates, selected C++17
-- Wrote implementation plan (`implementation.md`) with 7 steps and complexity analysis
+- Wrote implementation notes (`implementation.md`) with 8 steps and complexity analysis
 - Documented C++ performance strategy (`cpp_performance.md`)
 - **Step 1 complete:** Parser handles `.sm` plus both `.SCH` variants used in this repo
   - lag-bearing `.SCH` parser filters out negative time lags (max time lags) to produce a clean DAG
@@ -65,22 +65,16 @@
   - these optimisations improved the diversity-control `J90` schedule-budget run by roughly `20%` to `25%` wall-clock while preserving the same strong quality pattern
 
 ## What's Next
-- **Step 8:** Run experiments 1-4 (see `experiments.md` for full plan)
-  - Experiment 1: Algorithm component ablation
-  - Experiment 2: Scaling across instance sizes (partially done — 3s results collected)
-  - Experiment 3: Time budget sensitivity
-  - Experiment 4: Priority rule comparison
-- **Re-benchmark:** Re-run experiments 1-4 with biased seeding to get before/after comparison
-- **Tighter internal protocol:** Add an optional schedule-budget stopping rule so algorithm comparisons can be made by number of generated schedules, not only wall-clock
-- **Next search direction decision:** Tune the current GA line further (for example elite count / mutation rate) using the schedule-budget workflow on targeted subsets before any full-sweep rerun
-- **Report:** Write 6-10 page report using experiment results (35% of grade)
-- **Slides:** Create 8-12 slide presentation (25% of grade)
+- Freeze the current default solver line unless a clearly better schedule-budget result survives a sequential `3s` rerun.
+- Consolidate report-ready figures and tables around the canonical benchmark artifacts in `benchmark_results/`.
+- Use sequential wall-clock reruns for any final report-facing benchmark refresh to reduce CPU-contention noise from parallel wrappers.
+- Write the report and slide deck.
 
 ## Key Files
 
 | File | Purpose |
 |---|---|
-| `implementation.md` | Implementation plan and algorithm spec |
+| `implementation.md` | Implementation notes and algorithm spec |
 | `cpp_performance.md` | C++ optimisation strategy and rationale |
 | `changelog/currentState.md` | This file — tracks where we are |
 | `sm_j10/` | J10 benchmark instances (270 `.SCH` files, updated compact RCPSP-style format) |
@@ -200,6 +194,12 @@ Representative outputs are written under:
 - `benchmark_results/restart_tuning_3s/j60/`
 - `benchmark_results/restart_tuning_3s/j90/`
 - `benchmark_results/restart_tuning_3s/j120/`
+
+Treat these `benchmark_results/restart_tuning_3s/` folders as the canonical current-best `3s` artifacts. The rerunnable `experiments/*/results/` folders are working outputs and may be overwritten by later benchmark runs.
+
+## Historical Experiment Snapshots
+
+The experiment sections below are retained as design-history snapshots and report notes. They are useful for explaining why the solver changed, but they should not be mistaken for the canonical current-best benchmark record above.
 
 ## Restart-On-Stagnation Benchmark Results
 

@@ -1,4 +1,4 @@
-# RCPSP Solver — Implementation Plan
+# RCPSP Solver — Implementation Notes
 
 ## Language: C++17
 
@@ -39,17 +39,23 @@
 ## Step 4: Genetic Algorithm
 
 - **Representation:** activity list (permutation that respects precedence)
-- **Population:** ~100 individuals, initialised from Step 3 + random feasible permutations
+- **Population:** 100 individuals, initialised from Step 3 seeds and topped up with random feasible permutations
 - **Selection:** tournament selection (size 5)
 - **Crossover:** one-point crossover — take prefix from parent 1, fill remaining from parent 2 in order (preserves precedence feasibility)
-- **Mutation:** swap two adjacent activities if the swap preserves precedence; or insert an activity at a random earlier valid position
+- **Mutation:** one random neighborhood move from:
+  - adjacent feasible swap
+  - non-adjacent feasible swap
+  - bidirectional insertion within the precedence-feasible interval
 - **Replacement:** steady-state (replace worst individual if offspring is better)
-- **Termination:** wall-clock time budget (28 seconds to leave margin)
+- **Diversification:** restart-on-stagnation keeps a small elite set and refreshes the rest of the population with fresh guided/random seeds
+- **Diversity control:** exact-duplicate offspring are rejected unless a few extra perturbations escape the duplicate; fingerprints are tracked with compact 64-bit hashes
+- **Alternative stopping rule:** optional schedule-budget mode via `--schedules <count>` for internal A/B testing
+- **Termination:** wall-clock time budget (default 28 seconds) or schedule-generation budget
 - **Elitism:** always keep the best individual
 
 ## Step 5: Forward-Backward Improvement
 
-- After GA converges or in final seconds, apply a forward-backward improvement pass on the best solution:
+- Apply a forward-backward improvement pass on the best solution periodically during GA search and once again at the end:
   - Forward pass: schedule as-is via SSGS
   - Backward pass: reverse the schedule (schedule from the end), producing new latest-start times
   - Forward again: use the backward-derived order, schedule forward
