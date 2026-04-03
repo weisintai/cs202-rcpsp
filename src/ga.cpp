@@ -386,6 +386,7 @@ Schedule run_ga(const Problem& p,
                 // Update the activity list from the improved schedule
                 std::vector<int> new_order = order_from_schedule(p, improved);
                 population[best_idx] = std::move(new_order);
+                build_population_keys(population, population_keys);
 
                 // Re-find worst
                 worst_idx = 0;
