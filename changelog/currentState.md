@@ -67,6 +67,7 @@
 ## What's Next
 - Freeze the current default solver line unless a clearly better schedule-budget result survives a sequential `3s` rerun.
 - Consolidate report-ready figures and tables around the canonical benchmark artifacts in `benchmark_results/`.
+- Keep the report framing honest: Experiments 1-4 justify the architecture, scaling, anytime behavior, and heuristic choices, while the later solver refinements are captured by the benchmark history under `benchmark_results/`.
 - Use sequential wall-clock reruns for any final report-facing benchmark refresh to reduce CPU-contention noise from parallel wrappers.
 - Write the report and slide deck.
 
@@ -200,6 +201,8 @@ Treat these `benchmark_results/restart_tuning_3s/` folders as the canonical curr
 ## Historical Experiment Snapshots
 
 The experiment sections below are retained as design-history snapshots and report notes. They are useful for explaining why the solver changed, but they should not be mistaken for the canonical current-best benchmark record above.
+
+In the report, these experiment snapshots should be paired with a short refinement-history summary so the later gains from stronger mutation, restart tuning, duplicate-aware diversity control, and hot-path optimisation are not lost.
 
 ## Restart-On-Stagnation Benchmark Results
 

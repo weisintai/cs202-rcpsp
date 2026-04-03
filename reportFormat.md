@@ -30,6 +30,7 @@
 - 4.2 Experiment 2: Scaling across instance sizes — J30 through J120
 - 4.3 Experiment 3: Time budget sensitivity — anytime property
 - 4.4 Experiment 4: Priority rule comparison — which heuristic works best
+- Add a short refinement-history table or subsection after the four experiments so later solver improvements from benchmark-driven tuning are documented explicitly
 - Each experiment includes: setup, results table/chart, brief analysis
 - J10 and J20 can be discussed briefly for parser support and feasibility/runtime status, but the main quality comparisons should focus on PSPLIB datasets where reference values are available
 
@@ -53,3 +54,4 @@
 - Pseudocode required in algorithm design section
 - Use J30-J120 as the main quantitative benchmark set because the harness includes PSPLIB reference values there
 - Use J10/J20 mainly as assignment-format support and feasibility/runtime evidence unless separate reference tables are added
+- Treat Experiments 1 and 4 mainly as design-justification evidence, Experiment 2 as the main final-solver benchmark, and Experiment 3 as the final-solver time-quality curve

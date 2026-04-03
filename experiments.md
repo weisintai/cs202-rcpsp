@@ -1,12 +1,12 @@
 # Experiment Plan
 
-Four experiments to evaluate the solver's performance and justify design decisions in the report.
+Four experiments to evaluate the solver's performance and justify design decisions in the report. These experiments explain the core pipeline and the final solver's behavior, but they do not by themselves capture every later tuning step. The benchmark records under `benchmark_results/` remain important for documenting the refinement path that led to the current best solver line.
 
 ---
 
 ## Experiment 1: Algorithm Component Ablation
 
-**Goal:** Quantify the individual contribution of each algorithm component (priority rules, GA, forward-backward improvement) by disabling them one at a time and measuring the impact on solution quality.
+**Goal:** Quantify the individual contribution of each core pipeline component (priority rules, GA, forward-backward improvement) by disabling them one at a time and measuring the impact on solution quality.
 
 **Configurations:**
 
@@ -30,11 +30,13 @@ Four experiments to evaluate the solver's performance and justify design decisio
 - Results clearly show which component contributes the most to solution quality
 - Results tabulated for the report
 
+**Interpretation note:** This experiment justifies the main architecture. Later improvements such as stronger mutation, restart tuning, duplicate-aware diversity control, and hot-path optimisation should be documented separately as refinement work rather than folded back into this ablation.
+
 ---
 
 ## Experiment 2: Scaling Across Instance Sizes
 
-**Goal:** Demonstrate how solver performance degrades as instance size increases, using the same time budget across all datasets.
+**Goal:** Demonstrate how the current full solver degrades as instance size increases, using the same time budget across all datasets.
 
 **Configurations:**
 - Full pipeline solver on J30, J60, J90, J120
@@ -53,11 +55,13 @@ Four experiments to evaluate the solver's performance and justify design decisio
 - Clear trend visible: performance degrades with instance size
 - Results tabulated and suitable for a line/bar chart in the report
 
+**Interpretation note:** This is the main report-facing benchmark for the final solver line, so sequential reruns are preferable when refreshing these numbers.
+
 ---
 
 ## Experiment 3: Time Budget Sensitivity
 
-**Goal:** Show the solver's anytime property -- solution quality improves with more computation time, and a valid schedule is always available.
+**Goal:** Show the current solver's anytime property -- solution quality improves with more computation time, and a valid schedule is always available.
 
 **Configurations:**
 - GA time budgets: 1s, 3s, 10s, 28s
@@ -75,6 +79,8 @@ Four experiments to evaluate the solver's performance and justify design decisio
 - Monotonic improvement: longer time budget never produces worse mean results
 - Diminishing returns visible (large improvement 1s to 3s, smaller 10s to 28s)
 - Results tabulated for a quality-vs-time chart
+
+**Interpretation note:** This experiment measures the submitted solver's time-quality tradeoff. If the final solver line changes materially, this experiment should be refreshed for that line.
 
 ---
 
@@ -99,6 +105,8 @@ Four experiments to evaluate the solver's performance and justify design decisio
 - Clear ranking emerges among the priority rules
 - Results tabulated for comparison in the report
 
+**Interpretation note:** This is a heuristic-side study, not a full explanation of the final solver. Its main value is to justify seeding choices such as the later LFT/MTS-biased initialisation.
+
 ---
 
 ## Change-Validation Workflow
@@ -120,6 +128,7 @@ This is the default workflow to use when evaluating future solver changes.
 Use wall-clock runs for the report and assignment-facing claims.
 Use schedule-budget runs for internal A/B testing and search-method comparisons.
 For report-quality wall-clock numbers, prefer running datasets sequentially; the parallel helper scripts are primarily convenience wrappers for bulk reruns.
+For the final report, pair the four main experiments with a short solver-refinement summary table drawn from the canonical records under `benchmark_results/`.
 
 ---
 
