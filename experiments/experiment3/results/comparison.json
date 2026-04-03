@@ -3,80 +3,80 @@
     "ga_time_s": 1,
     "dataset": "j30",
     "instances": 480,
-    "optimal": 362,
-    "optimal_pct": 75.4,
-    "mean_gap_pct": 0.78,
-    "max_gap_pct": 10.34,
-    "mean_quality_pct": 99.25
+    "optimal": 414,
+    "optimal_pct": 86.2,
+    "mean_gap_pct": 0.34,
+    "max_gap_pct": 6.9,
+    "mean_quality_pct": 99.67
   },
   {
     "ga_time_s": 1,
     "dataset": "j60",
     "instances": 480,
-    "optimal": 333,
-    "optimal_pct": 69.4,
-    "mean_gap_pct": 1.94,
-    "max_gap_pct": 13.27,
-    "mean_quality_pct": 98.2
+    "optimal": 347,
+    "optimal_pct": 72.3,
+    "mean_gap_pct": 1.43,
+    "max_gap_pct": 12.04,
+    "mean_quality_pct": 98.66
   },
   {
     "ga_time_s": 3,
     "dataset": "j30",
     "instances": 480,
-    "optimal": 362,
-    "optimal_pct": 75.4,
-    "mean_gap_pct": 0.78,
-    "max_gap_pct": 10.34,
-    "mean_quality_pct": 99.26
+    "optimal": 426,
+    "optimal_pct": 88.8,
+    "mean_gap_pct": 0.25,
+    "max_gap_pct": 6.78,
+    "mean_quality_pct": 99.76
   },
   {
     "ga_time_s": 3,
     "dataset": "j60",
     "instances": 480,
-    "optimal": 333,
-    "optimal_pct": 69.4,
-    "mean_gap_pct": 1.92,
-    "max_gap_pct": 12.64,
-    "mean_quality_pct": 98.22
+    "optimal": 350,
+    "optimal_pct": 72.9,
+    "mean_gap_pct": 1.31,
+    "max_gap_pct": 11.58,
+    "mean_quality_pct": 98.76
   },
   {
     "ga_time_s": 10,
     "dataset": "j30",
     "instances": 480,
-    "optimal": 362,
-    "optimal_pct": 75.4,
-    "mean_gap_pct": 0.78,
-    "max_gap_pct": 10.34,
-    "mean_quality_pct": 99.26
+    "optimal": 440,
+    "optimal_pct": 91.7,
+    "mean_gap_pct": 0.18,
+    "max_gap_pct": 4.48,
+    "mean_quality_pct": 99.83
   },
   {
     "ga_time_s": 10,
     "dataset": "j60",
     "instances": 480,
-    "optimal": 334,
-    "optimal_pct": 69.6,
-    "mean_gap_pct": 1.9,
-    "max_gap_pct": 12.64,
-    "mean_quality_pct": 98.24
+    "optimal": 353,
+    "optimal_pct": 73.5,
+    "mean_gap_pct": 1.13,
+    "max_gap_pct": 9.46,
+    "mean_quality_pct": 98.92
   },
   {
     "ga_time_s": 28,
     "dataset": "j30",
     "instances": 480,
-    "optimal": 362,
-    "optimal_pct": 75.4,
-    "mean_gap_pct": 0.78,
-    "max_gap_pct": 10.34,
-    "mean_quality_pct": 99.26
+    "optimal": 448,
+    "optimal_pct": 93.3,
+    "mean_gap_pct": 0.14,
+    "max_gap_pct": 4.48,
+    "mean_quality_pct": 99.86
   },
   {
     "ga_time_s": 28,
     "dataset": "j60",
     "instances": 480,
-    "optimal": 335,
-    "optimal_pct": 69.8,
-    "mean_gap_pct": 1.89,
-    "max_gap_pct": 12.64,
-    "mean_quality_pct": 98.24
+    "optimal": 355,
+    "optimal_pct": 74.0,
+    "mean_gap_pct": 1.05,
+    "max_gap_pct": 9.17,
+    "mean_quality_pct": 99.0
   }
 ]
