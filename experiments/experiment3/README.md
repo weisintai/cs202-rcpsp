@@ -36,6 +36,8 @@ make
 ./experiments/experiment3/scripts/run_time_sensitivity.sh
 ```
 
+`run_time_sensitivity.sh` now runs sequentially so the time-quality comparison is measured without concurrent benchmark noise.
+
 ## Results
 
 Stored in `results/` as `<time>s_<dataset>/summary.json` and `results.csv`.
