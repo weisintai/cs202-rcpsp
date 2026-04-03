@@ -37,7 +37,9 @@ make
 ./experiments/experiment2/scripts/run_scaling.sh
 ```
 
-For report-facing wall-clock numbers, a sequential run is more defensible than the parallel wrapper because it avoids cross-dataset CPU contention:
+`run_scaling.sh` now runs datasets sequentially because that is the cleaner default for report-facing wall-clock numbers.
+
+If you want to run the datasets one by one manually, the equivalent commands are:
 
 ```bash
 python3 scripts/benchmark_rcpsp.py run --dataset j30 --solver ./experiments/experiment2/scripts/solver_full.sh --timeout 5 --output-dir benchmark_results/seq_3s_j30

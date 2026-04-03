@@ -1,7 +1,7 @@
 #!/bin/bash
 # Experiment 2: Scaling Across Instance Sizes
 # Runs full pipeline on J30, J60, J90, J120 with the same time budget
-# All 4 runs launch in parallel
+# Runs sequentially to avoid cross-dataset CPU contention in wall-clock results
 
 set -e
 
@@ -12,42 +12,19 @@ BENCHMARK="$PROJECT_DIR/scripts/benchmark_rcpsp.py"
 
 cd "$PROJECT_DIR"
 
-# Build solver
 make
-
-# Launch all 4 runs in parallel
-pids=()
-
-DATASETS="j30 j60 j90 j120"
+DATASETS="${DATASETS:-j30 j60 j90 j120}"
 
 for dataset in $DATASETS; do
     outdir="$RESULTS_DIR/${dataset}"
-    echo "Launching: dataset=$dataset"
+    echo "Running sequential benchmark: dataset=$dataset"
     python3 "$BENCHMARK" run \
         --dataset "$dataset" \
         --solver "$SCRIPT_DIR/solver_full.sh" \
         --timeout 5 \
-        --output-dir "$outdir" &
-    pids+=($!)
+        --output-dir "$outdir"
 done
 
-echo ""
-echo "Waiting for ${#pids[@]} parallel runs to complete..."
-
-# Wait for all and track failures
-failed=0
-for pid in "${pids[@]}"; do
-    if ! wait "$pid"; then
-        failed=$((failed + 1))
-    fi
-done
-
-if [ "$failed" -gt 0 ]; then
-    echo "WARNING: $failed run(s) failed"
-    exit 1
-fi
-
-# Generate comparison summary
 python3 "$SCRIPT_DIR/summarise_scaling.py" "$RESULTS_DIR"
 
-echo "All scaling runs complete. Results in $RESULTS_DIR/"
+echo "All sequential scaling runs complete. Results in $RESULTS_DIR/"
