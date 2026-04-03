@@ -1,7 +1,7 @@
 #!/bin/bash
 # Experiment 1: Algorithm Component Ablation
 # Runs 4 solver configurations on J30 and J60
-# All 8 runs launch in parallel
+# Runs sequentially to keep wall-clock comparisons clean
 
 set -e
 
@@ -12,11 +12,7 @@ BENCHMARK="$PROJECT_DIR/scripts/benchmark_rcpsp.py"
 
 cd "$PROJECT_DIR"
 
-# Build solver
 make
-
-# Launch all 8 runs in parallel
-pids=()
 
 MODES="baseline priority ga full"
 DATASETS="j30 j60"
@@ -24,33 +20,15 @@ DATASETS="j30 j60"
 for mode in $MODES; do
     for dataset in $DATASETS; do
         outdir="$RESULTS_DIR/${mode}_${dataset}"
-        echo "Launching: mode=$mode dataset=$dataset"
+        echo "Running sequential benchmark: mode=$mode dataset=$dataset"
         python3 "$BENCHMARK" run \
             --dataset "$dataset" \
             --solver "$SCRIPT_DIR/solver_${mode}.sh" \
             --timeout 5 \
-            --output-dir "$outdir" &
-        pids+=($!)
+            --output-dir "$outdir"
     done
 done
 
-echo ""
-echo "Waiting for ${#pids[@]} parallel runs to complete..."
-
-# Wait for all and track failures
-failed=0
-for pid in "${pids[@]}"; do
-    if ! wait "$pid"; then
-        failed=$((failed + 1))
-    fi
-done
-
-if [ "$failed" -gt 0 ]; then
-    echo "WARNING: $failed run(s) failed"
-    exit 1
-fi
-
-# Generate comparison summary
 python3 "$SCRIPT_DIR/summarise_ablation.py" "$RESULTS_DIR"
 
-echo "All ablation runs complete. Results in $RESULTS_DIR/"
+echo "All sequential ablation runs complete. Results in $RESULTS_DIR/"

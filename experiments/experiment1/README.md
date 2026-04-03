@@ -39,6 +39,8 @@ make
 ./experiments/experiment1/scripts/run_ablation.sh
 ```
 
+`run_ablation.sh` now runs sequentially so the component comparison is measured without concurrent benchmark noise.
+
 Individual modes can also be tested directly:
 
 ```bash

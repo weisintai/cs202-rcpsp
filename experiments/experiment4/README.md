@@ -35,6 +35,8 @@ make
 ./experiments/experiment4/scripts/run_priority_comparison.sh
 ```
 
+`run_priority_comparison.sh` now runs sequentially so the rule comparison is measured without concurrent benchmark noise.
+
 ## Results
 
 Stored in `results/` as `<rule>_<dataset>/summary.json` and `results.csv`.
