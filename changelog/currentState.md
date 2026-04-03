@@ -2,6 +2,9 @@
 
 ## Status: Implementation Complete; Report Prep and Documentation Cleanup
 
+### Latest Update (2026-04-03)
+- Updated `programFlow.md` to match current codebase: detailed GA main loop (step-by-step generation flow), restart procedure, duplicate rejection, FBI firing conditions and known repeated-call behavior, CLI parameter table, schedule budget integration in FBI, mode bypass descriptions.
+
 ## What's Done
 
 - Read and understood problem specification (Project.pdf)

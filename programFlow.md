@@ -31,7 +31,8 @@ Input File (.sm or .SCH)
         │
         ▼
    ┌─────────────────────┐
-   │  Genetic Algorithm  │  Evolve population with SSGS, diversification, duplicate control, FBI
+   │  Genetic Algorithm  │  Evolve population with SSGS decoder, restart-on-stagnation,
+   │                     │  duplicate-aware diversity control, periodic FBI
    └────┬────────────────┘
         │
         ▼
@@ -151,14 +152,19 @@ After topological sort places 4 before 6, `remove_back_edges` removes the `6→4
 
 This allocation is motivated by experiment results showing LFT and MTS are the strongest priority rules across PSPLIB benchmarks.
 
-**In main:** `generate_initial_solutions()` returns:
-- 4 deterministic rule-based seeds
-- plus a guided tail of 20 extra seeds:
-  - 10 randomized `LFT`
-  - 6 randomized `MTS`
-  - 4 pure random
+**In main:** `generate_initial_solutions(prob, num_random, rng)` is called with `num_random = 20`. It returns:
+- 4 deterministic rule-based seeds (one per rule: LFT, MTS, GRD, SPT)
+- plus `num_random` guided/random seeds, split as:
+  - `num_random / 2` = 10 randomized LFT-biased
+  - `num_random / 3` = 6 randomized MTS-biased
+  - remainder = 4 pure random
+- total: 24 seeds
 
-These same seeds are also used to initialize the GA population in `full` mode.
+The priority values for LFT and MTS are computed once via `compute_priority_values()` and reused across all biased seeds.
+
+These 24 seeds are used to initialize the GA population in `full` mode (remaining 76 slots are filled with `random_sort()` permutations inside the GA).
+
+In `priority` mode, the same 24 seeds are each decoded with SSGS and the best schedule is kept (no GA).
 
 **Reference:** `src/priority.h`, `src/priority.cpp`
 
@@ -192,38 +198,73 @@ For each activity in list order:
 
 **Purpose:** Evolve a population of activity lists over many generations to minimise makespan. Uses SSGS as the decoder for each individual.
 
-**Initialization:** Population of 100 individuals seeded from:
-- the 24 Stage-4 seeds (4 deterministic + 20 guided/randomized)
-- remaining slots filled with additional random feasible permutations
+**Parameters** (configurable via `GAConfig` / CLI flags):
 
-**Selection:** Tournament selection (size 5). Pick 5 random individuals, return the one with the lowest makespan.
+| Parameter | Default | CLI flag |
+|---|---|---|
+| Population size | 100 | — |
+| Tournament size | 5 | — |
+| Crossover rate | 0.9 | — |
+| Mutation rate | 0.3 | `--mutation-rate` |
+| Time limit | 28s | `--time` |
+| Schedule limit | disabled | `--schedules` |
+| Restart stagnation threshold | 100,000 generations | `--restart-stagnation` |
+| Restart elite count | 10 | `--restart-elites` |
 
-**Crossover (one-point):**
-1. Pick a random cut point in parent 1's activity list
-2. Copy the prefix (before cut) from parent 1
-3. Fill remaining positions from parent 2, in parent 2's order, skipping activities already in the child
-4. The result is always a valid permutation. Precedence feasibility is preserved because parent 2's relative order respects precedence.
+**Initialization:** Population of 100 individuals. Seeds are added with duplicate-aware insertion (64-bit FNV-1a fingerprints, reject collisions):
+1. Add the 24 Stage-4 seeds (4 deterministic + 20 guided/randomized), skipping any that fingerprint-collide
+2. Fill remaining slots with `random_sort()` permutations, again skipping duplicates
 
-**Mutation neighborhood** (one random move per mutation):
-- **Adjacent swap:** swap neighboring activities if the resulting list still respects precedence
-- **Non-adjacent feasible swap:** swap two non-neighboring activities if the resulting list is still precedence-feasible
-- **Bidirectional insertion:** move one activity earlier or later within its precedence-feasible insertion interval
+All 100 individuals are decoded with SSGS to compute initial fitness. Best and worst indices are tracked.
 
-**Replacement:** Steady-state. If the offspring's makespan is better than the worst individual in the population, replace the worst. The best individual is always tracked (elitism).
+**Main loop** (one generation = one offspring attempt):
 
-**Forward-backward improvement (integrated):** Every 50,000 generations, the GA applies forward-backward improvement to the best individual. If the makespan improves, the improved schedule replaces the best individual and its activity list is updated. A final forward-backward pass is applied before returning.
+Each generation proceeds as follows:
 
-**Restart-on-stagnation:** If the GA goes too many generations without improving the best individual, it keeps a small elite set and refreshes the rest of the population with fresh guided/random seeds. This is a diversification mechanism to reduce early plateauing.
+1. **Budget check:** Exit if wall-clock time or schedule-generation limit is exhausted.
 
-**Duplicate-aware diversity control:** The population is kept mostly unique at initialization and restart. During search, exact-duplicate offspring are rejected unless a few extra perturbation attempts can shake them into a distinct activity list. This reduces wasted population slots and worked particularly well on `J90` and `J120`.
+2. **Restart check:** If `generations - last_improve_gen >= restart_stagnation_generations`, trigger a population restart (see below). Reset `last_improve_gen` to the current generation.
+
+3. **Periodic forward-backward improvement:** If `use_improvement` is enabled and `generations - last_improve_gen >= 50,000`, apply forward-backward improvement to the current best individual. If the makespan improves, update the best individual's schedule and activity list (extracted via `order_from_schedule`), re-find the worst individual, and reset `last_improve_gen`. **Note:** there is no guard preventing this from firing every generation once 50k stagnation is reached — if FBI fails to improve, it will be called again on the next generation until either it succeeds or restart triggers at 100k.
+
+4. **Selection:** Two parents chosen by tournament selection (size 5). Parent 2 is re-drawn if it equals parent 1.
+
+5. **Crossover (one-point, rate 0.9):**
+   - Pick a random cut point (avoiding trivial cuts at positions 0 and n-1)
+   - Copy the prefix (before cut) from parent 1
+   - Fill remaining positions from parent 2 in parent 2's order, skipping activities already in the child
+   - The result is always a valid permutation. Precedence feasibility is preserved because parent 2's relative order respects precedence.
+   - If crossover doesn't fire, the offspring is a copy of parent 1.
+
+6. **Mutation (rate 0.3):** One random neighborhood move, chosen uniformly from three operators:
+   - **Adjacent swap:** pick a random adjacent pair, swap if precedence still holds (up to 3 attempts)
+   - **Non-adjacent feasible swap:** pick two non-adjacent positions (skipping dummy source/sink), swap if precedence still holds (up to 5 attempts)
+   - **Bidirectional insertion:** pick an activity (skipping dummies), compute its valid insertion interval via `insertion_bounds()`, move it to a random valid target position (up to 5 attempts)
+
+7. **Duplicate rejection:** Compute the offspring's fingerprint. If it already exists in the population, apply up to 3 extra `perturb_once` perturbation attempts to escape the duplicate. If all 3 fail, discard the offspring and advance to the next generation.
+
+8. **Evaluation:** Decode the offspring with SSGS (counted toward schedule budget).
+
+9. **Replacement (steady-state):** If the offspring's makespan is strictly better than the worst individual, replace the worst. Update the population fingerprint set. If the offspring is also better than the current best, update `best_idx` and reset `last_improve_gen`. Re-scan to find the new worst individual.
+
+**Restart-on-stagnation** (`restart_population`):
+When triggered, the restart procedure:
+1. Sort the current population by fitness (ascending)
+2. Keep the top `restart_elite_count` (default 10) unique individuals
+3. Generate 24 fresh guided seeds via `generate_initial_solutions()` (4 deterministic + 20 biased/random)
+4. Fill remaining slots with `random_sort()` permutations
+5. All new members are deduplicated and decoded with SSGS
+6. Rebuild best/worst indices and the population fingerprint set
+
+**Final pass:** After the main loop exits, if `use_improvement` is enabled and the schedule budget is not exhausted, apply one final forward-backward improvement to the best individual.
 
 **Termination:** The GA can stop on either:
 - wall-clock time (`--time`)
 - schedule-generation budget (`--schedules`)
 
-The schedule-budget mode counts `SSGS` decodes and is mainly used for internal A/B testing.
+The schedule-budget mode counts `SSGS` decodes (via `counted_ssgs()`) and is mainly used for internal A/B testing.
 
-**Performance notes:** The current implementation also precomputes a safe scheduling horizon once during parsing, moves single-activity infeasibility checks out of the `SSGS` hot loop, and uses compact 64-bit fingerprints instead of strings for duplicate detection. These changes improve throughput without changing solver behavior.
+**Performance notes:** The current implementation precomputes a safe scheduling horizon once during parsing, moves single-activity infeasibility checks out of the `SSGS` hot loop, and uses compact 64-bit FNV-1a fingerprints instead of strings for duplicate detection. These changes improve throughput without changing solver behavior.
 
 **Throughput:** depends on instance size and stopping rule. Under wall-clock mode the solver is anytime: a valid schedule exists from generation 0 and improves as search continues.
 
@@ -233,13 +274,15 @@ The schedule-budget mode counts `SSGS` decodes and is mainly used for internal A
 
 ## Stage 7: Forward-Backward Improvement — `forward_backward_improve()`
 
-**Purpose:** Improve a schedule by shifting activities to close gaps. Applied both during the GA (periodically) and as a final pass.
+**Purpose:** Improve a schedule by shifting activities to close gaps. Applied both during the GA (periodically after 50k stagnation) and as a final pass after the GA loop.
 
 **Algorithm (double justification):**
-1. **Backward pass:** Take the current schedule and schedule activities as **late** as possible. Process activities in reverse order of their forward start times (latest-scheduled first). For each activity, compute the latest finish time as the minimum start time among all successors, then scan backwards for resource feasibility.
+1. **Backward pass** (`backward_ssgs`): Take the current schedule and schedule activities as **late** as possible. Process activities in reverse order of their forward start times (latest-scheduled first). For each activity, compute the latest finish time as the minimum start time among all successors, then scan backwards for resource feasibility. If the scan fails to find a feasible slot, the activity is clamped to time 0 (the intermediate backward schedule is a heuristic reordering device, not a final output).
 2. **Extract new order:** Sort activities by their backward start times (ascending) to get a new precedence-feasible ordering.
-3. **Forward pass:** Re-decode the new ordering with standard forward SSGS.
+3. **Forward pass:** Re-decode the new ordering with standard forward SSGS (counted toward the schedule budget if a counter is provided).
 4. **Iterate:** If the forward pass produced a better makespan, repeat from step 1. Stop after 10 iterations or when no improvement is found.
+
+**Schedule budget integration:** The function accepts an optional `schedule_counter` pointer and `schedule_limit`. Each forward SSGS decode increments the counter. If the schedule budget is exhausted, the improvement loop exits early. Backward passes are not counted because they do not produce a valid forward schedule.
 
 **Why it works:** The backward pass pushes activities to the right (as late as possible), then the forward pass compresses them to the left (as early as possible). This "breathing" motion closes resource gaps that the original schedule left open, often shaving 1-3 time units off the makespan.
 
@@ -271,4 +314,6 @@ Prints start times for activities 1 through n (one integer per line) to stdout. 
 
 ## All Implementation Steps Complete
 
-The current solver pipeline is: Parse → Graph Cleanup → Guided Seed Generation → GA with SSGS + Forward-Backward Improvement + Restart-on-Stagnation → Validate → Output.
+The current solver pipeline is: Parse → Graph Cleanup → Guided Seed Generation (LFT/MTS-biased + random) → GA with SSGS decoder + Restart-on-Stagnation + Duplicate-Aware Diversity Control + Periodic Forward-Backward Improvement → Final FBI Pass → Validate → Output.
+
+CLI modes bypass parts of this pipeline: `baseline` uses only random sort + SSGS, `priority` uses guided seeds + SSGS (no GA), `ga` uses random seeds + GA (no FBI), and `full` runs the complete pipeline. The `--rule` flag runs a single priority sort + SSGS and exits.
