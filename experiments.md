@@ -130,6 +130,8 @@ Use schedule-budget runs for internal A/B testing and search-method comparisons.
 For report-quality wall-clock numbers, prefer running datasets sequentially; the parallel helper scripts are primarily convenience wrappers for bulk reruns.
 For the final report, pair the four main experiments with a short solver-refinement summary table drawn from the canonical records under `benchmark_results/`.
 
+One exploratory branch also tried multithreading to push more schedule generations through the same wall-clock budget. That did increase throughput, but it also exposed the more important question: were we finding better schedules, or just more schedules? That is what led to the follow-up search-quality checks under a fixed schedule budget, and to a small search experiment aimed at using the extra generations more deliberately. We kept that branch separate from the frozen solver because the threading and search changes landed together, which makes them harder to attribute cleanly in the final submission.
+
 ---
 
 ## Folder Structure
