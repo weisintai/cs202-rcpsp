@@ -100,38 +100,38 @@
 | `experiments/` | Experiment scripts and results |
 | `programFlow.md` | End-to-end walkthrough of how the solver works |
 
-## Experiment 1: Algorithm Component Ablation (5s timeout, --time 3, with biased seeding)
+## Experiment 1: Algorithm Component Ablation (5s timeout, --time 3, sequential rerun)
 
 **J30 (480 instances):**
 
 | Config | Optimal | Optimal % | Mean Gap | Mean Quality |
 |--------|---------|-----------|----------|--------------|
-| Baseline | 153 | 31.9% | 12.46% | 89.85% |
-| Priority | 288 | 60.0% | 2.64% | 97.57% |
-| GA only | 340 | 70.8% | 1.08% | 98.97% |
-| Full | 376 | 78.3% | 0.60% | 99.42% |
+| Baseline | 154 | 32.1% | 13.56% | 89.10% |
+| Priority | 289 | 60.2% | 2.63% | 97.57% |
+| GA only | 430 | 89.6% | 0.21% | 99.79% |
+| Full | 428 | 89.2% | 0.23% | 99.78% |
 
 **J60 (480 instances):**
 
 | Config | Optimal | Optimal % | Mean Gap | Mean Quality |
 |--------|---------|-----------|----------|--------------|
-| Baseline | 136 | 28.3% | 15.11% | 88.10% |
-| Priority | 300 | 62.5% | 3.89% | 96.57% |
-| GA only | 289 | 60.2% | 2.92% | 97.32% |
-| Full | 338 | 70.4% | 1.71% | 98.40% |
+| Baseline | 141 | 29.4% | 15.77% | 87.73% |
+| Priority | 304 | 63.3% | 3.93% | 96.54% |
+| GA only | 351 | 73.1% | 1.42% | 98.66% |
+| Full | 351 | 73.1% | 1.26% | 98.81% |
 
-**Key findings:** Priority rules provide the largest single improvement (~10pp gap reduction). GA adds ~2pp. Forward-backward improvement adds ~0.3-1pp. Biased seeding improved priority mode (J30: 57.7%→60.0%, J60: 59.4%→62.5%) and full pipeline (J30: 0.73%→0.60% gap, J60: 1.92%→1.71% gap).
+**Key findings:** Priority rules still provide the largest jump over the random baseline, and GA adds the dominant additional improvement. The forward-backward layer is now a modest refinement rather than a dramatic jump: on this rerun it helped clearly on J60 by mean gap, while J30 was essentially tied and GA-only slightly edged full by raw best-known matches.
 
-## Experiment 2: Scaling Across Instance Sizes (5s timeout, --time 3, with biased seeding)
+## Experiment 2: Scaling Across Instance Sizes (5s timeout, --time 3, sequential rerun)
 
 | Dataset | Instances | Optimal | Optimal % | Mean Gap | Max Gap | Mean Quality | Mean Time |
 |---------|-----------|---------|-----------|----------|---------|--------------|-----------|
-| J30     | 480       | 373     | 77.7%     | 0.60%    | 8.62%   | 99.42%       | 3.01s     |
-| J60     | 480       | 338     | 70.4%     | 1.71%    | 14.12%  | 98.40%       | 3.01s     |
-| J90     | 480       | 340     | 70.8%     | 2.18%    | 15.65%  | 98.00%       | 3.01s     |
-| J120    | 600       | 160     | 26.7%     | 6.06%    | 16.30%  | 94.48%       | 3.01s     |
+| J30     | 480       | 427     | 89.0%     | 0.24%    | 6.78%   | 99.76%       | 3.01s     |
+| J60     | 480       | 351     | 73.1%     | 1.27%    | 11.58%  | 98.80%       | 3.00s     |
+| J90     | 480       | 350     | 72.9%     | 1.79%    | 11.76%  | 98.34%       | 3.00s     |
+| J120    | 600       | 167     | 27.8%     | 5.38%    | 15.20%  | 95.06%       | 3.01s     |
 
-**Biased seeding impact:** Mean gap improved across all datasets. Biggest gains on J60 (1.91%→1.71%) and J120 (6.25%→6.06%, max gap 20.77%→16.30%).
+**Scaling takeaway:** The current full solver remains strong on J30 through J90 and degrades mainly at J120, which is the expected scaling story to use in the report.
 
 ## Experiment 3: Time Budget Sensitivity (pre-biased seeding)
 
