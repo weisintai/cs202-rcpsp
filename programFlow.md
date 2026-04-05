@@ -31,8 +31,8 @@ Input File (.sm or .SCH)
         │
         ▼
    ┌─────────────────────┐
-   │  Genetic Algorithm  │  Evolve population with SSGS decoder, restart-on-stagnation,
-   │                     │  duplicate-aware diversity control, periodic FBI
+   │  Genetic Algorithm  │  Evolve population with SSGS decoder, hybrid crossover,
+   │                     │  adaptive mutation, restart-on-stagnation, selective FBI
    └────┬────────────────┘
         │
         ▼
@@ -305,6 +305,7 @@ Makespan = max(finish[C]) = 7
 | Tournament size | 5 | — |
 | Crossover rate | 0.9 | — |
 | Mutation rate | 0.3 | `--mutation-rate` |
+| Max mutation rate under stagnation | 0.6 | — |
 | Time limit | 28s | `--time` |
 | Schedule limit | disabled | `--schedules` |
 | Restart stagnation threshold | 100,000 generations | `--restart-stagnation` |
@@ -340,12 +341,12 @@ All 100 individuals are decoded with SSGS to compute initial fitness. Best and w
                └──────────────┬───────────────┘
                               ▼
                ┌──────────────────────────────┐
-               │  Crossover (rate 0.9)        │
-               │  or copy parent 1            │
+               │  Hybrid crossover (rate 0.9) │
+               │  one-point or merge          │
                └──────────────┬───────────────┘
                               ▼
                ┌──────────────────────────────┐
-               │  Mutation (rate 0.3)         │
+               │  Adaptive mutation           │
                │  swap / long-swap / insert   │
                └──────────────┬───────────────┘
                               ▼
@@ -357,6 +358,11 @@ All 100 individuals are decoded with SSGS to compute initial fitness. Best and w
                ┌──────────────────────────────┐
                │  Decode with SSGS            │
                └──────────────┬───────────────┘
+                              ▼
+               ┌──────────────────────────────┐
+               │  Promising child?            │──── yes ──→ Selective FBI polish
+               └──────────────┬───────────────┘
+                              │ no / done
                               ▼
                ┌──────────────────────────────┐
                │  Better than worst?          │──── no ──→ next generation
@@ -381,30 +387,24 @@ Each generation proceeds as follows:
 
 4. **Selection:** Two parents chosen by tournament selection (size 5). Parent 2 is re-drawn if it equals parent 1.
 
-5. **Crossover (one-point, rate 0.9):**
-   - Pick a random cut point (avoiding trivial cuts at positions 0 and n-1)
-   - Copy the prefix (before cut) from parent 1
-   - Fill remaining positions from parent 2 in parent 2's order, skipping activities already in the child
-   - The result is always a valid permutation. Precedence feasibility is preserved because parent 2's relative order respects precedence.
-   - If crossover doesn't fire, the offspring is a copy of parent 1.
+5. **Crossover (hybrid, rate 0.9):**
+   - Early in the search, the GA often uses the original one-point order-preserving crossover:
+     - pick a random cut point
+     - copy the prefix from parent 1
+     - fill remaining positions from parent 2 in parent 2's order
+   - As stagnation grows, the GA increasingly uses a **precedence-aware merge crossover**:
+     - maintain the currently precedence-eligible activities
+     - rank them by how early both parents place them
+     - choose from the top few eligible activities and extend the child in a Kahn-style feasible build
+   - If crossover does not fire, the offspring is a copy of parent 1.
 
-   ```
-   Parent 1:  [0, 2, 1, 4, 3, 5, 6]
-   Parent 2:  [0, 1, 3, 2, 4, 5, 6]
-                        ↑ cut = 3
+   The purpose of the hybrid is to keep broad recombination early and more structure-preserving recombination later.
 
-   Child prefix (from P1):   [0, 2, 1, _, _, _, _]
-   Already in child:          {0, 2, 1}
-
-   Scan P2 for remaining:     0(skip) 1(skip) 3(add) 2(skip) 4(add) 5(add) 6(add)
-
-   Child:                     [0, 2, 1, 3, 4, 5, 6]
-   ```
-
-6. **Mutation (rate 0.3):** One random neighborhood move, chosen uniformly from three operators:
+6. **Mutation (adaptive):** One random neighborhood move, chosen uniformly from three operators:
    - **Adjacent swap:** pick a random adjacent pair, swap if precedence still holds (up to 3 attempts)
    - **Non-adjacent feasible swap:** pick two non-adjacent positions (skipping dummy source/sink), swap if precedence still holds (up to 5 attempts)
    - **Bidirectional insertion:** pick an activity (skipping dummies), compute its valid insertion interval via `insertion_bounds()`, move it to a random valid target position (up to 5 attempts)
+   - The probability of applying mutation starts at the base rate (`0.3`) and ramps up toward `0.6` as the search approaches the restart threshold with no improvement
 
    ```
    Original:           [0, 2, 1, 4, 3, 5, 6]
@@ -424,7 +424,9 @@ Each generation proceeds as follows:
 
 8. **Evaluation:** Decode the offspring with SSGS (counted toward schedule budget).
 
-9. **Replacement (steady-state):** If the offspring's makespan is strictly better than the worst individual, replace the worst. Update the population fingerprint set. If the offspring is also better than the current best, update `best_idx` and reset `last_improve_gen`. Re-scan to find the new worst individual.
+9. **Selective offspring polishing:** If the decoded offspring already beats its better parent and lies close to the incumbent, apply forward-backward improvement to that offspring. Keep the polished version only if it improves the makespan and does not create a population duplicate.
+
+10. **Replacement (steady-state):** If the offspring's makespan is strictly better than the worst individual, replace the worst. Update the population fingerprint set. If the offspring is also better than the current best, update `best_idx` and reset `last_improve_gen`. Re-scan to find the new worst individual.
 
 **Restart-on-stagnation** (`restart_population`):
 When triggered, the restart procedure:
@@ -533,7 +535,7 @@ Prints start times for activities 1 through n (one integer per line) to stdout. 
 
 ## All Implementation Steps Complete
 
-The current solver pipeline is: Parse → Graph Cleanup → Guided Seed Generation (LFT/MTS-biased + random) → GA with SSGS decoder + Restart-on-Stagnation + Duplicate-Aware Diversity Control + Periodic Forward-Backward Improvement → Final FBI Pass → Validate → Output.
+The current solver pipeline is: Parse → Graph Cleanup → Guided Seed Generation (LFT/MTS-biased + random) → GA with SSGS decoder + Hybrid Crossover + Adaptive Mutation + Restart-on-Stagnation + Duplicate-Aware Diversity Control + Periodic/Selective Forward-Backward Improvement → Final FBI Pass → Validate → Output.
 
 ```
 CLI mode pipeline comparison:
@@ -546,6 +548,7 @@ CLI mode pipeline comparison:
 
 --mode ga:    Parse → Graph → 20 random seeds → GA (no FBI) → Validate → Output
 
---mode full:  Parse → Graph → 24 guided seeds → GA + FBI + restart → Validate → Output
+--mode full:  Parse → Graph → 24 guided seeds → GA + hybrid crossover + adaptive mutation
+              + FBI + restart → Validate → Output
               (default)
 ```

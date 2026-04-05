@@ -50,5 +50,5 @@ python3 scripts/benchmark_rcpsp.py run --dataset j120 --solver ./experiments/exp
 
 ## Results
 
-Canonical current-best `3s` wall-clock results are stored under `benchmark_results/restart_tuning_3s/`.
-The local `results/` directory is a convenient rerun target and may be overwritten during new experiments.
+The current report-facing `3s` wall-clock results are stored in this folder under `results/`.
+Older refinement checkpoints remain under `benchmark_results/`.

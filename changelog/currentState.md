@@ -129,10 +129,10 @@
 
 | Dataset | Instances | Optimal | Optimal % | Mean Gap | Max Gap | Mean Quality | Mean Time |
 |---------|-----------|---------|-----------|----------|---------|--------------|-----------|
-| J30     | 480       | 427     | 89.0%     | 0.24%    | 6.78%   | 99.76%       | 3.01s     |
-| J60     | 480       | 351     | 73.1%     | 1.27%    | 11.58%  | 98.80%       | 3.00s     |
-| J90     | 480       | 350     | 72.9%     | 1.79%    | 11.76%  | 98.34%       | 3.00s     |
-| J120    | 600       | 167     | 27.8%     | 5.38%    | 15.20%  | 95.06%       | 3.01s     |
+| J30     | 480       | 428     | 89.2%     | 0.22%    | 6.90%   | 99.78%       | 3.01s     |
+| J60     | 480       | 353     | 73.5%     | 1.09%    | 8.42%   | 98.96%       | 3.01s     |
+| J90     | 480       | 352     | 73.3%     | 1.52%    | 11.21%  | 98.57%       | 3.01s     |
+| J120    | 600       | 180     | 30.0%     | 4.59%    | 15.51%  | 95.74%       | 3.01s     |
 
 **Scaling takeaway:** The current full solver remains strong on J30 through J90 and degrades mainly at J120, which is the expected scaling story to use in the report.
 
@@ -184,22 +184,22 @@
 
 ## Latest Benchmark Results (Current 3s Solver)
 
-The current best solver line combines biased seeding, the stronger mutation neighborhood, restart-on-stagnation at `100k`, duplicate-aware diversity control, and the recent hot-path optimisations.
+The current best solver line combines biased seeding, the stronger mutation neighborhood, restart-on-stagnation at `100k`, duplicate-aware diversity control, hot-path optimisations, hybrid crossover, adaptive mutation under stagnation, and selective offspring polishing.
 
 | Dataset | Instances | Best-known Matches | Match % | Mean Gap |
 |---------|-----------|--------------------|---------|----------|
-| J30     | 480       | 427                | 89.0%   | 0.2394%  |
-| J60     | 480       | 351                | 73.1%   | 1.2718%  |
-| J90     | 480       | 350                | 72.9%   | 1.7914%  |
-| J120    | 600       | 167                | 27.8%   | 5.3772%  |
+| J30     | 480       | 428                | 89.2%   | 0.2223%  |
+| J60     | 480       | 353                | 73.5%   | 1.0919%  |
+| J90     | 480       | 352                | 73.3%   | 1.5234%  |
+| J120    | 600       | 180                | 30.0%   | 4.5942%  |
 
 Representative outputs are written under:
-- `benchmark_results/restart_tuning_3s/j30/`
-- `benchmark_results/restart_tuning_3s/j60/`
-- `benchmark_results/restart_tuning_3s/j90/`
-- `benchmark_results/restart_tuning_3s/j120/`
+- `experiments/experiment2/results/j30/`
+- `experiments/experiment2/results/j60/`
+- `experiments/experiment2/results/j90/`
+- `experiments/experiment2/results/j120/`
 
-Treat these `benchmark_results/restart_tuning_3s/` folders as the canonical current-best `3s` artifacts. The rerunnable `experiments/*/results/` folders are working outputs and may be overwritten by later benchmark runs.
+Treat these `experiments/experiment2/results/` folders as the canonical current-best sequential `3s` artifacts. The `benchmark_results/` folders remain useful as refinement history and development checkpoints.
 
 ## Historical Experiment Snapshots
 
@@ -285,14 +285,14 @@ After restart tuning, we added a duplicate-aware population filter and then redu
 
 | Dataset | Best-known matches | Mean gap |
 |---------|--------------------|----------|
-| J30 | `405 → 427` | `0.3576% → 0.2394%` |
-| J60 | `342 → 351` | `1.5077% → 1.2718%` |
-| J90 | `342 → 350` | `2.0838% → 1.7914%` |
-| J120 | `161 → 167` | `5.8226% → 5.3772%` |
+| J30 | `405 → 428` | `0.3576% → 0.2223%` |
+| J60 | `342 → 353` | `1.5077% → 1.0919%` |
+| J90 | `342 → 352` | `2.0838% → 1.5234%` |
+| J120 | `161 → 180` | `5.8226% → 4.5942%` |
 
 This is the strongest solver line so far and is the current default.
 
-This is the first post-neighborhood refinement that remained positive under both schedule-budget and wall-clock benchmarking, so it is the current solver line to keep.
+This later hybrid-GA refinement remained positive on curated hard subsets and on the full sequential `3s` wall-clock rerun, so it is the current solver line to keep.
 
 ## Updated Local J10/J20 Benchmark Status (5s timeout, --time 3, full pipeline)
 

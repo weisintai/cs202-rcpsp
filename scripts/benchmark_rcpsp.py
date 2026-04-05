@@ -161,6 +161,11 @@ def parse_args() -> argparse.Namespace:
     run_parser.add_argument("--limit", type=int, default=0, help="Only run the first N instances.")
     run_parser.add_argument("--match", help="Only run instances whose filename contains this substring.")
     run_parser.add_argument(
+        "--instance-list",
+        type=Path,
+        help="Path to a text file listing exact instance basenames to run, one per line.",
+    )
+    run_parser.add_argument(
         "--output-dir",
         type=Path,
         default=RESULTS_ROOT / "j30",
@@ -261,6 +266,16 @@ def parse_instance_name(spec: DatasetSpec, path: Path) -> tuple[int, int]:
 def sorted_instances(spec: DatasetSpec, instances_dir: Path) -> list[Path]:
     candidates = list(instances_dir.glob(spec.file_glob))
     return sorted(candidates, key=lambda path: parse_instance_name(spec, path))
+
+
+def load_instance_filter(path: Path) -> set[str]:
+    names: set[str] = set()
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        names.add(Path(line).name)
+    return names
 
 
 def parse_sm_instance(path: Path) -> InstanceData:
@@ -594,6 +609,14 @@ def benchmark_solver(args: argparse.Namespace) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     instances = sorted_instances(spec, instances_dir)
+    if args.instance_list:
+        instance_list_path = args.instance_list
+        if not instance_list_path.is_absolute():
+            instance_list_path = ROOT / instance_list_path
+        if not instance_list_path.exists():
+            raise SystemExit(f"instance list not found: {instance_list_path}")
+        wanted_names = load_instance_filter(instance_list_path)
+        instances = [path for path in instances if path.name in wanted_names]
     if args.match:
         instances = [path for path in instances if args.match in path.name]
     if args.limit > 0:

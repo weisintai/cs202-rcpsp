@@ -8,9 +8,9 @@ The solver uses a Genetic Algorithm with a Serial Schedule Generation Scheme (SS
 
 1. **Parse** input file (`.sm` or `.SCH` format)
 2. **Generate initial solutions** using priority rules (LFT, MTS, GRD, SPT) and biased randomized permutations (LFT/MTS-weighted seeding)
-3. **Evolve** the population using tournament selection, one-point crossover, and a richer activity-list mutation neighborhood
+3. **Evolve** the population using tournament selection, hybrid crossover, adaptive mutation, and a richer activity-list mutation neighborhood
 4. **Diversify** with restart-on-stagnation and duplicate-aware population control when the GA plateaus
-5. **Improve** the best solution with forward-backward double justification
+5. **Improve** strong candidates with forward-backward double justification
 6. **Output** start times for each activity
 
 ## Build
@@ -114,6 +114,7 @@ python3 scripts/benchmark_rcpsp.py run \
 | `--timeout` | Per-instance wall-clock timeout in seconds |
 | `--limit` | Only run the first N instances |
 | `--match` | Only run instances whose filename contains this substring |
+| `--instance-list` | Only run exact instance basenames listed in a text file |
 | `--output-dir` | Directory for results (CSV + JSON summary) |
 | `--build-cmd` | Shell command to build the solver before benchmarking |
 
@@ -128,7 +129,7 @@ For internal solver development, the binary also supports `--schedules <count>` 
 
 The convenience scripts under `experiments/` often launch multiple benchmark jobs in parallel. That is useful for throughput, but it adds noise to wall-clock-limited runs because datasets compete for CPU time. For report-quality reruns, prefer calling `scripts/benchmark_rcpsp.py run` directly and run datasets sequentially.
 
-Canonical current-best `3s` benchmark artifacts live under `benchmark_results/restart_tuning_3s/`. The per-experiment `results/` folders are working outputs and may be overwritten by later reruns.
+Current report-facing `3s` wall-clock results live under `experiments/experiment2/results/`. Curated hard-instance subsets and quick development reruns live under `benchmark_results/hard_instances/` and `benchmark_results/quick_hard_*`.
 
 ### Recommended workflow after solver changes
 
@@ -140,7 +141,7 @@ Use this order when testing a new solver idea:
    - use `--schedules <count>` to compare search quality without mixing in machine-speed effects
    - start with targeted subsets such as known regressions before running large sweeps
 3. **Targeted subset benchmark**
-   - prefer regression subsets or one difficult dataset first
+   - prefer regression subsets or curated hard-instance lists before running large sweeps
 4. **Full `3s` wall-clock sweep**
    - only if the targeted/internal result looks promising
 5. **Longer wall-clock confirmation**
@@ -149,6 +150,16 @@ Use this order when testing a new solver idea:
 Rule of thumb:
 - use **schedule budget** to compare algorithm ideas
 - use **wall-clock** to report assignment-facing results
+
+Useful helpers:
+
+```bash
+# Regenerate hard-instance subsets from historical runs
+python3 scripts/derive_hard_instances.py --top-k 20
+
+# Run curated hard subsets for j30/j60/j90/j120
+./scripts/quick_hard_bench.sh 20
+```
 
 ## Datasets
 
