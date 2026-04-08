@@ -80,7 +80,7 @@ Four experiments to evaluate the solver's performance and justify design decisio
 - Diminishing returns visible (large improvement 1s to 3s, smaller 10s to 28s)
 - Results tabulated for a quality-vs-time chart
 
-**Interpretation note:** This experiment measures the submitted solver's time-quality tradeoff. If the final solver line changes materially, this experiment should be refreshed for that line.
+**Interpretation note:** This experiment measures the solver's anytime time-quality tradeoff. In this repo the current Experiment 3 results are intentionally frozen on the immediately previous solver line, because their main role is to show that more time improves average quality and that the gains flatten over time. They should not be cited as the latest absolute benchmark numbers for the current final solver line unless rerun.
 
 ---
 
@@ -129,6 +129,8 @@ Use wall-clock runs for the report and assignment-facing claims.
 Use schedule-budget runs for internal A/B testing and search-method comparisons.
 For report-quality wall-clock numbers, prefer running datasets sequentially; the parallel helper scripts are primarily convenience wrappers for bulk reruns.
 For the final report, pair the four main experiments with a short solver-refinement summary table drawn from the canonical records under `benchmark_results/`.
+Treat Experiment 2 as the canonical current-quality benchmark for the latest solver line.
+Treat Experiment 3 as a frozen anytime demonstration unless it is explicitly rerun.
 
 One exploratory branch also tried multithreading to push more schedule generations through the same wall-clock budget. That did increase throughput, but it also exposed the more important question: were we finding better schedules, or just more schedules? That is what led to the follow-up search-quality checks under a fixed schedule budget, and to a small search experiment aimed at using the extra generations more deliberately. We kept that branch separate from the frozen solver because the threading and search changes landed together, which makes them harder to attribute cleanly in the final submission.
 

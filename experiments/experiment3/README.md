@@ -41,3 +41,5 @@ make
 ## Results
 
 Stored in `results/` as `<time>s_<dataset>/summary.json` and `results.csv`.
+
+This experiment is currently **frozen on the solver line immediately before the latest GA upgrade**. Its role in the report is to demonstrate anytime behaviour: giving the solver more time improves average results, with diminishing returns. It should not be treated as the latest absolute-quality benchmark for the current final solver line unless it is rerun.

@@ -15,9 +15,9 @@ Imagine managing a construction project where plumbing, electrical work, structu
 
 In RCPSP, each activity has a duration, a set of predecessor constraints, and a fixed demand for each renewable resource type. The goal is to assign a start time to every activity so that all precedence and resource constraints are respected while the final completion time, or makespan, is as small as possible. The assignment also adds a practical constraint: the solver must always return a valid schedule within a strict 30-second wall-clock budget per instance. That changes the nature of the task. We are not trying to prove optimality on every instance. We are trying to find strong schedules quickly and reliably.
 
-We approached the problem with a hybrid solver built around three ideas. First, we represent a candidate schedule as an activity list, then decode it with a Serial Schedule Generation Scheme (SSGS) [2]. Second, we seed the search with priority-rule heuristics instead of starting entirely from random permutations. Third, we refine those candidates with a genetic algorithm (GA) [3] and a forward-backward improvement pass. This combination gave us a solver that remained valid on the provided `J10` and `J20` sets as well as the larger PSPLIB benchmark instances [1], and produced strong makespans within short time budgets.
+We approached the problem with a hybrid solver built around three ideas. First, we represent a candidate schedule as an activity list, then decode it with a Serial Schedule Generation Scheme (SSGS) [2]. Second, we seed the search with priority-rule heuristics instead of starting entirely from random permutations. Third, we refine those candidates with a genetic algorithm (GA) [3] that combines hybrid crossover, adaptive mutation, and forward-backward improvement. This combination gave us a solver that remained valid on the provided `J10` and `J20` sets as well as the larger PSPLIB benchmark instances [1], and produced strong makespans within short time budgets.
 
-We first used the provided `J10` and `J20` datasets to verify parsing, schedule validity, and runtime behaviour. Our main quantitative result then came from the 3-second benchmark sweep on the larger PSPLIB datasets. Using the final frozen solver line, we matched the best-known makespan on 427 of 480 `J30` instances, 351 of 480 `J60` instances, 350 of 480 `J90` instances, and 167 of 600 `J120` instances. Mean quality relative to the best-known value remained high across all four datasets: `99.767%` on `J30`, `98.798%` on `J60`, `98.336%` on `J90`, and `95.058%` on `J120`. The trend is clear: the solver handles small and medium instances very well, but the gap widens as the instances become larger and more constrained.
+We first used the provided `J10` and `J20` datasets to verify parsing, schedule validity, and runtime behaviour. Our main quantitative result then came from the 3-second benchmark sweep on the larger PSPLIB datasets. Using the final solver line, we matched the best-known makespan on 428 of 480 `J30` instances, 353 of 480 `J60` instances, 352 of 480 `J90` instances, and 180 of 600 `J120` instances. Mean quality relative to the best-known value remained high across all four datasets: `99.783%` on `J30`, `98.961%` on `J60`, `98.573%` on `J90`, and `95.736%` on `J120`. The trend is clear: the solver handles small and medium instances very well, but the gap widens as the instances become larger and more constrained.
 
 ## 2. Algorithm design
 
@@ -87,13 +87,14 @@ The GA is the main search engine. It improves on the seeded activity lists by co
 
 - population size `100`,
 - tournament selection with size `5`,
-- one-point order-preserving crossover,
-- precedence-feasible activity-list mutation,
+- hybrid crossover that mixes one-point recombination with a precedence-aware merge crossover,
+- precedence-feasible activity-list mutation with an adaptive mutation rate,
 - steady-state replacement,
 - restart-on-stagnation for diversification,
-- duplicate-aware diversity control.
+- duplicate-aware diversity control,
+- selective forward-backward polishing on promising offspring.
 
-The key idea is simple: priority rules give the search a good starting region, then the GA explores nearby and between those regions for better schedules.
+The key idea is simple: priority rules give the search a good starting region, then the GA explores nearby and between those regions for better schedules. In the final line, that exploration became more deliberate: the crossover operator became partly precedence-aware, the mutation rate increased as stagnation built up, and only promising offspring were polished with the expensive improvement pass.
 
 ```text
 Algorithm 2: Genetic algorithm with schedule decoding
@@ -232,14 +233,14 @@ This experiment justified the main solver design. We kept components that produc
 
 The second experiment measured how the final solver degrades as the instances get larger. This is the main report-facing benchmark because it uses the same 3-second wall-clock budget across `J30`, `J60`, `J90`, and `J120`.
 
-Table 3 shows the final frozen solver line.
+Table 3 shows the final solver line.
 
 | Dataset | Best-known matches | Match rate (%) | Mean gap (%) | Mean quality (%) | Max gap (%) | Mean wall time (s) |
 |---|---:|---:|---:|---:|---:|---:|
-| J30 | 427 / 480 | 88.96 | 0.239 | 99.767 | 6.780 | 3.006 |
-| J60 | 351 / 480 | 73.12 | 1.272 | 98.798 | 11.579 | 3.006 |
-| J90 | 350 / 480 | 72.92 | 1.791 | 98.336 | 11.765 | 3.006 |
-| J120 | 167 / 600 | 27.83 | 5.377 | 95.058 | 15.200 | 3.006 |
+| J30 | 428 / 480 | 89.17 | 0.222 | 99.783 | 6.897 | 3.005 |
+| J60 | 353 / 480 | 73.54 | 1.092 | 98.961 | 8.421 | 3.005 |
+| J90 | 352 / 480 | 73.33 | 1.523 | 98.573 | 11.207 | 3.005 |
+| J120 | 180 / 600 | 30.00 | 4.594 | 95.736 | 15.508 | 3.006 |
 
 **Figure 1 placeholder.** Scaling of the 3-second solver across `J30`, `J60`, `J90`, and `J120`. A line chart of mean gap or a bar chart of best-known match rate would both work.
 
@@ -250,6 +251,8 @@ This tells us where the solver is actually strong. It is especially strong on sm
 ### 4.4 Experiment 3: time-budget sensitivity
 
 The third experiment asks whether the solver behaves like a useful anytime algorithm. We tested `1s`, `3s`, `10s`, and `28s` budgets on `J30` and `J60`.
+
+This experiment is intentionally frozen on the solver line immediately before the latest GA upgrade. We did not rerun it after the final scaling improvements because its purpose in the report is qualitative: to show that giving the solver more time improves average results and that the gains flatten over time. Experiment 2 remains the source of the latest absolute benchmark numbers for the current final solver line.
 
 Table 4 shows the final results.
 
@@ -291,16 +294,28 @@ This experiment directly influenced the final solver. Instead of treating all ru
 
 ### 4.6 Refinement history
 
-The four experiments above explain the main architecture, but they do not show how the final frozen solver line was reached. We therefore kept a small refinement log in `benchmark_results/`.
+The four experiments above explain the main architecture, but they do not show how the final solver line was reached. We therefore kept a small refinement log in `benchmark_results/`.
+
+The evolution of the solver was broadly:
+
+1. A basic GA + SSGS backbone with activity lists and a final improvement pass.
+2. Guided seeding, after the priority-rule study showed that `LFT` and `MTS` were much stronger than the weaker standalone rules.
+3. A stronger mutation neighborhood, replacing overly local search moves with a mix of adjacent swap, non-adjacent swap, and feasible insertion.
+4. Restart-on-stagnation and duplicate-aware diversity control, after the search showed clear signs of population collapse and plateauing.
+5. Hot-path optimisation and schedule-budget testing, so later tuning could separate raw implementation speed from genuine search-quality improvements.
+6. A final hybrid-GA refinement: hybrid crossover, adaptive mutation under stagnation, and selective forward-backward polishing of promising offspring.
+
+This sequence matters because the final solver was not the result of one large redesign. It was the result of keeping a stable RCPSP backbone and improving the parts that experiments showed were actually limiting performance.
 
 One example is restart tuning on `J90` at 3 seconds:
 
 | Solver line | J90 best-known matches | J90 mean gap (%) | J90 mean quality (%) |
 |---|---:|---:|---:|
 | Restart stagnation baseline | 342 | 2.084 | 98.082 |
-| Restart-tuned final line | 350 | 1.791 | 98.336 |
+| Restart-tuned line | 350 | 1.791 | 98.336 |
+| Final hybrid-GA line | 352 | 1.523 | 98.573 |
 
-This shows the sort of tuning we actually trusted: changes that improved the canonical 3-second benchmark on hard instances without changing the core design. We also explored a separate multithreading branch later in the project. That branch increased schedule throughput and motivated a follow-up search-quality experiment, but we kept it out of the frozen submission because the threading and search changes landed together and were harder to attribute cleanly.
+This shows the sort of tuning we actually trusted: changes that improved the canonical 3-second benchmark on hard instances without abandoning the core design. The last step added a hybrid crossover, adaptive mutation under stagnation, and selective forward-backward polishing of promising offspring. We also explored a separate multithreading branch later in the project. That branch increased schedule throughput and motivated a follow-up search-quality experiment, but we kept it out of the frozen submission because the threading and search changes landed together and were harder to attribute cleanly.
 
 Several of these tuning steps were first checked under a fixed schedule budget before we reran them under the normal wall-clock benchmark. That gave us a fairer algorithm comparison. If one version only looks better because it generates more schedules per second, that is an implementation-speed result, not necessarily a search-quality result.
 
@@ -343,7 +358,7 @@ Other natural future directions include:
 
 We built an RCPSP solver around a clear hybrid pipeline: activity-list representation, SSGS decoding, priority-rule seeding, genetic search, and forward-backward improvement. The experiments show why this combination works. Priority rules provide strong structure, the GA adds most of the search power, and the final improvement pass helps tighten schedules further on harder instances.
 
-Under the final frozen 3-second solver line, we matched the best-known makespan on `88.96%` of `J30`, `73.12%` of `J60`, `72.92%` of `J90`, and `27.83%` of `J120` instances. Those results are not uniform across all problem sizes, but they are strong enough to show that the solver is effective under tight wall-clock limits and remains valid throughout.
+Under the final 3-second solver line, we matched the best-known makespan on `89.17%` of `J30`, `73.54%` of `J60`, `73.33%` of `J90`, and `30.00%` of `J120` instances. Those results are not uniform across all problem sizes, but they are strong enough to show that the solver is effective under tight wall-clock limits and remains valid throughout.
 
 The main lesson from this project is practical rather than theoretical. In RCPSP, a good solver under time pressure is usually not the one with the most sophisticated single component. It is the one whose pieces fit together well: a representation that is easy to search, a decoder that preserves feasibility, and a search strategy that spends its limited time in the right parts of the space [4].
 

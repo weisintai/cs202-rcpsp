@@ -41,21 +41,27 @@
 - **Representation:** activity list (permutation that respects precedence)
 - **Population:** 100 individuals, initialised from Step 3 seeds and topped up with random feasible permutations
 - **Selection:** tournament selection (size 5)
-- **Crossover:** one-point crossover — take prefix from parent 1, fill remaining from parent 2 in order (preserves precedence feasibility)
+- **Crossover:** hybrid operator:
+  - early in the search, the GA often uses one-point order-preserving crossover for broad recombination
+  - as stagnation grows, it increasingly uses a precedence-aware merge crossover that builds a feasible child from activities both parents place early
 - **Mutation:** one random neighborhood move from:
   - adjacent feasible swap
   - non-adjacent feasible swap
   - bidirectional insertion within the precedence-feasible interval
+- **Adaptive exploration:** the mutation rate ramps up from the base rate when the search stagnates
 - **Replacement:** steady-state (replace worst individual if offspring is better)
 - **Diversification:** restart-on-stagnation keeps a small elite set and refreshes the rest of the population with fresh guided/random seeds
 - **Diversity control:** exact-duplicate offspring are rejected unless a few extra perturbations escape the duplicate; fingerprints are tracked with compact 64-bit hashes
+- **Selective polishing:** promising offspring near the incumbent receive a cheap forward-backward improvement pass before replacement
 - **Alternative stopping rule:** optional schedule-budget mode via `--schedules <count>` for internal A/B testing
 - **Termination:** wall-clock time budget (default 28 seconds) or schedule-generation budget
 - **Elitism:** always keep the best individual
 
 ## Step 5: Forward-Backward Improvement
 
-- Apply a forward-backward improvement pass on the best solution periodically during GA search and once again at the end:
+- Apply a forward-backward improvement pass in two places:
+  - periodically on the best solution during GA search and once again at the end
+  - selectively on promising offspring before population insertion
   - Forward pass: schedule as-is via SSGS
   - Backward pass: reverse the schedule (schedule from the end), producing new latest-start times
   - Forward again: use the backward-derived order, schedule forward
@@ -77,7 +83,7 @@
 - See `experiments.md` for full experiment plan with goals, metrics, and success criteria
 - **Experiment 1:** Algorithm component ablation (baseline vs priority vs GA vs full)
 - **Experiment 2:** Scaling across instance sizes (J30/J60/J90/J120)
-- **Experiment 3:** Time budget sensitivity (1s/3s/10s/28s)
+- **Experiment 3:** Time budget sensitivity (1s/3s/10s/28s), frozen on the previous solver line because its main purpose is to show anytime behaviour rather than to serve as the latest absolute-quality benchmark
 - **Experiment 4:** Priority rule comparison (LFT/MTS/GRD/SPT vs random)
 - Scripts in `experiments/`, results in `experiments/results/`
 

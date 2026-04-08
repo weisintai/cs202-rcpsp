@@ -11,6 +11,7 @@ struct GAConfig {
     int tournament_size = 5;
     double crossover_rate = 0.9;
     double mutation_rate = 0.3;
+    double max_mutation_rate = 0.6;
     double time_limit_seconds = 28.0;
     long long schedule_limit = 0;  // 0 means disabled
     int restart_stagnation_generations = 100000;

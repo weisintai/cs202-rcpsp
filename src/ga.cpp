@@ -34,6 +34,19 @@ static uint64_t activity_list_fingerprint(const std::vector<int>& list) {
     return hash;
 }
 
+static double effective_mutation_rate(const GAConfig& config, int generations_since_improve) {
+    if (config.max_mutation_rate <= config.mutation_rate ||
+        config.restart_stagnation_generations <= 0 ||
+        generations_since_improve <= 0) {
+        return config.mutation_rate;
+    }
+
+    double progress = std::min(
+        1.0,
+        static_cast<double>(generations_since_improve) / config.restart_stagnation_generations);
+    return config.mutation_rate + (config.max_mutation_rate - config.mutation_rate) * progress;
+}
+
 // ── Validate that an activity list is precedence-feasible ───────────────────
 static bool respects_precedence(const Problem& p, const std::vector<int>& list) {
     int total = (int)list.size();
@@ -110,36 +123,125 @@ static int tournament_select(const std::vector<int>& fitness,
     return best;
 }
 
-// ── One-point crossover ────────────────────────────────────────────────────
-// Take prefix from parent1 up to crossover point, fill remaining from parent2
-// in the order they appear. Result is always a valid permutation.
-// Precedence feasibility: since parent2 is precedence-feasible, the relative
-// order of activities taken from parent2 preserves precedence.
-static std::vector<int> crossover(const std::vector<int>& parent1,
-                                  const std::vector<int>& parent2,
-                                  std::mt19937& rng) {
+static std::vector<int> crossover_one_point(const std::vector<int>& parent1,
+                                            const std::vector<int>& parent2,
+                                            std::mt19937& rng) {
     int n = (int)parent1.size();
-    std::uniform_int_distribution<int> dist(1, n - 2);  // avoid trivial cuts
+    std::uniform_int_distribution<int> dist(1, n - 2);
     int cut = dist(rng);
 
     std::vector<int> child;
     child.reserve(n);
+    std::vector<bool> in_child(n, false);
 
-    // Take prefix from parent1
-    std::vector<bool> in_child(n + 2, false);  // indexed by activity id
     for (int i = 0; i < cut; i++) {
         child.push_back(parent1[i]);
         in_child[parent1[i]] = true;
     }
+    for (int act : parent2) {
+        if (!in_child[act]) child.push_back(act);
+    }
+    return child;
+}
 
-    // Fill remaining from parent2, preserving parent2's order
-    for (int i = 0; i < n; i++) {
-        if (!in_child[parent2[i]]) {
-            child.push_back(parent2[i]);
+// ── Precedence-aware merge crossover ───────────────────────────────────────
+static std::vector<int> crossover_merge(const Problem& p,
+                                        const std::vector<int>& parent1,
+                                        const std::vector<int>& parent2,
+                                        std::mt19937& rng) {
+    int total = (int)parent1.size();
+    std::vector<int> pos1(total, 0);
+    std::vector<int> pos2(total, 0);
+    for (int i = 0; i < total; i++) {
+        pos1[parent1[i]] = i;
+        pos2[parent2[i]] = i;
+    }
+
+    std::vector<int> remaining_preds(total, 0);
+    for (int act = 0; act < total; act++) {
+        remaining_preds[act] = (int)p.predecessors[act].size();
+    }
+
+    std::vector<int> eligible;
+    eligible.reserve(total);
+    for (int act = 0; act < total; act++) {
+        if (remaining_preds[act] == 0) eligible.push_back(act);
+    }
+
+    std::vector<int> child;
+    child.reserve(total);
+    std::vector<bool> scheduled(total, false);
+    std::uniform_real_distribution<double> pick_parent(0.0, 1.0);
+
+    while (!eligible.empty()) {
+        std::sort(eligible.begin(), eligible.end(), [&](int a, int b) {
+            int sum_a = pos1[a] + pos2[a];
+            int sum_b = pos1[b] + pos2[b];
+            if (sum_a != sum_b) return sum_a < sum_b;
+
+            int spread_a = std::abs(pos1[a] - pos2[a]);
+            int spread_b = std::abs(pos1[b] - pos2[b]);
+            if (spread_a != spread_b) return spread_a < spread_b;
+
+            if (pos1[a] != pos1[b]) return pos1[a] < pos1[b];
+            if (pos2[a] != pos2[b]) return pos2[a] < pos2[b];
+            return a < b;
+        });
+
+        int pool = std::min(3, (int)eligible.size());
+        int chosen_idx = 0;
+        if (pool > 1) {
+            bool prefer_parent1 = pick_parent(rng) < 0.5;
+            for (int i = 1; i < pool; i++) {
+                int current = eligible[chosen_idx];
+                int candidate = eligible[i];
+                int current_rank = prefer_parent1 ? pos1[current] : pos2[current];
+                int candidate_rank = prefer_parent1 ? pos1[candidate] : pos2[candidate];
+                if (candidate_rank < current_rank ||
+                    (candidate_rank == current_rank &&
+                     pos1[candidate] + pos2[candidate] < pos1[current] + pos2[current])) {
+                    chosen_idx = i;
+                }
+            }
+        }
+
+        int act = eligible[chosen_idx];
+        eligible[chosen_idx] = eligible.back();
+        eligible.pop_back();
+        scheduled[act] = true;
+        child.push_back(act);
+
+        for (int succ : p.successors[act]) {
+            remaining_preds[succ]--;
+            if (remaining_preds[succ] == 0 && !scheduled[succ]) {
+                eligible.push_back(succ);
+            }
         }
     }
 
     return child;
+}
+
+static std::vector<int> crossover(const Problem& p,
+                                  const std::vector<int>& parent1,
+                                  const std::vector<int>& parent2,
+                                  const GAConfig& config,
+                                  int generations_since_improve,
+                                  std::mt19937& rng) {
+    std::uniform_real_distribution<double> prob(0.0, 1.0);
+    bool prefer_merge = false;
+    if (config.restart_stagnation_generations > 0) {
+        prefer_merge = generations_since_improve >= config.restart_stagnation_generations / 4;
+    }
+
+    if (!prefer_merge && prob(rng) < 0.25) {
+        prefer_merge = true;
+    }
+
+    if (prefer_merge) {
+        return crossover_merge(p, parent1, parent2, rng);
+    }
+    return crossover_one_point(parent1, parent2, rng);
 }
 
 // ── Mutation: swap two adjacent activities if precedence allows ─────────────
@@ -307,6 +409,18 @@ static void restart_population(const Problem& p,
     }
 }
 
+static bool should_polish_offspring(const Problem& p,
+                                    int child_fitness,
+                                    int best_fitness,
+                                    int parent1_fitness,
+                                    int parent2_fitness) {
+    int better_parent = std::min(parent1_fitness, parent2_fitness);
+    if (child_fitness >= better_parent) return false;
+
+    int slack = std::max(1, p.n / 30);
+    return child_fitness <= best_fitness + slack;
+}
+
 // ── Run GA ──────────────────────────────────────────────────────────────────
 Schedule run_ga(const Problem& p,
                const std::vector<std::vector<int>>& initial_solutions,
@@ -408,13 +522,16 @@ Schedule run_ga(const Problem& p,
         std::vector<int> offspring;
         std::uniform_real_distribution<double> prob(0.0, 1.0);
         if (prob(rng) < config.crossover_rate) {
-            offspring = crossover(population[p1], population[p2], rng);
+            offspring = crossover(
+                p, population[p1], population[p2], config,
+                generations - last_improve_gen, rng);
         } else {
             offspring = population[p1];  // copy better parent
         }
 
         // Mutation
-        if (prob(rng) < config.mutation_rate) {
+        double mutation_rate = effective_mutation_rate(config, generations - last_improve_gen);
+        if (prob(rng) < mutation_rate) {
             perturb_once(p, offspring, rng);
         }
 
@@ -439,6 +556,24 @@ Schedule run_ga(const Problem& p,
         if (schedule_budget_exhausted(schedule_count, config.schedule_limit)) break;
         Schedule child_sched = counted_ssgs(p, offspring, schedule_count);
         int child_fitness = child_sched.makespan;
+
+        if (use_improvement &&
+            should_polish_offspring(p, child_fitness, fitness[best_idx], fitness[p1], fitness[p2]) &&
+            !schedule_budget_exhausted(schedule_count, config.schedule_limit) &&
+            !time_budget_exhausted(start_time, config.time_limit_seconds)) {
+            Schedule polished = forward_backward_improve(
+                p, child_sched, &schedule_count, config.schedule_limit);
+            if (polished.makespan < child_fitness) {
+                std::vector<int> polished_order = order_from_schedule(p, polished);
+                uint64_t polished_key = activity_list_fingerprint(polished_order);
+                if (polished_key == child_key || !population_keys.count(polished_key)) {
+                    offspring = std::move(polished_order);
+                    child_sched = std::move(polished);
+                    child_fitness = child_sched.makespan;
+                    child_key = polished_key;
+                }
+            }
+        }
 
         // Replace worst if offspring is better
         if (child_fitness < fitness[worst_idx]) {
