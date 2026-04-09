@@ -156,6 +156,10 @@ def parse_args() -> argparse.Namespace:
     run_parser = subparsers.add_parser("run", help="Benchmark a solver against a benchmark dataset.")
     run_parser.add_argument("--dataset", choices=sorted(DATASET_SPECS), required=True)
     run_parser.add_argument("--solver", required=True, help="Path to the solver executable.")
+    run_parser.add_argument(
+        "--solver-args-json",
+        help="JSON array of extra solver arguments to pass before the instance path.",
+    )
     run_parser.add_argument("--build-cmd", help="Optional shell command to build the solver before benchmarking.")
     run_parser.add_argument("--timeout", type=float, default=30.0, help="Per-instance timeout in seconds.")
     run_parser.add_argument("--limit", type=int, default=0, help="Only run the first N instances.")
@@ -175,6 +179,11 @@ def parse_args() -> argparse.Namespace:
         "--keep-all-artifacts",
         action="store_true",
         help="Store stdout/stderr artifacts for every instance instead of only failures.",
+    )
+    run_parser.add_argument(
+        "--allow-infeasible-input",
+        action="store_true",
+        help="Do not treat infeasible local inputs as fatal benchmark failures.",
     )
 
     return parser.parse_args()
@@ -276,6 +285,27 @@ def load_instance_filter(path: Path) -> set[str]:
             continue
         names.add(Path(line).name)
     return names
+
+
+def parse_solver_args_json(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    value = json.loads(raw)
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError("--solver-args-json must be a JSON array of strings")
+    return value
+
+
+def resolve_solver_path(raw_solver: str) -> Path:
+    solver_path = (ROOT / raw_solver).resolve() if not Path(raw_solver).is_absolute() else Path(raw_solver)
+    if solver_path.exists():
+        return solver_path
+    if solver_path.suffix:
+        return solver_path
+    windows_candidate = solver_path.with_suffix(".exe")
+    if windows_candidate.exists():
+        return windows_candidate
+    return solver_path
 
 
 def parse_sm_instance(path: Path) -> InstanceData:
@@ -554,7 +584,7 @@ def compute_quality_score(makespan: int | None, reference: int | None) -> float 
     return 100.0 * reference / makespan
 
 
-def summarize(rows: Iterable[dict[str, object]]) -> dict[str, object]:
+def summarize(rows: Iterable[dict[str, object]], allow_infeasible_input: bool = False) -> dict[str, object]:
     row_list = list(rows)
     wall_times = [float(row["wall_time_seconds"]) for row in row_list if row["wall_time_seconds"] is not None]
     best_known_gaps = [float(row["gap_to_best_known_pct"]) for row in row_list if row["gap_to_best_known_pct"] is not None]
@@ -572,7 +602,13 @@ def summarize(rows: Iterable[dict[str, object]]) -> dict[str, object]:
         "instance_count": len(row_list),
         "ok_count": sum(1 for row in row_list if row["status"] == "ok"),
         "timeout_count": sum(1 for row in row_list if row["status"] == "timeout"),
-        "invalid_count": sum(1 for row in row_list if row["status"] not in {"ok", "timeout"}),
+        "infeasible_count": sum(1 for row in row_list if row["status"] == "infeasible_input"),
+        "invalid_count": sum(
+            1
+            for row in row_list
+            if row["status"] not in {"ok", "timeout"}
+            and not (allow_infeasible_input and row["status"] == "infeasible_input")
+        ),
         "exact_reference_match_count": sum(1 for row in row_list if row["matched_exact_reference"] is True),
         "best_known_match_count": sum(1 for row in row_list if row["matched_best_known"] is True),
         "mean_wall_time_seconds": statistics.fmean(wall_times) if wall_times else None,
@@ -593,8 +629,9 @@ def summarize(rows: Iterable[dict[str, object]]) -> dict[str, object]:
 def benchmark_solver(args: argparse.Namespace) -> None:
     spec = DATASET_SPECS[args.dataset]
     instances_dir, optimal_refs, heuristic_refs, bound_refs = ensure_dataset_ready(spec)
+    solver_args = parse_solver_args_json(getattr(args, "solver_args_json", None))
 
-    solver_path = (ROOT / args.solver).resolve() if not Path(args.solver).is_absolute() else Path(args.solver)
+    solver_path = resolve_solver_path(args.solver)
     if args.build_cmd:
         run_build_command(args.build_cmd)
     if not solver_path.exists():
@@ -642,8 +679,9 @@ def benchmark_solver(args: argparse.Namespace) -> None:
         reported_makespan = None
 
         try:
+            command = [str(solver_path), str(instance_path), *solver_args]
             completed = subprocess.run(
-                [str(solver_path), str(instance_path)],
+                command,
                 cwd=ROOT,
                 capture_output=True,
                 text=True,
@@ -765,7 +803,7 @@ def benchmark_solver(args: argparse.Namespace) -> None:
         writer.writeheader()
         writer.writerows(rows)
 
-    summary = summarize(rows)
+    summary = summarize(rows, allow_infeasible_input=getattr(args, "allow_infeasible_input", False))
     with json_path.open("w", encoding="utf-8") as json_file:
         json.dump(summary, json_file, indent=2, sort_keys=True)
         json_file.write("\n")
@@ -777,6 +815,8 @@ def benchmark_solver(args: argparse.Namespace) -> None:
 
     if summary["timeout_count"] or summary["invalid_count"]:
         raise SystemExit(1)
+
+    return summary
 
 
 def main() -> None:

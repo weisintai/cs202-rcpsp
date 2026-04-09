@@ -32,7 +32,10 @@ bench-j90: $(TARGET)
 bench-j120: $(TARGET)
 	$(PYTHON) scripts/benchmark_rcpsp.py run --dataset j120 --solver ./solver --build-cmd "make"
 
-clean:
-	rm -f $(TARGET) solver_debug
+report-harness: $(TARGET)
+	$(PYTHON) scripts/run_report_harness.py --solver ./$(TARGET)
 
-.PHONY: clean debug bench-j10 bench-j20 bench-j30 bench-j60 bench-j90 bench-j120
+clean:
+	rm -f $(TARGET) $(TARGET).exe solver_debug
+
+.PHONY: clean debug bench-j10 bench-j20 bench-j30 bench-j60 bench-j90 bench-j120 report-harness

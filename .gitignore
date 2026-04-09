@@ -1,4 +1,6 @@
 benchmark_results/
+report_runs/
 __pycache__/
 solver
+solver.exe
 solver_debug
