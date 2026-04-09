@@ -13,6 +13,8 @@ struct GAConfig {
     double mutation_rate = 0.3;
     double max_mutation_rate = 0.6;
     double time_limit_seconds = 28.0;
+    std::chrono::steady_clock::time_point deadline =
+        std::chrono::steady_clock::time_point::max();
     long long schedule_limit = 0;  // 0 means disabled
     int restart_stagnation_generations = 100000;
     int restart_elite_count = 10;

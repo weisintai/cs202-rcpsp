@@ -11,11 +11,18 @@ static bool schedule_budget_exhausted(long long schedule_count, long long schedu
     return schedule_limit > 0 && schedule_count >= schedule_limit;
 }
 
-static bool time_budget_exhausted(const std::chrono::steady_clock::time_point& start_time,
-                                  double time_limit_seconds) {
+static bool time_budget_exhausted(const std::chrono::steady_clock::time_point& deadline) {
+    return std::chrono::steady_clock::now() >= deadline;
+}
+
+static std::chrono::steady_clock::time_point effective_deadline(const GAConfig& config) {
+    if (config.deadline != std::chrono::steady_clock::time_point::max()) {
+        return config.deadline;
+    }
+
     auto now = std::chrono::steady_clock::now();
-    double elapsed = std::chrono::duration<double>(now - start_time).count();
-    return elapsed >= time_limit_seconds;
+    auto budget = std::chrono::duration<double>(std::max(0.0, config.time_limit_seconds));
+    return now + std::chrono::duration_cast<std::chrono::steady_clock::duration>(budget);
 }
 
 static Schedule counted_ssgs(const Problem& p,
@@ -351,10 +358,11 @@ static void restart_population(const Problem& p,
                                const GAConfig& config,
                                std::mt19937& rng,
                                long long& schedule_count,
+                               const std::chrono::steady_clock::time_point& deadline,
                                int& best_idx,
                                int& worst_idx) {
     int pop_size = (int)population.size();
-    int elite_count = std::min(config.restart_elite_count, pop_size);
+    int elite_count = std::max(1, std::min(config.restart_elite_count, pop_size));
     std::unordered_set<uint64_t> keys;
     keys.reserve(pop_size * 2);
 
@@ -384,6 +392,11 @@ static void restart_population(const Problem& p,
     auto fresh_seeds = generate_initial_solutions(p, 20, rng);
     int seed_idx = 0;
     while ((int)new_population.size() < pop_size) {
+        if (time_budget_exhausted(deadline) ||
+            schedule_budget_exhausted(schedule_count, config.schedule_limit)) {
+            break;
+        }
+
         std::vector<int> candidate;
         if (seed_idx < (int)fresh_seeds.size()) {
             candidate = fresh_seeds[seed_idx++];
@@ -392,8 +405,9 @@ static void restart_population(const Problem& p,
         }
         uint64_t key = activity_list_fingerprint(candidate);
         if (!keys.insert(key).second) continue;
-        new_population.push_back(candidate);
-        new_schedules.push_back(counted_ssgs(p, candidate, schedule_count));
+        Schedule schedule = counted_ssgs(p, candidate, schedule_count);
+        new_population.push_back(std::move(candidate));
+        new_schedules.push_back(std::move(schedule));
         new_fitness.push_back(new_schedules.back().makespan);
     }
 
@@ -403,7 +417,7 @@ static void restart_population(const Problem& p,
 
     best_idx = 0;
     worst_idx = 0;
-    for (int i = 1; i < pop_size; i++) {
+    for (int i = 1; i < (int)fitness.size(); i++) {
         if (fitness[i] < fitness[best_idx]) best_idx = i;
         if (fitness[i] > fitness[worst_idx]) worst_idx = i;
     }
@@ -423,48 +437,73 @@ static bool should_polish_offspring(const Problem& p,
 
 // ── Run GA ──────────────────────────────────────────────────────────────────
 Schedule run_ga(const Problem& p,
-               const std::vector<std::vector<int>>& initial_solutions,
-               const GAConfig& config,
-               std::mt19937& rng,
-               bool use_improvement) {
-    auto start_time = std::chrono::steady_clock::now();
+                const std::vector<std::vector<int>>& initial_solutions,
+                const GAConfig& config,
+                std::mt19937& rng,
+                bool use_improvement) {
     long long schedule_count = 0;
+    const auto deadline = effective_deadline(config);
 
-    int pop_size = config.population_size;
+    int target_pop_size = config.population_size;
 
     // Initialize population
-    std::vector<std::vector<int>> population;
-    population.reserve(pop_size);
+    std::vector<std::vector<int>> seed_population;
+    seed_population.reserve(target_pop_size);
     std::unordered_set<uint64_t> population_keys;
-    population_keys.reserve(pop_size * 2);
+    population_keys.reserve(target_pop_size * 2);
 
     // Add initial solutions
     for (const auto& sol : initial_solutions) {
-        if ((int)population.size() >= pop_size) break;
-        add_unique_population_member(population, population_keys, sol);
+        if ((int)seed_population.size() >= target_pop_size) break;
+        add_unique_population_member(seed_population, population_keys, sol);
     }
 
     // Fill remaining with random permutations
-    while ((int)population.size() < pop_size) {
-        add_unique_population_member(population, population_keys, random_sort(p, rng));
+    while ((int)seed_population.size() < target_pop_size) {
+        add_unique_population_member(seed_population, population_keys, random_sort(p, rng));
     }
 
     // Evaluate initial population
-    std::vector<int> fitness(pop_size);
-    std::vector<Schedule> schedules(pop_size);
+    std::vector<std::vector<int>> population;
+    population.reserve(seed_population.size());
+    population_keys.clear();
+    population_keys.reserve(seed_population.size() * 2);
+    std::vector<int> fitness;
+    fitness.reserve(seed_population.size());
+    std::vector<Schedule> schedules;
+    schedules.reserve(seed_population.size());
     int best_idx = 0;
 
-    for (int i = 0; i < pop_size; i++) {
-        schedules[i] = counted_ssgs(p, population[i], schedule_count);
-        fitness[i] = schedules[i].makespan;
-        if (fitness[i] < fitness[best_idx]) {
-            best_idx = i;
+    for (size_t i = 0; i < seed_population.size(); i++) {
+        if (!population.empty()) {
+            if (time_budget_exhausted(deadline)) break;
+            if (schedule_budget_exhausted(schedule_count, config.schedule_limit)) break;
+        }
+
+        Schedule schedule = counted_ssgs(p, seed_population[i], schedule_count);
+        population.push_back(seed_population[i]);
+        schedules.push_back(std::move(schedule));
+        fitness.push_back(schedules.back().makespan);
+        population_keys.insert(activity_list_fingerprint(population.back()));
+        if (fitness.back() < fitness[best_idx]) {
+            best_idx = (int)fitness.size() - 1;
         }
     }
 
+    if (population.empty()) {
+        Schedule schedule = counted_ssgs(p, seed_population.front(), schedule_count);
+        population.push_back(seed_population.front());
+        schedules.push_back(std::move(schedule));
+        fitness.push_back(schedules.back().makespan);
+        population_keys.insert(activity_list_fingerprint(population.back()));
+    }
+
+    Schedule best_schedule = schedules[best_idx];
+    int best_fitness = fitness[best_idx];
+
     // Find worst individual
     int worst_idx = 0;
-    for (int i = 1; i < pop_size; i++) {
+    for (int i = 1; i < (int)population.size(); i++) {
         if (fitness[i] > fitness[worst_idx]) worst_idx = i;
     }
 
@@ -474,26 +513,36 @@ Schedule run_ga(const Problem& p,
 
     // Main GA loop
     while (true) {
+        if (population.size() < 2) break;
+
         // Check time budget
-        if (time_budget_exhausted(start_time, config.time_limit_seconds)) break;
+        if (time_budget_exhausted(deadline)) break;
         if (schedule_budget_exhausted(schedule_count, config.schedule_limit)) break;
 
         if (config.restart_stagnation_generations > 0 &&
             generations - last_improve_gen >= config.restart_stagnation_generations) {
             restart_population(
                 p, population, schedules, fitness, config, rng,
-                schedule_count, best_idx, worst_idx);
+                schedule_count, deadline, best_idx, worst_idx);
             build_population_keys(population, population_keys);
             last_improve_gen = generations;
             restart_count++;
             if (schedule_budget_exhausted(schedule_count, config.schedule_limit)) break;
-            if (time_budget_exhausted(start_time, config.time_limit_seconds)) break;
+            if (time_budget_exhausted(deadline)) break;
+            if (population.size() < 2) break;
+
+            if (fitness[best_idx] < best_fitness) {
+                best_schedule = schedules[best_idx];
+                best_fitness = fitness[best_idx];
+            }
         }
 
         // Periodically apply forward-backward improvement to best individual
-        if (use_improvement && generations - last_improve_gen >= 50000) {
+        if (use_improvement &&
+            generations - last_improve_gen >= 50000 &&
+            !time_budget_exhausted(deadline)) {
             Schedule improved = forward_backward_improve(
-                p, schedules[best_idx], &schedule_count, config.schedule_limit);
+                p, schedules[best_idx], &schedule_count, config.schedule_limit, deadline);
             if (improved.makespan < fitness[best_idx]) {
                 schedules[best_idx] = improved;
                 fitness[best_idx] = improved.makespan;
@@ -504,10 +553,14 @@ Schedule run_ga(const Problem& p,
 
                 // Re-find worst
                 worst_idx = 0;
-                for (int i = 1; i < pop_size; i++) {
+                for (int i = 1; i < (int)population.size(); i++) {
                     if (fitness[i] > fitness[worst_idx]) worst_idx = i;
                 }
                 last_improve_gen = generations;
+            }
+            if (fitness[best_idx] < best_fitness) {
+                best_schedule = schedules[best_idx];
+                best_fitness = fitness[best_idx];
             }
         }
 
@@ -553,6 +606,7 @@ Schedule run_ga(const Problem& p,
         }
 
         // Evaluate offspring
+        if (time_budget_exhausted(deadline)) break;
         if (schedule_budget_exhausted(schedule_count, config.schedule_limit)) break;
         Schedule child_sched = counted_ssgs(p, offspring, schedule_count);
         int child_fitness = child_sched.makespan;
@@ -560,9 +614,9 @@ Schedule run_ga(const Problem& p,
         if (use_improvement &&
             should_polish_offspring(p, child_fitness, fitness[best_idx], fitness[p1], fitness[p2]) &&
             !schedule_budget_exhausted(schedule_count, config.schedule_limit) &&
-            !time_budget_exhausted(start_time, config.time_limit_seconds)) {
+            !time_budget_exhausted(deadline)) {
             Schedule polished = forward_backward_improve(
-                p, child_sched, &schedule_count, config.schedule_limit);
+                p, child_sched, &schedule_count, config.schedule_limit, deadline);
             if (polished.makespan < child_fitness) {
                 std::vector<int> polished_order = order_from_schedule(p, polished);
                 uint64_t polished_key = activity_list_fingerprint(polished_order);
@@ -589,9 +643,14 @@ Schedule run_ga(const Problem& p,
                 last_improve_gen = generations;
             }
 
+            if (child_fitness < best_fitness) {
+                best_schedule = schedules[best_idx];
+                best_fitness = child_fitness;
+            }
+
             // Find new worst
             worst_idx = 0;
-            for (int i = 1; i < pop_size; i++) {
+            for (int i = 1; i < (int)population.size(); i++) {
                 if (fitness[i] > fitness[worst_idx]) worst_idx = i;
             }
         }
@@ -600,18 +659,22 @@ Schedule run_ga(const Problem& p,
     }
 
     // Final forward-backward improvement on the best solution
-    if (use_improvement && !schedule_budget_exhausted(schedule_count, config.schedule_limit)) {
+    if (use_improvement &&
+        !schedule_budget_exhausted(schedule_count, config.schedule_limit) &&
+        !time_budget_exhausted(deadline)) {
         Schedule final_sched = forward_backward_improve(
-            p, schedules[best_idx], &schedule_count, config.schedule_limit);
-        if (final_sched.makespan < fitness[best_idx]) {
+            p, best_schedule, &schedule_count, config.schedule_limit, deadline);
+        if (final_sched.makespan < best_fitness) {
             schedules[best_idx] = final_sched;
             fitness[best_idx] = final_sched.makespan;
+            best_schedule = final_sched;
+            best_fitness = final_sched.makespan;
         }
     }
 
     std::cerr << "GA: " << generations << " generations, " << schedule_count
               << " schedules, " << restart_count
-              << " restarts, best makespan: " << fitness[best_idx] << std::endl;
+              << " restarts, best makespan: " << best_fitness << std::endl;
 
-    return schedules[best_idx];
+    return best_schedule;
 }

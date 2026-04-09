@@ -30,9 +30,9 @@ def run_solver(*args: str) -> tuple[int, int, int, int]:
 
 
 def main() -> None:
-    run_a = run_solver("--schedules", "300000", "--mode", "full")
-    run_b = run_solver("--schedules", "300000", "--mode", "full")
-    run_c = run_solver("--schedules", "600000", "--mode", "full")
+    run_a = run_solver("--schedules", "300000")
+    run_b = run_solver("--schedules", "300000")
+    run_c = run_solver("--schedules", "600000")
 
     assert run_a == run_b, f"fixed-budget run changed across repeats: {run_a} vs {run_b}"
     assert run_c[3] <= run_a[3], f"larger schedule budget regressed makespan: {run_a[3]} -> {run_c[3]}"

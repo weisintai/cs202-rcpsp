@@ -7,6 +7,10 @@ static bool schedule_budget_exhausted(long long* schedule_counter, long long sch
     return schedule_counter != nullptr && schedule_limit > 0 && *schedule_counter >= schedule_limit;
 }
 
+static bool time_budget_exhausted(const std::chrono::steady_clock::time_point& deadline) {
+    return std::chrono::steady_clock::now() >= deadline;
+}
+
 static Schedule counted_ssgs(const Problem& p,
                              const std::vector<int>& order,
                              long long* schedule_counter,
@@ -112,10 +116,13 @@ static std::vector<int> order_from_schedule(const Problem& p, const Schedule& sc
 Schedule forward_backward_improve(const Problem& p,
                                   const Schedule& initial,
                                   long long* schedule_counter,
-                                  long long schedule_limit) {
+                                  long long schedule_limit,
+                                  std::chrono::steady_clock::time_point deadline) {
     Schedule best = initial;
 
     for (int iter = 0; iter < 10; iter++) {
+        if (time_budget_exhausted(deadline)) break;
+
         // Backward pass: schedule as late as possible
         Schedule bwd = backward_ssgs(p, best);
 
@@ -123,6 +130,7 @@ Schedule forward_backward_improve(const Problem& p,
         std::vector<int> new_order = order_from_schedule(p, bwd);
 
         // Forward pass: re-schedule with the new order
+        if (time_budget_exhausted(deadline)) break;
         if (schedule_budget_exhausted(schedule_counter, schedule_limit)) break;
         Schedule fwd = counted_ssgs(p, new_order, schedule_counter, schedule_limit);
 

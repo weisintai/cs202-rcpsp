@@ -4,7 +4,7 @@ A solver for the Resource Constrained Project Scheduling Problem (RCPSP) built f
 
 ## Algorithm
 
-The solver uses a Genetic Algorithm with a Serial Schedule Generation Scheme (SSGS) decoder. The pipeline:
+The submission solver uses a Genetic Algorithm with a Serial Schedule Generation Scheme (SSGS) decoder. The pipeline is fixed:
 
 1. **Parse** input file (`.sm` or `.SCH` format)
 2. **Generate initial solutions** using priority rules (LFT, MTS, GRD, SPT) and biased randomized permutations (LFT/MTS-weighted seeding)
@@ -24,59 +24,58 @@ make debug        # debug build with AddressSanitizer
 make clean        # remove binaries
 ```
 
+## Submission Checklist
+
+- Submit one zip archive named `GroupXX_CS202_Project.zip`.
+- Include the code, this `README.md`, the project report PDF, and the slides PDF/PPTX.
+- Put every team member's name and student ID in both the report and this README.
+- State the exact grading command as `./solver <instance_file>`.
+
 ## Usage
 
 ```bash
-./solver <instance_file> [options]
+./solver <instance_file>
 ```
 
-### Options
+This is the exact submission command. The binary always runs the full solver pipeline:
+
+1. priority-rule seeding
+2. genetic search
+3. restart-on-stagnation and duplicate-aware diversity control
+4. forward-backward improvement
+
+The solver is anytime: it keeps track of the incumbent best schedule throughout the search and returns the best schedule found so far. The default wall-clock budget is `28s`, leaving margin for validation and output before the hard `30s` grading deadline.
+
+### Submission Option
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--time <seconds>` | GA time budget in seconds | `28` |
-| `--schedules <count>` | Optional GA schedule-generation budget for internal A/B tests | disabled |
-| `--mode <mode>` | Algorithm mode (see below) | `full` |
-| `--rule <rule>` | Run a single priority rule + SSGS (see below) | not set |
+| `--time <seconds>` | Optional wall-clock search budget, capped at `29` seconds for submission safety | `28` |
 
-### Modes
+### Internal Development Options
 
-| Mode | Description |
-|------|-------------|
-| `full` | Full pipeline: guided seeds + GA + restart-on-stagnation + duplicate-aware diversity control + forward-backward improvement |
-| `baseline` | Random topological order + SSGS only |
-| `priority` | Best of priority rules + random permutations, no GA |
-| `ga` | Random initial population + GA, no forward-backward improvement |
+The binary still accepts a few tuning flags used by our regression tests and benchmarking scripts:
 
-### Rules
-
-When `--rule` is set, the solver ignores `--mode` and `--time`, and produces a single solution using the specified priority rule + SSGS.
-
-| Rule | Priority value |
-|------|---------------|
-| `lft` | Latest Finish Time (CPM backward pass) |
-| `mts` | Most Total Successors (transitive count) |
-| `grd` | Greatest Resource Demand (sum across all types) |
-| `spt` | Shortest Processing Time (duration) |
-| `random` | Random tie-breaking |
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--schedules <count>` | Optional GA schedule-generation budget for deterministic A/B tests | disabled |
+| `--restart-stagnation <gens>` | Generations without improvement before restart | `100000` |
+| `--restart-elites <count>` | Number of elites preserved across restart | `10` |
+| `--mutation-rate <rate>` | Base GA mutation rate | `0.3` |
+| `--mode full` | Accepted for backward compatibility; other modes are rejected | `full` |
+| `--rule <rule>` | Rejected in the submission build; single-rule experiment modes are not supported | not supported |
 
 ### Examples
 
 ```bash
-# Run with default settings (full pipeline, 28s GA budget)
+# Submission command
 ./solver datasets/psplib/j30/instances/j301_1.sm
 
-# Run with a 5-second GA budget
+# Run with a 5-second wall-clock search budget
 ./solver datasets/psplib/j30/instances/j301_1.sm --time 5
 
-# Run with a schedule-generation budget instead of relying on wall-clock only
-./solver datasets/psplib/j30/instances/j301_1.sm --time 999 --schedules 5000
-
-# Run in priority-only mode (no GA)
-./solver datasets/psplib/j30/instances/j301_1.sm --mode priority
-
-# Run a single priority rule (LFT)
-./solver datasets/psplib/j30/instances/j301_1.sm --rule lft
+# Deterministic internal A/B run with a schedule-generation budget
+./solver datasets/psplib/j30/instances/j301_1.sm --schedules 5000 --mode full
 ```
 
 ### Output
@@ -184,4 +183,4 @@ Notes on the updated local `j10`/`j20` sets:
 
 ## Team
 
-- [Member names and student IDs to be added]
+- [Fill in member names and student IDs before submission]
