@@ -93,8 +93,12 @@ This glossary is written for this project's RCPSP solver. It focuses on the term
 | Tournament Selection | Sample a few individuals and keep the best as a parent. | Pick 5 random individuals and choose the best of them. |
 | Parent | An individual used to create an offspring. | One candidate chosen for crossover. |
 | Offspring / Child | A new activity list produced by crossover and or mutation. | New list built from two parents. |
-| Crossover | Combine structure from two parents. In this project, take a prefix from one parent and fill the rest using the other parent's order. | Keep early decisions from parent 1, later relative order from parent 2. |
-| Mutation | A small random modification to one activity list. | Swap two jobs or move one job. |
+| Crossover | Combine structure from two parents. In this project the solver now uses a hybrid crossover strategy rather than only one fixed operator. | Sometimes keep a prefix from parent 1, other times build the child from jointly preferred eligible activities. |
+| Hybrid Crossover | The solver switches between one-point crossover and precedence-aware merge crossover. | Use simple recombination when search is healthy, but lean more on merge crossover when the search is getting stuck. |
+| One-Point Crossover | Take a prefix from one parent and fill the rest using the other parent's order. | Keep early decisions from parent 1, later relative order from parent 2. |
+| Merge Crossover / Precedence-Aware Merge Crossover | Build the child step by step from currently eligible activities, favoring jobs both parents rank early while always preserving precedence. | If both parents place activity A early, merge crossover is likely to place A early too. |
+| Mutation | A small random modification to one activity list. In this project the mutation rate is adaptive, not fully fixed. | Swap two jobs or move one job. |
+| Adaptive Mutation / Effective Mutation Rate | The mutation rate rises as generations since the last improvement increase, up to a configured maximum. | The solver may start near `0.3` mutation and drift toward `0.6` during stagnation. |
 | Adjacent Swap | Swap neighboring activities if precedence still holds. | `[A, B, C]` -> `[B, A, C]` if legal. |
 | Long Swap / Non-Adjacent Swap | Swap two activities that are farther apart. | Swap positions of A and D. |
 | Insertion Move | Remove one activity and insert it elsewhere within legal bounds. | Move C from position 6 to position 3. |
@@ -111,9 +115,10 @@ This glossary is written for this project's RCPSP solver. It focuses on the term
 
 | Term | Meaning | Simple Example |
 |---|---|---|
-| Forward-Backward Improvement | A post-processing step that tries to tighten a good schedule. | Push jobs right, then rebuild left. |
+| Forward-Backward Improvement | A tightening step that the solver uses on strong schedules during search and again at the end. | Push jobs right, then rebuild left. |
 | Double Justification | Another name for forward-backward improvement. | Squeeze from the right, then reschedule from the left. |
 | Justification | Pushing activities earlier or later to reduce unnecessary slack while staying feasible. | Remove idle gaps without breaking constraints. |
+| Offspring Polishing / Selective Polishing | Running forward-backward improvement on a newly created GA child only if it already looks strong enough to be worth the extra work. | If a child already beats its better parent and is close to the current best, polish it before deciding whether to keep it. |
 
 ## Input and File Format Terms
 
@@ -147,7 +152,7 @@ This glossary is written for this project's RCPSP solver. It focuses on the term
 | `baseline` mode | One random feasible order plus SSGS. | Minimal solver. |
 | `priority` mode | Several heuristic orders plus SSGS, no GA. | Try multiple rule-based seeds and keep the best. |
 | `ga` mode | GA search starting from random orders, no final improvement pass. | Search without heuristic seeding and without cleanup. |
-| `full` mode | Heuristic seeds plus GA plus restart and diversity control plus forward-backward improvement. | Full final pipeline. |
+| `full` mode | Heuristic seeds plus GA plus restart and diversity control plus in-search and final forward-backward improvement. | Full final pipeline. |
 
 ## Shortest Summary
 

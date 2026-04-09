@@ -472,7 +472,10 @@ The schedule-budget mode counts `SSGS` decodes (via `counted_ssgs()`) and is mai
 
 ## Stage 7: Forward-Backward Improvement — `forward_backward_improve()`
 
-**Purpose:** Improve a schedule by shifting activities to close gaps. Applied both during the GA (periodically after 50k stagnation) and as a final pass after the GA loop.
+**Purpose:** Improve a schedule by shifting activities to close gaps. In the current implementation this is used in three places:
+- periodically on the incumbent best solution during long stagnation
+- selectively on newly created offspring that already look competitive
+- as a final pass after the GA loop
 
 **Algorithm (double justification):**
 1. **Backward pass** (`backward_ssgs`): Take the current schedule and schedule activities as **late** as possible. Process activities in reverse order of their forward start times (latest-scheduled first). For each activity, compute the latest finish time as the minimum start time among all successors, then scan backwards for resource feasibility. If the scan fails to find a feasible slot, the activity is clamped to time 0 (the intermediate backward schedule is a heuristic reordering device, not a final output).
@@ -552,3 +555,8 @@ CLI mode pipeline comparison:
               + FBI + restart → Validate → Output
               (default)
 ```
+
+Notes on the current `full` implementation:
+- forward-backward improvement is used periodically on the incumbent best solution during stagnation
+- forward-backward improvement is also used selectively to polish newly created offspring that already look competitive
+- after the GA loop ends, the solver runs one final forward-backward improvement pass on the best solution

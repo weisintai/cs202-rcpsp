@@ -8,8 +8,8 @@ The short version:
 - We search for a good **activity order**.
 - We use **SSGS** to turn that order into an actual valid schedule.
 - We use **priority rules** to get decent starting orders.
-- We use a **genetic algorithm** to keep improving those orders under a time limit.
-- We use **forward-backward improvement** at the end to squeeze out leftover slack.
+- We use a **genetic algorithm** with hybrid crossover and adaptive mutation to keep improving those orders under a time limit.
+- We use **forward-backward improvement** both during search and at the end to squeeze out leftover slack.
 
 ## 1. The problem in normal language
 
@@ -68,8 +68,8 @@ input file
   -> clean precedence graph if local .SCH data has cycles
   -> build several good initial activity orders
   -> decode each order with SSGS
-  -> evolve orders with GA
-  -> occasionally tighten best schedule with forward-backward improvement
+  -> evolve orders with GA using hybrid crossover and adaptive mutation
+  -> selectively tighten strong candidates with forward-backward improvement
   -> validate final schedule
   -> print start times
 ```
@@ -82,8 +82,8 @@ In files:
 | `src/graph.cpp` | Builds a topological order and removes back edges if `.SCH` data has cycles |
 | `src/priority.cpp` | Creates heuristic activity orders |
 | `src/ssgs.cpp` | Turns an activity order into a real schedule |
-| `src/ga.cpp` | Runs the search loop over activity orders |
-| `src/improvement.cpp` | Applies double justification to tighten a good schedule |
+| `src/ga.cpp` | Runs the search loop over activity orders using hybrid crossover, adaptive mutation, duplicate control, and restarts |
+| `src/improvement.cpp` | Applies double justification to tighten promising schedules and the final best schedule |
 | `src/validator.cpp` | Checks precedence and resource feasibility |
 | `src/main.cpp` | Wires the whole pipeline together |
 
@@ -199,9 +199,11 @@ The loop is basically:
 1. keep a population of activity lists
 2. decode each list with SSGS and measure makespan
 3. select better parents more often
-4. combine and mutate their lists
-5. keep good offspring
-6. repeat until time runs out
+4. combine parents with one of two crossover styles
+5. mutate offspring, with the mutation rate increasing when the search stalls
+6. optionally polish strong offspring with forward-backward improvement
+7. keep good offspring
+8. repeat until time runs out
 
 ### Fitness
 
@@ -222,19 +224,23 @@ This is a cheap way to prefer stronger candidates without making the population 
 
 ### Crossover
 
-The crossover is:
+The crossover is now **hybrid**, not fixed to one operator.
 
-- take a prefix from parent 1
-- fill the rest from parent 2 in parent-2 order
+The solver uses two crossover styles:
 
-Why this makes sense:
+- **one-point crossover**:
+  - take a prefix from parent 1
+  - fill the rest from parent 2 in parent-2 order
+- **precedence-aware merge crossover**:
+  - look only at currently eligible activities
+  - prefer activities that both parents place early
+  - build the child step by step while always preserving precedence
 
-- parent 1 contributes an early chunk of structure
-- parent 2 contributes the remaining relative ordering
+The merge crossover matters because it is less like copying a chunk and more like asking:
 
-So crossover is really asking:
+"Among the jobs that are legal right now, which ones do both parents seem to agree should be early?"
 
-"What if we keep the early decisions from one parent and the later structure from another?"
+The code leans more toward merge crossover when the search has been stuck for a while, and still uses one-point crossover when simple recombination is enough. So crossover is now partly **stagnation-aware**.
 
 ### Mutation
 
@@ -253,6 +259,15 @@ You can think of them as:
 - "move one activity earlier or later, but only within legal bounds"
 
 That last part is important. The code computes valid insertion bounds from predecessor and successor positions, so mutation does not blindly destroy feasibility.
+
+What changed recently is that mutation is now **adaptive**:
+
+- when the search is improving, mutation stays near the base rate
+- as the solver goes longer without improvement, the mutation rate ramps up toward a higher maximum
+
+Plain English version:
+
+> If the GA is stuck, it starts taking bigger risks before giving up and restarting.
 
 ## 8. Why duplicate control and restarts are needed
 
@@ -288,7 +303,15 @@ This is the solver's way of saying:
 
 ## 9. What forward-backward improvement is really doing
 
-After the GA finds a good schedule, `forward_backward_improve()` in `src/improvement.cpp` tries to tighten it.
+`forward_backward_improve()` in `src/improvement.cpp` is no longer just a final clean-up step.
+
+The solver now uses it in three places:
+
+- to periodically tighten the current best solution during long dry spells
+- to selectively polish a newly created child if it already looks promising
+- to do one final clean-up pass on the best solution before returning
+
+The selective child-polishing rule is pragmatic: the GA only spends this extra work on offspring that already beat their better parent and are close enough to the current best to be worth polishing.
 
 The intuition:
 
@@ -310,7 +333,7 @@ Plain English version:
 
 > First squeeze everything from the right, then rebuild from the left using that tighter arrangement.
 
-It is not the main search engine, but it is a good clean-up pass.
+It is still not the main search engine, but it is now used more opportunistically inside the search rather than only after the search.
 
 ## 10. Why the solver is hybrid instead of using one idea only
 
@@ -319,7 +342,9 @@ Each part solves a different weakness:
 - priority rules give cheap structure fast
 - SSGS guarantees feasibility
 - GA explores combinations and alternatives the rules alone would miss
-- forward-backward improvement removes slack after the GA is already close
+- hybrid crossover gives the GA both simple recombination and a more structure-aware merge move
+- adaptive mutation makes the GA more exploratory when it starts to stall
+- forward-backward improvement removes slack from strong schedules during search and at the end
 
 If we used only one part:
 
@@ -339,7 +364,7 @@ So the full solver works because the pieces are complementary, not because any o
 | `baseline` | "Pick one random order and decode it" |
 | `priority` | "Try several heuristic orders and keep the best decoded result" |
 | `ga` | "Run GA, but start from random orders and skip final improvement" |
-| `full` | "Use good seeds, run GA, then polish the best schedule" |
+| `full` | "Use good seeds, run GA with hybrid crossover and adaptive mutation, polish strong candidates during search, then polish the best schedule again" |
 
 If someone wants to understand the benefit of each layer, these modes are the easiest mental checkpoints.
 
@@ -367,7 +392,9 @@ Not really. The randomness is guided:
 
 - heuristic-biased seed generation
 - tournament selection
+- hybrid crossover
 - precedence-aware mutations
+- adaptive mutation pressure when the search stalls
 - duplicate control
 - elitist restarts
 
@@ -401,13 +428,13 @@ That order matches the actual mental model:
 | `graph.cpp` | Clean the precedence graph so later stages can trust it |
 | `priority.cpp` | Build smart starting activity orders |
 | `ssgs.cpp` | Decode an order into the earliest feasible schedule |
-| `ga.cpp` | Search over many orders under a time budget |
-| `improvement.cpp` | Tighten a strong schedule by squeezing slack |
+| `ga.cpp` | Search over many orders under a time budget using hybrid crossover, adaptive mutation, selective polishing, and restarts |
+| `improvement.cpp` | Tighten a strong schedule by squeezing slack, both during search and at the end |
 | `validator.cpp` | Prove the final answer is actually feasible |
 
 ## 15. The whole solver in one paragraph
 
-The solver reads an RCPSP instance, cleans the precedence graph if needed, creates several precedence-feasible activity orders using priority rules, and uses SSGS to decode each order into a valid schedule. A genetic algorithm then keeps modifying these orders with crossover and mutation, always judging them by the makespan of the decoded schedule. To avoid getting stuck, it rejects duplicates and restarts when progress stalls. Finally, it runs a forward-backward tightening pass on the best schedule and validates the result before output.
+The solver reads an RCPSP instance, cleans the precedence graph if needed, creates several precedence-feasible activity orders using priority rules, and uses SSGS to decode each order into a valid schedule. A genetic algorithm then keeps modifying these orders, now using a hybrid of one-point and precedence-aware merge crossover plus a mutation rate that increases when the search stalls. To avoid wasting time, it rejects duplicates, restarts when progress dries up, and selectively runs forward-backward tightening on children that already look competitive. Finally, it runs one more forward-backward pass on the best schedule and validates the result before output.
 
 ## 16. The shortest possible intuition
 
@@ -415,7 +442,7 @@ If you want the ultra-short version:
 
 - the **activity list** says "who gets considered first"
 - **SSGS** says "when can this actually start"
-- the **GA** says "let's keep trying better orderings"
-- **forward-backward improvement** says "now squeeze out leftover slack"
+- the **GA** says "let's keep trying better orderings, and get more aggressive when stuck"
+- **forward-backward improvement** says "squeeze out leftover slack from the strongest schedules"
 
 That is the whole project.
