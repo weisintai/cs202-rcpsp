@@ -8,10 +8,11 @@ The solver uses a Genetic Algorithm with a Serial Schedule Generation Scheme (SS
 
 1. **Parse** input file (`.sm` or `.SCH` format)
 2. **Generate initial solutions** using priority rules (LFT, MTS, GRD, SPT) and biased randomized permutations (LFT/MTS-weighted seeding)
-3. **Evolve** the population using tournament selection, hybrid crossover, adaptive mutation, and a richer activity-list mutation neighborhood
-4. **Diversify** with restart-on-stagnation and duplicate-aware population control when the GA plateaus
-5. **Improve** strong candidates with forward-backward double justification
-6. **Output** start times for each activity
+3. **Decode** each activity order with SSGS to obtain a feasible schedule
+4. **Evolve** the population using tournament selection, hybrid crossover, adaptive mutation, and a richer activity-list mutation neighborhood
+5. **Diversify** with restart-on-stagnation and duplicate-aware population control when the GA plateaus
+6. **Improve** strong candidates with forward-backward double justification
+7. **Validate and output** start times for each activity
 
 ## Build
 
@@ -175,7 +176,7 @@ python3 scripts/derive_hard_instances.py --top-k 20
 Datasets live under `datasets/psplib/` (`.sm` format) and `sm_j10/`, `sm_j20/` (`.SCH` format).
 
 Notes on the updated local `j10`/`j20` sets:
-- the solver supports both the older lag-bearing `.SCH` layout and the newer compact `.SCH` layout now present in this repo
+- the checked-in local `j10`/`j20` files use a compact `.SCH` layout and are already acyclic, so the solver does not perform any extra precedence-graph repair
 - some updated local `.SCH` instances are infeasible as provided because an activity demand exceeds the declared capacity; the benchmark harness records these as `infeasible_input`
 - current `3s` full-pipeline benchmark status on the updated sets:
   - J10: `253/270` feasible runs, `17` infeasible input files

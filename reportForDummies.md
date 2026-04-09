@@ -65,7 +65,6 @@ If you remember one thing, remember this:
 ```text
 input file
   -> parse instance
-  -> clean precedence graph if local .SCH data has cycles
   -> build several good initial activity orders
   -> decode each order with SSGS
   -> evolve orders with GA
@@ -79,7 +78,6 @@ In files:
 | File | What it does |
 |---|---|
 | `src/parser.cpp` | Reads `.sm` and `.SCH` into `Problem` |
-| `src/graph.cpp` | Builds a topological order and removes back edges if `.SCH` data has cycles |
 | `src/priority.cpp` | Creates heuristic activity orders |
 | `src/ssgs.cpp` | Turns an activity order into a real schedule |
 | `src/ga.cpp` | Runs the search loop over activity orders |
@@ -398,7 +396,6 @@ That order matches the actual mental model:
 | File | One-sentence summary |
 |---|---|
 | `parser.cpp` | Turn input text into a `Problem` object |
-| `graph.cpp` | Clean the precedence graph so later stages can trust it |
 | `priority.cpp` | Build smart starting activity orders |
 | `ssgs.cpp` | Decode an order into the earliest feasible schedule |
 | `ga.cpp` | Search over many orders under a time budget |
@@ -407,7 +404,7 @@ That order matches the actual mental model:
 
 ## 15. The whole solver in one paragraph
 
-The solver reads an RCPSP instance, cleans the precedence graph if needed, creates several precedence-feasible activity orders using priority rules, and uses SSGS to decode each order into a valid schedule. A genetic algorithm then keeps modifying these orders with crossover and mutation, always judging them by the makespan of the decoded schedule. To avoid getting stuck, it rejects duplicates and restarts when progress stalls. Finally, it runs a forward-backward tightening pass on the best schedule and validates the result before output.
+The solver reads an RCPSP instance, creates several precedence-feasible activity orders using priority rules, and uses SSGS to decode each order into a valid schedule. A genetic algorithm then keeps modifying these orders with crossover and mutation, always judging them by the makespan of the decoded schedule. To avoid getting stuck, it rejects duplicates and restarts when progress stalls. Finally, it runs a forward-backward tightening pass on the best schedule and validates the result before output.
 
 ## 16. The shortest possible intuition
 

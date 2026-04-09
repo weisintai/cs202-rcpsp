@@ -2,8 +2,9 @@
 
 ## Status: Implementation Complete; Report Prep and Documentation Cleanup
 
-### Latest Update (2026-04-03)
-- Updated `programFlow.md` to match current codebase: detailed GA main loop (step-by-step generation flow), restart procedure, duplicate rejection, FBI firing conditions and known repeated-call behavior, CLI parameter table, schedule budget integration in FBI, mode bypass descriptions.
+### Latest Update (2026-04-09)
+- Removed the unused precedence-graph repair path (`graph.h/.cpp`) after verifying that the checked-in local `sm_j10` and `sm_j20` datasets are already acyclic.
+- Updated the main project docs (`README.md`, `programFlow.md`, `implementation.md`, `reportForDummies.md`, `algorithm_walkthrough.md`) to match the no-repair behavior.
 
 ## What's Done
 
@@ -14,20 +15,18 @@
 - Wrote implementation notes (`implementation.md`) with 8 steps and complexity analysis
 - Documented C++ performance strategy (`cpp_performance.md`)
 - **Step 1 complete:** Parser handles `.sm` plus both `.SCH` variants used in this repo
-  - lag-bearing `.SCH` parser filters out negative time lags (max time lags) to produce a clean DAG
   - compact `.SCH` parser supports the updated local J10/J20 assignment format
   - `.sm` parser reads section headers, precedence, durations, and resource capacities
   - Debug print to stderr, output to stdout
-- **Step 2 complete:** SSGS decoder + topological sort + feasibility validator
-  - Kahn's algorithm topological sort with cycle-resilient fallback (forces lowest in-degree node when stalled)
-  - `remove_back_edges()` cleans up cycle edges from predecessor/successor lists after topo sort
+- **Step 2 complete:** SSGS decoder + feasibility validator
   - SSGS decodes an activity list into a schedule: flat resource profile `usage[t*K + k]`, early-break on resource conflict
   - Makespan is now computed as the true project finish time (`max finish time`) rather than assuming the dummy sink always captures all terminal jobs
   - SSGS now reports impossible single-activity resource demands cleanly instead of crashing
   - `validate()` checks both precedence and resource constraints independently of SSGS
   - Standard `.sm` datasets validate cleanly; the updated local `.SCH` sets contain a small number of infeasible files
+  - The checked-in local `.SCH` sets are already acyclic, so no extra cycle-repair step is needed
 - **Refactor:** Split monolithic `solver.cpp` into `src/` with separate files per concern
-  - `types.h`, `parser.h/.cpp`, `graph.h/.cpp`, `ssgs.h/.cpp`, `validator.h/.cpp`, `main.cpp`
+  - `types.h`, `parser.h/.cpp`, `ssgs.h/.cpp`, `validator.h/.cpp`, `main.cpp`
   - Validated on standard `.sm` datasets plus the updated local `.SCH` sets
 
 - **Step 3 complete:** Priority-rule initial solution generators
@@ -90,7 +89,6 @@
 | `scripts/benchmark_rcpsp.py` | Benchmarking script (invoked via `make bench-*`) |
 | `src/types.h` | Problem and Schedule structs |
 | `src/parser.h/.cpp` | Format detection + .sm and .SCH parsers |
-| `src/graph.h/.cpp` | Topological sort + cycle-breaking cleanup |
 | `src/ssgs.h/.cpp` | Serial Schedule Generation Scheme decoder |
 | `src/validator.h/.cpp` | Feasibility checker (precedence + resource) |
 | `src/priority.h/.cpp` | Priority rules (LFT, MTS, GRD, SPT) + random permutations |
@@ -296,7 +294,7 @@ This later hybrid-GA refinement remained positive on curated hard subsets and on
 
 ## Updated Local J10/J20 Benchmark Status (5s timeout, --time 3, full pipeline)
 
-The instructor-updated local J10/J20 `.SCH` files now use a compact RCPSP-style format rather than the earlier lag-bearing assumption. A subset of them is infeasible as provided because at least one activity demand exceeds the declared capacity; the benchmark harness now records these cases as `infeasible_input`.
+The instructor-updated local J10/J20 `.SCH` files use a compact RCPSP-style format. A subset of them is infeasible as provided because at least one activity demand exceeds the declared capacity; the benchmark harness now records these cases as `infeasible_input`.
 
 | Dataset | Instances | OK | Infeasible Input Files | Timeouts |
 |---------|-----------|----|------------------------|----------|
@@ -309,7 +307,6 @@ Representative outputs are written under:
 
 ## Open Issues
 
-- **Cycle detection (partially resolved):** The lag-bearing `.SCH` parser filters out negative-lag edges, and the topological sort now has a cycle-resilient fallback that breaks remaining cycles. `remove_back_edges()` cleans up the graph afterwards. However, there is no user-facing warning when cycles are detected and broken — consider adding a stderr warning. Does not affect `.sm` files (DAGs by definition).
 - **Updated J10/J20 data quality:** 17 J10 files and 4 J20 files are infeasible as provided because an activity's demand exceeds the declared capacity. These are now reported cleanly as input errors rather than causing a crash.
 - **Experimental protocol is still mostly wall-clock based:** This is fine for the final project requirement, but weak for internal algorithm comparison. The RCPSP literature commonly also uses fixed schedule-generation limits and several independent runs for randomized methods. See `changelog/solverImprovementIdeas.md`.
 

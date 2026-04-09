@@ -121,9 +121,6 @@ This glossary is written for this project's RCPSP solver. It focuses on the term
 |---|---|---|
 | `.sm` | Standard PSPLIB file format. | Used for J30, J60, J90, J120. |
 | `.SCH` | Local or project file format used in this repo. The code supports two variants. | Used for J10 and J20 local sets. |
-| Lag | A time offset attached to a precedence relation in the old lag-bearing `.SCH` format. | `7 -> 10 [0]` |
-| Negative Lag Filtering | In this codebase, edges with negative lag in old `.SCH` files are dropped before building the precedence graph. | `7 -> 1 [-1]` is skipped. |
-| Lag-Bearing `.SCH` Format | Older `.SCH` rows where successor lists are followed by bracketed lags like `[0]` or `[-1]`. | `7 1 2 1 10 [-1] [0]` |
 | Compact `.SCH` Format | Simpler `.SCH` format used in local J10 and J20 data without lag annotations. | `7 2 1 10` |
 | Infeasible Input | An instance that cannot be scheduled as given. | Activity needs 7 workers but capacity is only 5. |
 
