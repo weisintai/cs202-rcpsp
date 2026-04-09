@@ -37,13 +37,13 @@ This is the exact submission command. The binary always runs the full solver pip
 3. restart-on-stagnation and duplicate-aware diversity control
 4. forward-backward improvement
 
-The solver is anytime: it keeps track of the incumbent best schedule throughout the search and returns the best schedule found so far. The default wall-clock budget is `28s`, leaving margin for validation and output before the hard `30s` grading deadline.
+The solver is anytime: it keeps track of the incumbent best schedule throughout the search and returns the best schedule found so far. The default wall-clock budget is `29s`, with the solver still enforcing an internal cap below the hard `30s` grading deadline.
 
 ### Optional Flag
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--time <seconds>` | Optional wall-clock search budget, capped at `29` seconds for submission safety | `28` |
+| `--time <seconds>` | Optional wall-clock search budget, capped at `29` seconds for submission safety | `29` |
 
 ### Examples
 

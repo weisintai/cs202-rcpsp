@@ -13,7 +13,7 @@
 
 namespace {
 
-constexpr double kDefaultTimeLimitSeconds = 28.0;
+constexpr double kDefaultTimeLimitSeconds = 29.0;
 constexpr double kHardSubmissionTimeLimitSeconds = 29.0;
 
 void print_usage() {

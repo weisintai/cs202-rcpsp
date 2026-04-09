@@ -341,13 +341,19 @@ static void build_population_keys(const std::vector<std::vector<int>>& populatio
     }
 }
 
-static void add_unique_population_member(std::vector<std::vector<int>>& population,
+static bool add_unique_population_member(std::vector<std::vector<int>>& population,
                                          std::unordered_set<uint64_t>& keys,
                                          std::vector<int> candidate) {
     uint64_t key = activity_list_fingerprint(candidate);
-    if (keys.insert(key).second) {
-        population.push_back(std::move(candidate));
+    if (!keys.insert(key).second) {
+        return false;
     }
+    population.push_back(std::move(candidate));
+    return true;
+}
+
+static int duplicate_streak_limit(int population_size) {
+    return std::max(1000, population_size * 100);
 }
 
 // ── Refresh non-elite population members after long stagnation ──────────────
@@ -391,6 +397,8 @@ static void restart_population(const Problem& p,
 
     auto fresh_seeds = generate_initial_solutions(p, 20, rng);
     int seed_idx = 0;
+    int duplicate_streak = 0;
+    int max_duplicate_streak = duplicate_streak_limit(pop_size);
     while ((int)new_population.size() < pop_size) {
         if (time_budget_exhausted(deadline) ||
             schedule_budget_exhausted(schedule_count, config.schedule_limit)) {
@@ -404,7 +412,14 @@ static void restart_population(const Problem& p,
             candidate = random_sort(p, rng);
         }
         uint64_t key = activity_list_fingerprint(candidate);
-        if (!keys.insert(key).second) continue;
+        if (!keys.insert(key).second) {
+            duplicate_streak++;
+            if (duplicate_streak >= max_duplicate_streak) {
+                break;
+            }
+            continue;
+        }
+        duplicate_streak = 0;
         Schedule schedule = counted_ssgs(p, candidate, schedule_count);
         new_population.push_back(std::move(candidate));
         new_schedules.push_back(std::move(schedule));
@@ -459,8 +474,17 @@ Schedule run_ga(const Problem& p,
     }
 
     // Fill remaining with random permutations
+    int duplicate_streak = 0;
+    int max_duplicate_streak = duplicate_streak_limit(target_pop_size);
     while ((int)seed_population.size() < target_pop_size) {
-        add_unique_population_member(seed_population, population_keys, random_sort(p, rng));
+        if (add_unique_population_member(seed_population, population_keys, random_sort(p, rng))) {
+            duplicate_streak = 0;
+            continue;
+        }
+        duplicate_streak++;
+        if (duplicate_streak >= max_duplicate_streak) {
+            break;
+        }
     }
 
     // Evaluate initial population
