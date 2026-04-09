@@ -4,7 +4,7 @@ TARGET = solver
 PYTHON = python3
 SRCDIR = src
 
-SRCS = $(SRCDIR)/main.cpp $(SRCDIR)/parser.cpp $(SRCDIR)/graph.cpp \
+SRCS = $(SRCDIR)/main.cpp $(SRCDIR)/parser.cpp \
        $(SRCDIR)/ssgs.cpp $(SRCDIR)/validator.cpp $(SRCDIR)/priority.cpp \
        $(SRCDIR)/ga.cpp $(SRCDIR)/improvement.cpp
 
