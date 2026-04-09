@@ -1,61 +1,33 @@
-# RCPSP Solver
+# Report Rerun Guide
 
-This repository contains the CS202 Resource-Constrained Project Scheduling Problem solver and the report-facing rerun harness.
+This guide documents the cleaned-up, report-facing experiment harness for the RCPSP solver.
 
-## Executive Summary
-
-The project solves the Resource-Constrained Project Scheduling Problem (RCPSP): each activity has a duration, precedence constraints, and renewable-resource demands, and the goal is to minimize makespan without violating precedence or resource capacity.
-
-The final solver is a hybrid pipeline built from:
-- activity-list representation
-- Serial Schedule Generation Scheme (SSGS) decoding
-- heuristic seeding with priority rules
-- genetic search
-- forward-backward improvement
-
-The solver is designed as a strong time-budgeted heuristic rather than an exact optimizer. It searches over precedence-feasible activity orders, then uses SSGS to decode each order into a concrete schedule. The final report-facing workflow validates the solver on the local `J10` and `J20` sets and measures the main quantitative results on the PSPLIB `J30`, `J60`, `J90`, and `J120` datasets.
-
-Using the final solver line and a `3s` wall-clock budget, the report states:
-- `J30`: `428 / 480` best-known matches, `99.783%` mean quality
-- `J60`: `353 / 480` best-known matches, `98.961%` mean quality
-- `J90`: `352 / 480` best-known matches, `98.573%` mean quality
-- `J120`: `180 / 600` best-known matches, `95.736%` mean quality
-
-The overall pattern is that the solver is very strong on small and medium PSPLIB instances, and degrades gradually as the instances become larger and more constrained.
-
-## Repository Workflow
-
-The repository is organized around the workflow used in [Final_report.md](Final_report.md):
-- validation on `J10` and `J20`
-- Experiment 1: algorithm component ablation
-- Experiment 2: scaling across instance sizes
-- Experiment 3: time-budget sensitivity
-- Experiment 4: priority-rule comparison
-
-The solver uses:
-- activity-list representation
-- Serial Schedule Generation Scheme (SSGS) decoding
-- heuristic seeding
-- genetic search
-- forward-backward improvement
+It covers exactly the workflow described in `Final_report.md`:
+1. validation on the local `J10` and `J20` sets
+2. Experiment 1: algorithm component ablation
+3. Experiment 2: scaling across instance sizes
+4. Experiment 3: time-budget sensitivity
+5. Experiment 4: priority-rule comparison
 
 It does not include the older tuning-only flows such as restart-threshold refinement, hard-instance quick benches, or development-only benchmark branches.
 
 ## Prerequisites
 
 - Python 3
-- a C++17 compiler
-- PSPLIB datasets already present under `datasets/psplib/`
+- A C++17 compiler
+- PSPLIB datasets already present in `datasets/psplib/`
 
 ## Build
 
-On Unix-like environments:
+### Unix-like shells
 
 ```bash
 make
 ```
 
-On Windows, if `make` is unavailable, compile the solver directly. This static-link form avoids the common MinGW runtime DLL mismatch:
+### Windows PowerShell
+
+If `make` is unavailable, compile the solver directly:
 
 ```powershell
 g++ -std=c++17 -O2 -march=native -flto -Wall -Wextra -static-libstdc++ -static-libgcc -Isrc -o solver `
@@ -63,11 +35,13 @@ g++ -std=c++17 -O2 -march=native -flto -Wall -Wextra -static-libstdc++ -static-l
   src/priority.cpp src/ga.cpp src/improvement.cpp
 ```
 
-That produces `solver.exe` on Windows and `solver` on Unix-like systems.
+This static-link form is recommended on Windows because it avoids the common MinGW `libstdc++-6.dll` loader mismatch.
 
 ## Main Command
 
-The single entrypoint is:
+From the repository root:
+
+### Unix-like shells
 
 ```bash
 python3 scripts/run_report_harness.py --clean
@@ -79,28 +53,54 @@ Or build and run in one step:
 python3 scripts/run_report_harness.py --build-cmd "make" --clean
 ```
 
-For Windows PowerShell:
+### Windows PowerShell
 
 ```powershell
 python scripts\run_report_harness.py --clean
 ```
 
-By default the harness runs:
+By default this runs:
 - validation
 - Experiment 1
 - Experiment 2
 - Experiment 3
 - Experiment 4
 
-and writes fresh outputs under `report_runs/latest/`.
+and writes fresh outputs to:
 
-## Running Specific Stages
+```text
+report_runs/latest/
+```
+
+## Running Only Specific Stages
+
+### Validation only
 
 ```bash
 python3 scripts/run_report_harness.py --stage validation
+```
+
+### Experiment 1 only
+
+```bash
 python3 scripts/run_report_harness.py --stage experiment1
+```
+
+### Experiment 2 only
+
+```bash
 python3 scripts/run_report_harness.py --stage experiment2
+```
+
+### Experiment 3 only
+
+```bash
 python3 scripts/run_report_harness.py --stage experiment3
+```
+
+### Experiment 4 only
+
+```bash
 python3 scripts/run_report_harness.py --stage experiment4
 ```
 
@@ -112,10 +112,27 @@ python3 scripts/run_report_harness.py --stage validation --stage experiment2 --s
 
 ## Useful Debug Options
 
+Run only the first few instances per benchmark:
+
 ```bash
 python3 scripts/run_report_harness.py --stage experiment1 --limit 10
+```
+
+Restrict to filenames containing a substring:
+
+```bash
 python3 scripts/run_report_harness.py --stage experiment2 --match j301
+```
+
+Keep stdout/stderr artifacts for every instance:
+
+```bash
 python3 scripts/run_report_harness.py --keep-all-artifacts
+```
+
+Choose a different output folder:
+
+```bash
 python3 scripts/run_report_harness.py --output-root report_runs/debug_small --limit 5
 ```
 
@@ -123,15 +140,15 @@ python3 scripts/run_report_harness.py --output-root report_runs/debug_small --li
 
 ### Validation
 
-- datasets: `J10`, `J20`
+- dataset: `J10`, `J20`
 - solver config: `--time 3 --mode full`
 - per-instance timeout: `5s`
 
-This stage checks parser, decoder, feasibility, and runtime behavior on the provided local `.SCH` sets.
+This stage checks parser/decoder/runtime behavior on the provided local `.SCH` sets.
 
 Important note:
 - the local `J10` and `J20` sets contain some known infeasible inputs
-- the harness records those as `infeasible_input`
+- the harness counts those as `infeasible_input`
 - they are reported separately and do not fail the validation stage
 
 ### Experiment 1
@@ -170,25 +187,9 @@ Important note:
   - `--rule spt`
 - per-instance timeout: `5s`
 
-## Outputs
+## Output Layout
 
-Fresh harness outputs are written to:
-
-```text
-report_runs/latest/
-```
-
-Each stage gets:
-- per-run `results.csv`
-- per-run `summary.json`
-- stage-level `comparison.json`
-- stage-level `comparison.md`
-
-The harness also writes:
-- `report_runs/latest/manifest.json`
-- `report_runs/latest/manifest.md`
-
-Example layout:
+Example structure:
 
 ```text
 report_runs/latest/
@@ -226,6 +227,10 @@ Each per-run directory contains:
 - `summary.json`
 - `failures/` if any runs failed or if `--keep-all-artifacts` was used
 
+Each stage-level directory contains:
+- `comparison.json`
+- `comparison.md`
+
 ## Interpreting Results
 
 - Validation is mainly about feasibility and runtime behavior on `J10` and `J20`.
@@ -235,11 +240,12 @@ Each per-run directory contains:
 
 ## Benchmark Driver
 
-The rerun flow is implemented in:
-- [scripts/run_report_harness.py](scripts/run_report_harness.py)
-- [scripts/benchmark_rcpsp.py](scripts/benchmark_rcpsp.py)
+The report harness is implemented in:
 
-`benchmark_rcpsp.py` is the reusable low-level benchmark runner. `run_report_harness.py` is the report-specific orchestrator that builds the validation and experiment outputs used in the final report.
+- `scripts/run_report_harness.py`
+- `scripts/benchmark_rcpsp.py`
+
+`benchmark_rcpsp.py` now accepts direct solver arguments, so the harness no longer needs shell-specific wrapper scripts just to pass `--mode`, `--time`, or `--rule`.
 
 ## Troubleshooting
 
@@ -263,21 +269,4 @@ g++ -std=c++17 -O2 -march=native -flto -Wall -Wextra -static-libstdc++ -static-l
 
 ### Validation finishes with some infeasible counts
 
-That is expected on the local `J10` and `J20` sets. The harness reports them separately and does not treat them as a validation failure.
-
-## Additional Guide
-
-[REPORT_RERUN_GUIDE.md](REPORT_RERUN_GUIDE.md) is still available as a dedicated rerun document, but the main report-facing workflow is now documented directly in this README.
-
-## Datasets
-
-| Dataset | Instances | Activities | Format |
-|---|---:|---:|---|
-| J10 | 270 | 10 | local `.SCH` |
-| J20 | 270 | 20 | local `.SCH` |
-| J30 | 480 | 30 | PSPLIB `.sm` |
-| J60 | 480 | 60 | PSPLIB `.sm` |
-| J90 | 480 | 90 | PSPLIB `.sm` |
-| J120 | 600 | 120 | PSPLIB `.sm` |
-
-`J10` and `J20` are used only for validation in the report-facing workflow. The main quantitative report results come from `J30`, `J60`, `J90`, and `J120`.
+That is expected on the local `J10` and `J20` sets. The harness reports them separately and does not treat them as a failure of the validation stage.
