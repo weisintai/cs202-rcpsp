@@ -9,9 +9,7 @@
 ## Step 1: PSPLIB Parser
 
 - Parse both `.sm` (standard PSPLIB) and `.SCH` formats
-- Support both `.SCH` variants seen in this project:
-  - older lag-bearing format with bracketed time lags
-  - updated compact RCPSP-style format used by the local J10/J20 sets
+- Support the compact `.SCH` format used by the local J10/J20 sets
 - Extract: n, K, durations, resource requirements, successor lists, resource capacities
 - Build predecessor/successor adjacency lists
 - Handle dummy activities 0 and n+1 (zero duration, zero resources)
@@ -94,7 +92,7 @@
 | Component | Time Complexity | Space Complexity |
 |---|---|---|
 | Parsing | O(n · K) | O(n · K) |
-| Topological sort / CPM | O(n + E) where E = edges | O(n + E) |
+| Priority-value preprocessing / CPM | O(n + E) where E = edges | O(n + E) |
 | Single SSGS decode | O(n · T_max · K) worst case, O(n² · K) typical | O(T_max · K) |
 | Priority-rule initial population | O(P · n² · K) | O(P · n) |
 | GA per generation | O(P · n² · K) for decode of offspring | O(P · n) |

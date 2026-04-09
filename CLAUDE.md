@@ -17,7 +17,6 @@ Do not proceed with any work until this is complete.
 - src/: solver source code (C++17, multi-file)
   - types.h: Problem and Schedule structs
   - parser.h/.cpp: format detection + .sm and .SCH parsers
-  - graph.h/.cpp: topological sort + cycle-breaking cleanup
   - ssgs.h/.cpp: Serial Schedule Generation Scheme decoder
   - validator.h/.cpp: feasibility checker (precedence + resource)
   - main.cpp: entry point

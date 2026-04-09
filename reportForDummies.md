@@ -65,7 +65,6 @@ If you remember one thing, remember this:
 ```text
 input file
   -> parse instance
-  -> clean precedence graph if local .SCH data has cycles
   -> build several good initial activity orders
   -> decode each order with SSGS
   -> evolve orders with GA using hybrid crossover and adaptive mutation
@@ -79,7 +78,6 @@ In files:
 | File | What it does |
 |---|---|
 | `src/parser.cpp` | Reads `.sm` and `.SCH` into `Problem` |
-| `src/graph.cpp` | Builds a topological order and removes back edges if `.SCH` data has cycles |
 | `src/priority.cpp` | Creates heuristic activity orders |
 | `src/ssgs.cpp` | Turns an activity order into a real schedule |
 | `src/ga.cpp` | Runs the search loop over activity orders using hybrid crossover, adaptive mutation, duplicate control, and restarts |
@@ -425,7 +423,6 @@ That order matches the actual mental model:
 | File | One-sentence summary |
 |---|---|
 | `parser.cpp` | Turn input text into a `Problem` object |
-| `graph.cpp` | Clean the precedence graph so later stages can trust it |
 | `priority.cpp` | Build smart starting activity orders |
 | `ssgs.cpp` | Decode an order into the earliest feasible schedule |
 | `ga.cpp` | Search over many orders under a time budget using hybrid crossover, adaptive mutation, selective polishing, and restarts |

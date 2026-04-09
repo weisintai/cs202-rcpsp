@@ -1,5 +1,4 @@
 #include "parser.h"
-#include "graph.h"
 #include "ssgs.h"
 #include "validator.h"
 #include "priority.h"
@@ -54,10 +53,6 @@ int main(int argc, char* argv[]) {
     }
 
     Problem prob = parse(argv[1]);
-
-    // Clean up any cycles in the precedence graph (.SCH files only)
-    std::vector<int> topo = topological_sort(prob);
-    remove_back_edges(prob, topo);
 
     std::mt19937 rng(42);
     Schedule best;
