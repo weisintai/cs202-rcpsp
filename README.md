@@ -119,7 +119,55 @@ python3 scripts/run_report_harness.py --keep-all-artifacts
 python3 scripts/run_report_harness.py --output-root report_runs/debug_small --limit 5
 ```
 
-## What Each Stage Runs
+## Custom Stage Overrides
+
+The report harness keeps the default report experiments intact, but it now also supports stage-level overrides for dataset subsets, time budgets, and solver configuration.
+
+Available override flags:
+- `--validation-datasets`, `--validation-time`, `--validation-mode`
+- `--experiment1-datasets`, `--experiment1-configs`, `--experiment1-time`
+- `--experiment2-datasets`, `--experiment2-time`, `--experiment2-mode`
+- `--experiment3-datasets`, `--experiment3-time-budgets`, `--experiment3-mode`
+- `--experiment4-datasets`, `--experiment4-rules`, `--experiment4-time`
+
+Examples:
+
+```bash
+python3 scripts/run_report_harness.py --stage experiment2 --experiment2-datasets j60,j90 --experiment2-time 10
+python3 scripts/run_report_harness.py --stage experiment3 --experiment3-datasets j60 --experiment3-time-budgets 2,4,8
+python3 scripts/run_report_harness.py --stage experiment1 --experiment1-datasets j30 --experiment1-configs baseline,full --experiment1-time 1
+python3 scripts/run_report_harness.py --stage experiment4 --experiment4-datasets j30 --experiment4-rules lft,mts --experiment4-time 3
+```
+
+PowerShell equivalents:
+
+```powershell
+python scripts\run_report_harness.py `
+  --stage experiment2 `
+  --experiment2-datasets j60,j90 `
+  --experiment2-time 10
+
+python scripts\run_report_harness.py `
+  --stage experiment3 `
+  --experiment3-datasets j60 `
+  --experiment3-time-budgets 2,4,8
+
+python scripts\run_report_harness.py `
+  --stage experiment1 `
+  --experiment1-datasets j30 `
+  --experiment1-configs baseline,full `
+  --experiment1-time 1
+
+python scripts\run_report_harness.py `
+  --stage experiment4 `
+  --experiment4-datasets j30 `
+  --experiment4-rules lft,mts `
+  --experiment4-time 3
+```
+
+The stage-level `comparison.md` and `comparison.json` files automatically adapt to the selected subset of runs, so you can use the same harness both for canonical report reruns and smaller exploratory slices.
+
+## Default Stage Definitions
 
 ### Validation
 
@@ -163,12 +211,16 @@ Important note:
 
 - datasets: `J30`, `J60`
 - configurations:
-  - `--rule random`
-  - `--rule lft`
-  - `--rule mts`
-  - `--rule grd`
-  - `--rule spt`
+  - `--time 3 --rule random`
+  - `--time 3 --rule lft`
+  - `--time 3 --rule mts`
+  - `--time 3 --rule grd`
+  - `--time 3 --rule spt`
 - per-instance timeout: `5s`
+
+Note:
+- the harness will pass the configured `--time` value to Experiment 4
+- the current solver's standalone `--rule` path is still a single-pass rule decode rather than a time-budgeted search loop
 
 ## Outputs
 
@@ -232,6 +284,7 @@ Each per-run directory contains:
 - Experiments 1-4 are the canonical report rerun outputs.
 - Use the stage-level `comparison.md` files to rebuild the report tables quickly.
 - Use `summary.json` if you want the raw aggregate values programmatically.
+- When you use override flags, the stage summaries only include the runs you selected.
 
 ## Benchmark Driver
 
@@ -240,6 +293,26 @@ The rerun flow is implemented in:
 - [scripts/benchmark_rcpsp.py](scripts/benchmark_rcpsp.py)
 
 `benchmark_rcpsp.py` is the reusable low-level benchmark runner. `run_report_harness.py` is the report-specific orchestrator that builds the validation and experiment outputs used in the final report.
+
+For PowerShell, prefer the report harness for custom runs because it avoids JSON quoting. Example:
+
+```powershell
+python scripts\run_report_harness.py `
+  --stage experiment2 `
+  --experiment2-datasets j30 `
+  --experiment2-time 5
+```
+
+If you do use `benchmark_rcpsp.py` directly in PowerShell, wrap `--solver-args-json` in single quotes:
+
+```powershell
+python scripts\benchmark_rcpsp.py run `
+  --dataset j30 `
+  --solver .\solver.exe `
+  --solver-args-json '["--time","5","--mode","full"]' `
+  --timeout 7 `
+  --output-dir benchmark_results\j30_5s_full
+```
 
 ## Troubleshooting
 
@@ -264,10 +337,6 @@ g++ -std=c++17 -O2 -march=native -flto -Wall -Wextra -static-libstdc++ -static-l
 ### Validation finishes with some infeasible counts
 
 That is expected on the local `J10` and `J20` sets. The harness reports them separately and does not treat them as a validation failure.
-
-## Additional Guide
-
-[REPORT_RERUN_GUIDE.md](REPORT_RERUN_GUIDE.md) is still available as a dedicated rerun document, but the main report-facing workflow is now documented directly in this README.
 
 ## Datasets
 

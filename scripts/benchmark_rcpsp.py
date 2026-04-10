@@ -158,7 +158,7 @@ def parse_args() -> argparse.Namespace:
     run_parser.add_argument("--solver", required=True, help="Path to the solver executable.")
     run_parser.add_argument(
         "--solver-args-json",
-        help="JSON array of extra solver arguments to pass before the instance path.",
+        help="JSON array of extra solver arguments to pass after the instance path.",
     )
     run_parser.add_argument("--build-cmd", help="Optional shell command to build the solver before benchmarking.")
     run_parser.add_argument("--timeout", type=float, default=30.0, help="Per-instance timeout in seconds.")
@@ -626,7 +626,7 @@ def summarize(rows: Iterable[dict[str, object]], allow_infeasible_input: bool = 
     return summary
 
 
-def benchmark_solver(args: argparse.Namespace) -> None:
+def benchmark_solver(args: argparse.Namespace) -> dict[str, object]:
     spec = DATASET_SPECS[args.dataset]
     instances_dir, optimal_refs, heuristic_refs, bound_refs = ensure_dataset_ready(spec)
     solver_args = parse_solver_args_json(getattr(args, "solver_args_json", None))
