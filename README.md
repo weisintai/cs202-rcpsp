@@ -58,11 +58,9 @@ The solver is anytime: it keeps track of the incumbent best schedule throughout 
 ### Output
 
 - **stdout:** Start times for activities 1 through n, comma-separated on one line
-- **stderr:** Feasibility check result and makespan
+- **stderr:** Only used for infeasible-input diagnostics or unexpected errors; not required for submission
 
 If no feasible schedule is found, the solver prints `-1` to stdout.
-
-The reported makespan is the true project finish time, i.e. the maximum finish time over all activities. On well-formed PSPLIB instances this is the same as the dummy-sink start time, but the true finish-time definition is more robust for local `.SCH` files where some terminal jobs may not be connected to the sink.
 
 ## Datasets
 
