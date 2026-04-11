@@ -40,6 +40,5 @@ bool validate(const Problem& p, const Schedule& sched) {
         }
     }
 
-    if (ok) std::cerr << "Schedule is FEASIBLE" << std::endl;
     return ok;
 }

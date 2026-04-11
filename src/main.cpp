@@ -10,6 +10,7 @@
 #include <cstring>
 #include <iostream>
 #include <random>
+#include <string>
 
 namespace {
 
@@ -90,34 +91,47 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    Problem prob = parse(argv[1]);
+    try {
+        Problem prob = parse(argv[1]);
 
-    std::mt19937 rng(42);
-    auto initial = generate_initial_solutions(prob, 20, rng);
-    Schedule fallback = best_priority_seed_schedule(prob, initial);
+        std::mt19937 rng(42);
+        auto initial = generate_initial_solutions(prob, 20, rng);
+        Schedule fallback = best_priority_seed_schedule(prob, initial);
 
-    GAConfig config;
-    config.time_limit_seconds = clamp_time_limit(time_limit);
-    config.deadline = wall_start + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-        std::chrono::duration<double>(config.time_limit_seconds));
-    config.schedule_limit = schedule_limit;
-    config.restart_stagnation_generations = restart_stagnation;
-    config.restart_elite_count = restart_elites;
-    config.mutation_rate = mutation_rate;
+        GAConfig config;
+        config.time_limit_seconds = clamp_time_limit(time_limit);
+        config.deadline = wall_start + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+            std::chrono::duration<double>(config.time_limit_seconds));
+        config.schedule_limit = schedule_limit;
+        config.restart_stagnation_generations = restart_stagnation;
+        config.restart_elite_count = restart_elites;
+        config.mutation_rate = mutation_rate;
 
-    Schedule best = run_ga(prob, initial, config, rng, true);
+        Schedule best = run_ga(prob, initial, config, rng, true);
 
-    if (!validate(prob, best)) {
-        std::cerr << "Falling back to deterministic priority-seed schedule" << std::endl;
-        best = std::move(fallback);
         if (!validate(prob, best)) {
-            return 1;
+            best = std::move(fallback);
+            if (!validate(prob, best)) {
+                std::cout << "-1\n";
+                return 0;
+            }
         }
-    }
-    std::cerr << "Makespan: " << best.makespan << std::endl;
 
-    for (int i = 1; i <= prob.n; i++) {
-        std::cout << best.start_time[i] << "\n";
+        for (int i = 1; i <= prob.n; i++) {
+            if (i > 1) {
+                std::cout << ",";
+            }
+            std::cout << best.start_time[i];
+        }
+        std::cout << "\n";
+    } catch (const std::runtime_error& err) {
+        const std::string message = err.what();
+        std::cerr << message << std::endl;
+        if (message.rfind("INFEASIBLE:", 0) == 0) {
+            std::cout << "-1\n";
+            return 0;
+        }
+        return 1;
     }
 
     return 0;

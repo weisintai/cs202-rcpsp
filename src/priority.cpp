@@ -1,8 +1,7 @@
 #include "priority.h"
 #include <algorithm>
-#include <queue>
-#include <functional>
 #include <numeric>
+#include <queue>
 #include <string>
 
 // ── Compute Latest Finish Time for each activity ────────────────────────────

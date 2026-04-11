@@ -1,7 +1,6 @@
 #include "ssgs.h"
 #include <algorithm>
-#include <cstdlib>
-#include <iostream>
+#include <stdexcept>
 
 Schedule ssgs(const Problem& p, const std::vector<int>& activity_list) {
     int total = p.n + 2;
@@ -34,9 +33,9 @@ Schedule ssgs(const Problem& p, const std::vector<int>& activity_list) {
         int t = es;
         while (true) {
             if (t + dur > horizon) {
-                std::cerr << "INFEASIBLE: no feasible placement found for activity "
-                          << act << " within scheduling horizon" << std::endl;
-                std::exit(1);
+                throw std::runtime_error(
+                    "INFEASIBLE: no feasible placement found for activity " +
+                    std::to_string(act) + " within scheduling horizon");
             }
 
             bool feasible = true;

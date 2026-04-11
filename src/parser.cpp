@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <stdexcept>
 
 // ── Trim whitespace ─────────────────────────────────────────────────────────
 static std::string trim(const std::string& s) {
@@ -37,12 +38,11 @@ static Problem finalize_problem(Problem p) {
     for (int act = 0; act < p.n + 2; act++) {
         for (int k = 0; k < p.K; k++) {
             if (p.resource[act][k] > p.capacity[k]) {
-                std::cerr << "INFEASIBLE: activity " << act
-                          << " requires " << p.resource[act][k]
-                          << " units of resource " << k
-                          << " but capacity is only " << p.capacity[k]
-                          << std::endl;
-                std::exit(1);
+                throw std::runtime_error(
+                    "INFEASIBLE: activity " + std::to_string(act) +
+                    " requires " + std::to_string(p.resource[act][k]) +
+                    " units of resource " + std::to_string(k) +
+                    " but capacity is only " + std::to_string(p.capacity[k]));
             }
         }
     }

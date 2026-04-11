@@ -533,7 +533,6 @@ Schedule run_ga(const Problem& p,
 
     int generations = 0;
     int last_improve_gen = 0;  // track when we last applied forward-backward
-    int restart_count = 0;
 
     // Main GA loop
     while (true) {
@@ -550,7 +549,6 @@ Schedule run_ga(const Problem& p,
                 schedule_count, deadline, best_idx, worst_idx);
             build_population_keys(population, population_keys);
             last_improve_gen = generations;
-            restart_count++;
             if (schedule_budget_exhausted(schedule_count, config.schedule_limit)) break;
             if (time_budget_exhausted(deadline)) break;
             if (population.size() < 2) break;
@@ -695,10 +693,6 @@ Schedule run_ga(const Problem& p,
             best_fitness = final_sched.makespan;
         }
     }
-
-    std::cerr << "GA: " << generations << " generations, " << schedule_count
-              << " schedules, " << restart_count
-              << " restarts, best makespan: " << best_fitness << std::endl;
 
     return best_schedule;
 }
