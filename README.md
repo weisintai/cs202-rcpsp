@@ -57,8 +57,10 @@ The solver is anytime: it keeps track of the incumbent best schedule throughout 
 
 ### Output
 
-- **stdout:** Start times for activities 1 through n, one integer per line
+- **stdout:** Start times for activities 1 through n, comma-separated on one line
 - **stderr:** Feasibility check result and makespan
+
+If no feasible schedule is found, the solver prints `-1` to stdout.
 
 The reported makespan is the true project finish time, i.e. the maximum finish time over all activities. On well-formed PSPLIB instances this is the same as the dummy-sink start time, but the true finish-time definition is more robust for local `.SCH` files where some terminal jobs may not be connected to the sink.
 
@@ -77,8 +79,8 @@ Datasets live under `datasets/psplib/` (`.sm` format) and `sm_j10/`, `sm_j20/` (
 
 ## Team
 
-- Anson Koh
-- Darrius Ng
-- Htet Shwe
-- Joe Tan
-- Tai Wei Sin
+- Anson Koh — 01458387
+- Darrius Ng — 01518085
+- Htet Shwe — 01506183
+- Joe Tan — 01458659
+- Tai Wei Sin — 01508341
