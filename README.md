@@ -73,7 +73,7 @@ If no feasible schedule is found, the solver prints `-1` to stdout.
 | J90 | 480 | 90 | `.sm` (PSPLIB) |
 | J120 | 600 | 120 | `.sm` (PSPLIB) |
 
-Datasets live under `datasets/psplib/` (`.sm` format) and `sm_j10/`, `sm_j20/` (`.SCH` format).
+Datasets live under `datasets/psplib/` (`.sm` format) and `datasets/provided/j10/`, `datasets/provided/j20/` (`.SCH` format).
 
 ## Team
 
